@@ -1,195 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PREFIX="${dotrun_PREFIX:-$HOME/.dotrun}"
+PREFIX="${DOTRUN_PREFIX:-$HOME/.dotrun}"
 BIN_DIR="$PREFIX/bin"
 HELPERS_DIR="$PREFIX/helpers"
 COMPLETION="$PREFIX/drun_completion"
 WRAPPER="$BIN_DIR/drun"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 mkdir -p "$BIN_DIR" "$HELPERS_DIR"
 
-# Install main drun script
-cat > "$WRAPPER" <<'EOF'
-#!/usr/bin/env bash
+# 👉  Create/refresh the symlink
+ln -sf "$REPO_DIR/drun" "$BIN_DIR/drun"
+chmod +x "$REPO_DIR/drun"
 
-# drun — micro script manager
-dotrun_PREFIX="${dotrun_PREFIX:-$HOME/.dotrun}"
-BIN_DIR="$dotrun_PREFIX/bin"
-DOC_TOKEN="### DOC"
-EDITOR="${EDITOR:-nano}"
-color_script="\033[1;92m"  # Bright Green
-color_doc="\033[0;37m"     # Gray
-color_reset="\033[0m"
-
-mkdir -p "$BIN_DIR"
-
-list_scripts() {
-  find "$BIN_DIR" -type f -name "*.sh" | sort | while read -r file; do
-    rel_path="${file#$BIN_DIR/}"
-    script_name="$(basename "$rel_path" .sh)"
-    IFS='/' read -ra PARTS <<< "$rel_path"
-    indent=""
-    for i in "${!PARTS[@]}"; do
-      part="${PARTS[$i]}"
-      is_last=$((i == ${#PARTS[@]} - 1))
-      if [[ "$part" == *.sh ]]; then
-        echo -e "${indent}${color_script}${script_name}${color_reset}"
-        awk "/^$DOC_TOKEN/ { show = !show; next } show { print \"$indent  ${color_doc}\" \$0 \"$color_reset\" }" "$file"
-      else
-        echo -e "${indent}\033[1;33m📂 $part${color_reset}"
-        indent="  $indent"
-      fi
-    done
-  done
-}
-
-create_script_skeleton() {
-  local name="$1"
-  local file="$BIN_DIR/$name.sh"
-  mkdir -p "$(dirname "$file")"
-  cat > "$file" <<EOSC
-#!/usr/bin/env bash
-$DOC_TOKEN
-# $(basename "$name") - describe what this script does
-$DOC_TOKEN
-set -euo pipefail
-
-#SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-#source "\$SCRIPT_DIR/../helpers/myfile.sh"
-
-main() {
-  echo "Running $(basename "$name")..."
-}
-
-main "\$@"
-EOSC
-  chmod +x "$file"
-}
-
-find_script_file() {
-  local name="$1"
-  find "$BIN_DIR" -type f -name "$(basename "$name").sh" | head -n 1
-}
-
-new_script() {
-  local name="$1"
-  local file="$BIN_DIR/$name.sh"
-  if [[ -e "$file" ]]; then
-    echo "Script '$name' already exists at $file"
-    exit 1
-  fi
-  create_script_skeleton "$name"
-  echo "Created new script: $file"
-}
-
-add_script() {
-  local name="$1"
-  local file="$BIN_DIR/$name.sh"
-  if [[ ! -f "$file" ]]; then
-    create_script_skeleton "$name"
-    echo "Created new script: $file"
-  fi
-  "$EDITOR" "$file"
-}
-
-edit_script() {
-  local file
-  file=$(find_script_file "$1")
-  if [[ -n "$file" ]]; then
-    "$EDITOR" "$file"
-  else
-    echo "Script '$1' not found"
-    exit 1
-  fi
-}
-
-edit_docs() {
-  local file
-  file=$(find_script_file "$1")
-  if [[ -n "$file" ]]; then
-    "$EDITOR" "$file"
-  else
-    echo "Script '$1' not found"
-    exit 1
-  fi
-}
-
-show_help() {
-  local file
-  file=$(find_script_file "$1")
-  if [[ -z "$file" ]]; then
-    echo "Script '$1' not found"
-    exit 1
-  fi
-  awk "/^$DOC_TOKEN/ { p = !p; next } p" "$file"
-}
-
-run_script() {
-  local name="$1"
-  shift
-  local file
-  file=$(find_script_file "$name")
-  if [[ -z "$file" ]]; then
-    echo "Script '$name' not found"
-    exit 1
-  fi
-  "$file" "$@"
-}
-
-case "$1" in
-  list)
-    list_scripts
-    ;;
-  new)
-    [[ -z "$2" ]] && { echo "Usage: drun new <name>"; exit 1; }
-    new_script "$2"
-    ;;
-  add)
-    [[ -z "$2" ]] && { echo "Usage: drun add <name>"; exit 1; }
-    add_script "$2"
-    ;;
-  edit)
-    [[ -z "$2" ]] && { echo "Usage: drun edit <name>"; exit 1; }
-    edit_script "$2"
-    ;;
-  edit:docs)
-    [[ -z "$2" ]] && { echo "Usage: drun edit:docs <name>"; exit 1; }
-    edit_docs "$2"
-    ;;
-  help)
-    [[ -z "$2" ]] && { echo "Usage: drun help <name>"; exit 1; }
-    show_help "$2"
-    ;;
-  "" | -h | --help)
-    echo "drun <command> [args...]"
-    echo
-    echo "Commands"
-    echo "  list                List all managed scripts in tree format"
-    echo "  new <name>          Create <name>.sh skeleton in \$BIN_DIR"
-    echo "  add <name>          Create and open <name>.sh in editor"
-    echo "  edit <name>         Open existing script in editor"
-    echo "  edit:docs <name>    Open script at docs section"
-    echo "  help <name>         Show embedded docs for <name>"
-    echo "  <name> [args…]      Execute script <name> from anywhere"
-    echo
-    echo "Env"
-    echo "  dotrun_PREFIX    Override root (default \$HOME/.dotrun)"
-    echo "  EDITOR              Command to open editor (default: nano)"
-    exit 0
-    ;;
-  *)
-    if [[ -n "$1" ]]; then
-      run_script "$@"
-    else
-      echo "Unknown command: $1"
-      exit 1
-    fi
-    ;;
-esac
-EOF
-
-chmod +x "$WRAPPER"
+echo "✅ Linked drun executable → $BIN_DIR/drun"
 
 # Install helpers folder with placeholder
 cat > "$HELPERS_DIR/placeholder.sh" <<'EOP'
