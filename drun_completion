@@ -1,0 +1,21 @@
+_drun_autocomplete() {
+  local cur prev
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD - 1]}"
+
+  local commands="list new add edit edit:docs help"
+  local BIN_DIR="${dotrun_PREFIX:-$HOME/.dotrun}/bin"
+  local scripts
+  IFS=$'\n' scripts=($(find "$BIN_DIR" -type f -name "*.sh" -printf "%P\n" | sed 's/\.sh$//'))
+
+  if [[ $COMP_CWORD -eq 1 ]]; then
+    COMPREPLY=($(compgen -W "$commands ${scripts[*]}" -- "$cur"))
+  elif [[ $COMP_CWORD -eq 2 && "$prev" =~ ^(edit|edit:docs|add|help|new)$ ]]; then
+    COMPREPLY=($(compgen -W "${scripts[*]}" -- "$cur"))
+  fi
+
+  return 0
+}
+
+complete -F _drun_autocomplete drun
