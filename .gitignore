@@ -1,2 +1,6 @@
 dotrun/
 .dotrun/
+bin/
+helpers/
+**.out
+.out
