@@ -9,7 +9,6 @@ Inspired by dotfile tools like yadm and chezmoi, but for handy, portable scripts
 git clone git@github.com:jvPalma/dotrun.git
 cd dotrun
 ./install.sh
-
 ```
 
 Usage
