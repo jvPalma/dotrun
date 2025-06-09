@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Configuration
-dotrun_PREFIX="${dotrun_PREFIX:-$HOME/.dotrun}"
+DOTRUN_PREFIX="${dotrun_PREFIX:-$HOME/.dotrun}"
 BIN_DIR="$dotrun_PREFIX/bin"
 DOC_TOKEN="### DOC"
 EDITOR="${EDITOR:-nano}"
