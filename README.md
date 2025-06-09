@@ -8,7 +8,7 @@ Inspired by dotfile tools like yadm and chezmoi, but for handy, portable scripts
 ```bash
 git clone git@github.com:jvPalma/dotrun.git
 cd dotrun
-./install.sh![Screenshot 2025-06-09 17 49 15](https://github.com/user-attachments/assets/598851fb-9cb0-4ecc-97df-5483b1e3a4c4)
+./install.sh
 
 ```
 
