@@ -6,7 +6,7 @@ Inspired by dotfile tools like yadm and chezmoi, but for handy, portable scripts
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jvPalma/dotrun/main/install-dotrun.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jvPalma/dotrun/master/install-dotrun.sh | bash
 ````
 
 Or, clone and run manually.
