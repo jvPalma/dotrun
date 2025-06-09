@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
 # Configuration
-DOTRUN_PREFIX="${dotrun_PREFIX:-$HOME/.dotrun}"
-BIN_DIR="$dotrun_PREFIX/bin"
+DOTRUN_PREFIX="${DOTRUN_PREFIX:-$HOME/.dotrun}"   # ⇦  one canonical name
+BIN_DIR="$DOTRUN_PREFIX/bin"
 DOC_TOKEN="### DOC"
 EDITOR="${EDITOR:-nano}"
+
+
 
 mkdir -p "$BIN_DIR"
 
@@ -22,6 +24,10 @@ color_script="\033[1;92m" # Bright Green
 color_doc="\033[0;37m"    # Gray
 color_reset="\033[0m"
 # Functions
+
+# Helpers
+LINT_HELPER="$DOTRUN_PREFIX/helpers/lint.sh"
+[[ -f "$LINT_HELPER" ]] && source "$LINT_HELPER"
 
 # Traverse bin directory and print scripts with doc in tree-style and colors
 # list_scripts show_docs scope
@@ -98,9 +104,23 @@ EOF
 }
 
 # Search script by name regardless of path
+# ─── Locate a script  ──────────────────────────────────────────
+# Accepts:
+#   • plain   name   (wsl   →  …/workstation/wsl.sh  or …/wsl.sh)
+#   • folder/ name   (workstation/wsl → …/workstation/wsl.sh)
+# Returns first match, or nothing.
 find_script_file() {
-  local name="$1"
-  find "$BIN_DIR" -type f -name "$(basename "$name").sh" | head -n 1
+  local query="$1"
+
+  # 1) explicit sub-folder path?
+  if [[ "$query" == */* ]]; then
+    local exact="$BIN_DIR/$query.sh"
+    [[ -f "$exact" ]] && { echo "$exact"; return; }
+  fi
+
+  # 2) fallback: search anywhere for basename
+  local base="$(basename "$query").sh"
+  find "$BIN_DIR" -type f -name "$base" | head -n 1
 }
 
 new_script() {
@@ -122,6 +142,7 @@ add_script() {
     echo "Created new script: $file"
   fi
   "$EDITOR" "$file"
+  [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
 }
 
 edit_script() {
@@ -129,22 +150,13 @@ edit_script() {
   file=$(find_script_file "$1")
   if [[ -n "$file" ]]; then
     "$EDITOR" "$file"
+  [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
   else
     echo "Script '$1' not found"
     exit 1
   fi
 }
 
-edit_docs() {
-  local file
-  file=$(find_script_file "$1")
-  if [[ -n "$file" ]]; then
-    "$EDITOR" "$file"
-  else
-    echo "Script '$1' not found"
-    exit 1
-  fi
-}
 
 show_help() {
   local file
@@ -222,13 +234,13 @@ help)
   echo "  new <name>          Create <name>.sh skeleton in \$BIN_DIR"
   echo "  add <name>          Create and open <name>.sh in editor"
   echo "  edit <name>         Open existing script in editor"
-  echo "  edit:docs <name>    Open script at docs section"
   echo "  help <name>         Show embedded docs for <name>"
   echo "  <name> [args…]      Execute script <name> from anywhere"
   echo
   echo "Env"
-  echo "  dotrun_PREFIX    Override root (default \$HOME/.dotrun)"
+  echo "  DOTRUN_PREFIX       Override root (default \$HOME/.dotrun)"
   echo "  EDITOR              Command to open editor (default: nano)"
+  echo "  (drun auto-runs ShellCheck after add/edit if available)"
   exit 0
   ;;
 *)
