@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
 # Configuration
-DOTRUN_PREFIX="${DOTRUN_PREFIX:-$HOME/.dotrun}"   # ⇦  one canonical name
+DOTRUN_PREFIX="${DOTRUN_PREFIX:-$HOME/.dotrun}" # ⇦  one canonical name
 BIN_DIR="$DOTRUN_PREFIX/bin"
 DOC_TOKEN="### DOC"
-EDITOR="${EDITOR:-nano}"
-
-
+_default_editor="$(command -v code >/dev/null && echo "code" || echo "nano")"
+EDITOR="${EDITOR:-$_default_editor}"
+export HELPERS_PATH="$DOTRUN_PREFIX/helpers"
 
 mkdir -p "$BIN_DIR"
 
@@ -115,7 +115,10 @@ find_script_file() {
   # 1) explicit sub-folder path?
   if [[ "$query" == */* ]]; then
     local exact="$BIN_DIR/$query.sh"
-    [[ -f "$exact" ]] && { echo "$exact"; return; }
+    [[ -f "$exact" ]] && {
+      echo "$exact"
+      return
+    }
   fi
 
   # 2) fallback: search anywhere for basename
@@ -150,13 +153,12 @@ edit_script() {
   file=$(find_script_file "$1")
   if [[ -n "$file" ]]; then
     "$EDITOR" "$file"
-  [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
+    [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
   else
     echo "Script '$1' not found"
     exit 1
   fi
 }
-
 
 show_help() {
   local file
@@ -207,6 +209,7 @@ edit)
     echo "Usage: drun edit <name>"
     exit 1
   }
+  echo "Editing script: $2 ---- with editor: $EDITOR"
   edit_script "$2"
   ;;
 edit:docs)
