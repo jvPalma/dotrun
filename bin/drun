@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 
-# Configuration
-DOTRUN_PREFIX="${DOTRUN_PREFIX:-$HOME/.dotrun}" # ⇦  one canonical name
+# ─── Configuration ───────────────────────────────────────────────
+DOTRUN_PREFIX="${DOTRUN_PREFIX:-${XDG_CONFIG_HOME:-$HOME/.config}/dotrun}"
 BIN_DIR="$DOTRUN_PREFIX/bin"
+HELPERS_PATH="$DOTRUN_PREFIX/helpers"
+
 DOC_TOKEN="### DOC"
 _default_editor="$(command -v code >/dev/null && echo "code" || echo "nano")"
 EDITOR="${EDITOR:-$_default_editor}"
-export HELPERS_PATH="$DOTRUN_PREFIX/helpers"
-
-
 
 mkdir -p "$BIN_DIR"
 

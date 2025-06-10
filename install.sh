@@ -1,37 +1,57 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_PATH="$(pwd)"
-PREFIX="${DOTRUN_PREFIX:-$HOME/.dotrun}"
-HELPERS_DIR="$PREFIX/helpers"
-COMPLETION="$PREFIX/drun_completion"
+# ------------------------------------------------------------------
+# 0.  Variables (define first!)
+# ------------------------------------------------------------------
+SRC_DIR="$(pwd)"                                   # <─ now defined early
+CFG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/dotrun"
+BIN_DEST="/usr/local/bin"                          # override with DOTRUN_BIN_DIR
 
-mv $REPO_PATH $PREFIX
+# ------------------------------------------------------------------
+# 1.  Guard against clobbering existing config dir
+# ------------------------------------------------------------------
+if [[ -d "$CFG_DIR" && -n "$(ls -A "$CFG_DIR")" ]]; then
+  echo "⚠️  $CFG_DIR already exists; will only copy new files."
+else
+  mkdir -p "$CFG_DIR"
+fi
 
-# Add to PATH if needed
-RC="${SHELL##*/}"
-case "$RC" in
-bash) STARTUP="$HOME/.bashrc" ;;
-zsh) STARTUP="$HOME/.zshrc" ;;
-fish) STARTUP="$HOME/.config/fish/config.fish" ;;
-*) STARTUP="$HOME/.profile" ;;
-esac
+# ------------------------------------------------------------------
+# 2.  Copy repo without overwriting existing files
+# ------------------------------------------------------------------
+if command -v rsync >/dev/null 2>&1; then
+  rsync -a --ignore-existing --exclude ".git" "$SRC_DIR"/ "$CFG_DIR"/
+else
+  echo "rsync not found — using tar fallback (no files will be overwritten)"
+  ( cd "$SRC_DIR" && tar --exclude=.git -cf - . ) \
+      | tar -xf - --keep-old-files -C "$CFG_DIR"
+fi
 
-grep -q '.dotrun/bin' "$STARTUP" 2>/dev/null || {
-  echo 'export PATH="$HOME/.dotrun/bin:$PATH"' >>"$STARTUP"
-  echo "🔧 Added \$HOME/.dotrun/bin to PATH in $STARTUP"
-}
+# ------------------------------------------------------------------
+# 3.  Install drun binary into PATH
+# ------------------------------------------------------------------
+TARGET_DIR="${DOTRUN_BIN_DIR:-$BIN_DEST}"
+if [[ ! -w "$TARGET_DIR" ]]; then
+  TARGET_DIR="$HOME/.local/bin"
+  mkdir -p "$TARGET_DIR"
+  if ! grep -q "$TARGET_DIR" <<<"$PATH"; then
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >>"$HOME/.bashrc"
+    echo "• Added \$HOME/.local/bin to PATH in ~/.bashrc"
+  fi
+fi
+install -m 755 "$CFG_DIR/bin/drun" "$TARGET_DIR/drun"
+echo "• drun copied to $TARGET_DIR/drun"
 
-echo "source $COMPLETION" >>"$STARTUP"
+# ------------------------------------------------------------------
+# 4.  Completion (bash example)
+# ------------------------------------------------------------------
+COMPLETION_DST="${HOME}/.config/bash_completion.d/drun"
+mkdir -p "$(dirname "$COMPLETION_DST")"
+cp "$CFG_DIR/drun_completion" "$COMPLETION_DST"
+echo "• completion copied to $COMPLETION_DST"
 
-echo -e "\n✅ drun script manager installed in $PREFIX"
-echo "📂 Helpers folder created at $HELPERS_DIR"
-echo "📝 Autocomplete file at $COMPLETION"
-echo
-echo "🔄 Reload your shell with:"
-echo "    source $STARTUP"
-echo
-echo "   to enable autocomplete in this session now, run:"
-echo "    source $COMPLETION"
-echo
-echo "👉 Try:  drun new hello   &&   drun hello"
+echo -e "\n✅  DotRun installed!"
+echo "   Config dir : $CFG_DIR"
+echo "   Binary     : $(command -v drun)"
+

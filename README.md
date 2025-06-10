@@ -1,38 +1,96 @@
-# dotrun
+# DotRun — Personal & Team Script Manager
 
-A dotfiles-friendly Bash script manager (CLI: `drun`)
-Inspired by dotfile tools like yadm and chezmoi, but for handy, portable scripts!
+*Write once, run anywhere.*
+DotRun is a Git-backed, shell-agnostic script manager that lives in `$XDG_CONFIG_HOME/dotrun` *(defaults to `~/.config/dotrun`)* and puts a single `drun` command on your `PATH`.
 
-## Install
+---
 
-```bash
-git clone git@github.com:jvPalma/dotrun.git
-cd dotrun
-./install.sh
-```
-
-Usage
+## Quick Install
 
 ```bash
-drun add folder/my_script
-
-drun list
-
-drun my_script
+bash <(curl -fsSL https://raw.githubusercontent.com/jvPalma/dotrun/master/install.sh)
 ```
 
-![Screenshot 2025-06-09 17 47 37](https://github.com/user-attachments/assets/8e2bed77-2450-4064-8393-8f30d438ddc2)
+Custom binary location
 
-![Screenshot 2025-06-09 17 47 45](https://github.com/user-attachments/assets/797c0354-6def-47dd-966d-019164bb93e5)
+Set DOTRUN_BIN_DIR inline:
 
-![Screenshot 2025-06-09 17 48 04](https://github.com/user-attachments/assets/8a18b70f-bbd6-4cb0-8e36-9038a35dc513)
+```bash
+DOTRUN_BIN_DIR="$HOME/.local/bin" \
+  bash <(curl -fsSL https://raw.githubusercontent.com/jvPalma/dotrun/master/install.sh)
+```
 
-![Screenshot 2025-06-09 17 48 22](https://github.com/user-attachments/assets/f9c97c71-3044-4859-992b-b5ec766b08de)
+The installer will:
 
-![Screenshot 2025-06-09 17 48 27](https://github.com/user-attachments/assets/56b6b862-9bfd-4eea-9cc4-953db6b138e3)
+1. Copy the repo to ~/.config/dotrun
 
-![Screenshot 2025-06-09 17 49 04](https://github.com/user-attachments/assets/187f3fa5-05ce-47fd-8e0b-e514aefd6c4e)
+2. Copy (or symlink) drun into $DOTRUN_BIN_DIR (default /usr/local/bin)
 
-![Screenshot 2025-06-09 17 49 15](https://github.com/user-attachments/assets/d870dc18-d2b8-4531-81e5-8cc1a12ad4a9)
+3. Install Bash completion (adds source command to Zsh/Fish if those dirs exist)
 
-See more in the script or with drun --help.
+4. Tell you how to source completion immediately
+
+
+---
+
+Directory Layout
+
+```bash
+~/.config/dotrun
+├── bin/          # your runnable scripts
+├── helpers/      # shared libraries (filters.sh, git.sh, pkg.sh, …)
+├── docs/         # Markdown docs auto-shown by `drun help`
+├── drun_completion
+└── repo.git/     # (bare git repo — created automatically on `drun init`)
+```
+
+---
+
+Everyday Commands
+
+Command	What it does
+
+```bash
+drun -l                 List scripts (names) in tree form
+drun -L docs/           List scripts with docs scoped to a folder
+drun add tools/build    Scaffold (if absent), open in $EDITOR, then ShellCheck
+drun edit foo           Open & lint an existing script
+drun help foo           Show the ### DOC section of foo.sh
+
+
+(ShellCheck runs automatically after add/edit if present; install with
+sudo apt install shellcheck or see per-distro hint.)
+
+```
+
+---
+
+Advanced / Team Features
+
+Git Sync – drun init --remote <url> turns the config dir into a bare repo; push–pull scripts just like dotfiles managers.
+
+Script Templates – drun new --lang bash|python|zsh foo generates a best-practice header, usage, and argument parsing.
+
+OS-specific Files – mytool##Darwin.sh, mytool##Linux.sh — DotRun automatically links the right one on each machine.
+
+Reusable Filters – helpers/filters.sh centralises ignore patterns so every script shares the same blacklist (e.g., .git, node_modules, etc.).
+
+Package Hints – helpers/pkg.sh prints apt, dnf, brew, pkg (Termux) install lines when a required binary is missing.
+
+
+See docs/ for detailed per-script guides.
+
+
+---
+
+Contributing
+
+1. Fork and clone.
+
+2. ./install.sh (installs to your config dir; uses symlink so changes are live).
+
+3. Create or edit scripts in bin/, docs in docs/, helpers in helpers/.
+
+
+Happy scripting! 🚀
+
