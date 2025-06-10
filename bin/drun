@@ -8,6 +8,8 @@ _default_editor="$(command -v code >/dev/null && echo "code" || echo "nano")"
 EDITOR="${EDITOR:-$_default_editor}"
 export HELPERS_PATH="$DOTRUN_PREFIX/helpers"
 
+
+
 mkdir -p "$BIN_DIR"
 
 # Color functions
