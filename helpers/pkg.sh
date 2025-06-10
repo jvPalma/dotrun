@@ -3,6 +3,25 @@
 # helpers/pkg.sh – package-manager helpers
 #
 
+detect_lang() {
+  case "${1##*.}" in
+    js)   echo javascript ;;
+    ts)   echo typescript ;;
+    py)   echo python ;;
+    sh)   echo bash ;;
+    rb)   echo ruby ;;
+    go)   echo go ;;
+    rs)   echo rust ;;
+    java) echo java ;;
+    css)  echo css ;;
+    html|htm) echo html ;;
+    json) echo json ;;
+    yml|yaml) echo yaml ;;
+    md)   echo markdown ;;
+    *)    echo "" ;;
+  esac
+}
+
 pkg_install_hint() {
   local tool="$1"
   if command -v apt &>/dev/null; then
