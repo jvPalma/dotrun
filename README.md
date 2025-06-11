@@ -1,24 +1,133 @@
-# DotRun — Personal Script Manager
+# DotRun — Developer Productivity Script Manager
 
-_Write once, run anywhere._
-DotRun is a Git-backed, shell-agnostic script manager that lives in `$XDG_CONFIG_HOME/dotrun` _(defaults to `~/.config/dotrun`)_ and puts a single `drun` command on your `PATH`.
+_Write once, run anywhere. Build your personal development toolkit._
+
+DotRun is a Git-backed, shell-agnostic script manager designed for developers who want to streamline their workflow with reusable, well-documented scripts. It lives in `$XDG_CONFIG_HOME/dotrun` _(defaults to `~/.config/dotrun`)_ and puts a single `drun` command on your `PATH`.
+
+## ✨ Features
+
+- 🚀 **Fast Script Access** - Run any script with `drun scriptname` or `drun category/scriptname`
+- 📚 **Built-in Documentation** - Markdown docs alongside every script
+- 🔍 **Smart Discovery** - Tree-view listing with descriptions
+- 🧹 **Automatic Linting** - ShellCheck integration for bash scripts
+- 🔗 **Git Integration** - Version control your scripts like code
+- 🎯 **Interactive Tools** - Rich CLI interfaces with colors and emojis
 
 ---
 
-## Quick Install
+## 🚀 Quick Install
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/jvPalma/dotrun/master/install.sh)
 ```
 
-### Custom binary location
-
-Set DOTRUN_BIN_DIR inline:
+### Custom Installation Location
 
 ```bash
 DOTRUN_BIN_DIR="$HOME/.local/bin" \
   bash <(curl -fsSL https://raw.githubusercontent.com/jvPalma/dotrun/master/install.sh)
 ```
+
+The installer will:
+
+1. 📂 Copy the repo to `~/.config/dotrun`
+2. 🔗 Install `drun` binary to your PATH
+3. 🎨 Set up shell completion (Bash/Zsh/Fish)
+4. ✅ Verify installation and show next steps
+
+---
+
+## 📁 Directory Structure
+
+```
+~/.config/dotrun/
+├── bin/                 # 🎯 Executable scripts organized by category
+├── helpers/             # 📚 Shared utility libraries
+├── docs/                # 📖 Comprehensive documentation
+└── drun_completion       # 🎨 Shell completion script
+```
+
+---
+
+## 🛠️ Advanced Features
+
+### 🔍 Automatic Linting
+
+- **ShellCheck Integration** - Automatic bash script validation
+- **Pre-commit Hooks** - Lint before editing
+- **Custom Rules** - Configurable linting standards
+
+### 📦 Package Management
+
+```bash
+# Automatic package hints when dependencies are missing
+$ drun git/branchCleanup
+# "git not found - install with: sudo apt install git"
+```
+
+---
+
+## 📖 Documentation System
+
+Each script comes with comprehensive documentation:
+
+- **Inline Help** - `### DOC` sections in scripts
+- **Markdown Guides** - Detailed documentation in `docs/` (rendered with `glow`)
+- **Usage Examples** - Real-world scenarios and workflows
+- **Troubleshooting** - Common issues and solutions
+
+```bash
+drun help git/branchCleanup  # Shows inline ### DOC section (markdown rendering planned)
+```
+
+_Note: Full markdown documentation integration with `glow` is currently in development_
+
+---
+
+## 🎯 Example Shared Tools
+
+#### `ai/gpt` - Generate an ready to share codebase report
+
+- 📁 **Codebase Context** - Includes an tree section with how the files are organized
+- 🎨 **File Extenstions** - Reports the number of files of each type to help with context sharing to the AI agent.
+- 💾 **File Persistence** - Save the report in an .out file, for the user to review, and copy & paste
+
+#### `git/branchCleanup` - Intelligent Branch Management
+
+- ✅ **Smart Merge Detection** - Automatically identifies regular and squash-merged branches
+- 🎨 **Visual Interface** - Color-coded branch status with emoji indicators
+- 📦 **Stash Management** - Safely handles uncommitted changes
+- 🌐 **Remote Cleanup** - Option to delete both local and remote branches
+- 🛡️ **Safety Features** - Protected branches, graceful interruption handling
+
+#### `git/branchSlice` - Precise Code Extraction
+
+- 📂 **File/Directory Slicing** - Extract specific code with full git history
+- 👥 **Co-authoring Support** - Preserve contributor attribution
+- 🎯 **Smart Filtering** - Exclude build artifacts, dependencies automatically
+- 📖 **Documentation Generation** - Auto-creates migration documentation
+
+#### And much more here:
+
+- [ai](./examples/ai/)
+  - [gpt](./examples/ai/gpt/)
+- [git](./examples/git/)
+  - [branchCleanup](./examples/git/branchCleanup/)
+  - [branchCoSliced](./examples/git/branchCoSliced/)
+  - [branchGetSlicedCode](./examples/git/branchGetSlicedCode/)
+  - [branchSlice](./examples/git/branchSlice/)
+- [react](./examples/react/)
+  - [rnewc](./examples/react/rnewc/)
+  - [rnewh](./examples/react/rnewh/)
+  - [rnewhp](./examples/react/rnewhp/)
+  - [testAll](./examples/react/testAll/)
+- [workstation](./examples/workstation/)
+  - [wsc](./examples/workstation/wsc/)
+  - [wsl](./examples/workstation/wsl/)
+  - [wss](./examples/workstation/wss/)
+  - [wstp](./examples/workstation/wstp/)
+
+---
 
 ## 🌇 Some printscreens
 
@@ -42,205 +151,62 @@ DOTRUN_BIN_DIR="$HOME/.local/bin" \
 ![Screenshot 2025-06-09 17 49 15](https://github.com/user-attachments/assets/d870dc18-d2b8-4531-81e5-8cc1a12ad4a9)
 
 ---
+
 </details>
 
+## 📋 Requirements
 
-The installer will:
+### System Requirements
 
-1. Copy the repo to ~/.config/dotrun
-2. Install drun binary to $DOTRUN_BIN_DIR (default /usr/local/bin, fallback ~/.local/bin)
-3. Setup shell integration with ~/.drunrc
-4. Install Bash completion for drun commands
-5. Only copy hello examples on clean installs (use --force to override)
+- **Unix-like OS** - Linux, macOS, Windows (WSL)
+- **Bash 4.0+** - For script execution
+- **Git** - For version control features
 
----
+### Optional Dependencies
 
-## Directory Layout
+- **ShellCheck** - For bash script linting
+- **glow** - For beautiful markdown documentation rendering
+- **jq** - For JSON processing in some scripts
+- **curl/wget** - For network operations
 
-```bash
-~/.config/dotrun/
-├── bin/          # your runnable scripts
-├── helpers/      # shared libraries (filters.sh, git.sh, pkg.sh, …)
-├── docs/         # Markdown docs auto-shown by `drun help`
-├── drun_completion
-└── README.md
-```
+### Shell Support
 
-**Repository also includes:**
-
-```bash
-examples/         # Script examples you can copy and customize
-├── backup.md     # Backup and sync scripts
-├── git.md        # Git workflow automation
-├── docker.md     # Container management scripts
-└── ...           # More categories coming soon
-```
+- ✅ **Bash** - Full feature support
+- ✅ **Zsh** - Complete compatibility
+- ✅ **Fish** - Full support
 
 ---
 
-## Everyday Commands
+## 🚀 Next Development
 
-| Command                | What it does                                           |
-| ---------------------- | ------------------------------------------------------ |
-| `drun -l`              | List scripts (names) in tree form                      |
-| `drun -L docs/`        | List scripts with docs scoped to a folder              |
-| `drun add tools/build` | Scaffold (if absent), open in $EDITOR, then ShellCheck |
-| `drun edit foo`        | Open & lint an existing script                         |
-| `drun help foo`        | Show the ### DOC section of foo.sh                     |
-| `drun docs <name>`     | Show documentation for a script                        |
-| `drun edit:docs`       | Edit documentation files                               |
+### 🔄 Git Integration (Planned)
 
-_(ShellCheck runs automatically after add/edit if present; install with `sudo apt install shellcheck` or see per-distro hints.)_
+```bash
+drun init --remote git@github.com:username/dotrun-config.git
+# Transform your config into a Git repository for team sharing
+```
+
+### 🎨 Shell Completion (In Progress)
+
+- **Tab Completion** - For script names and categories
+- **Description Preview** - See script descriptions while typing
+- **Multi-Shell Support** - Bash, Zsh, Fish compatible
+- _Currently being fixed and enhanced_
+
+### 🌍 Cross-Platform Support (Planned)
+
+- **OS-Specific Scripts** - `tool##Linux.sh`, `tool##Darwin.sh`
+- **Shell Detection** - Adapts to bash, zsh, fish automatically
+- **Path Handling** - Works with different PATH configurations
 
 ---
 
-## Script Examples
+## 📄 License
 
-The repository includes a collection of ready-to-use script examples in the `examples/` folder. Each `.md` file contains tested scripts organized by category that you can copy and customize for your needs.
-
-### Available Categories
-
-- **backup.md** - Backup and synchronization scripts
-
-  - Daily document backup automation
-  - Database backup scripts
-  - Cloud storage sync workflows
-  - System configuration backup
-
-- **git.md** - Git workflow automation
-
-  - Automated commit and push workflows
-  - Repository health checks
-  - Multi-repo operations
-
-- **docker.md** - Container management scripts
-
-  - Container cleanup and maintenance
-  - Development environment setup
-  - Image optimization scripts
-  - Docker Compose workflows
-
-- **system.md** - System administration scripts
-  - Log rotation and cleanup
-  - Service monitoring
-  - Resource usage reports
-  - Automated updates
-
-### How to Use Examples
-
-1. Browse the `examples/` folder in the repository
-2. Find scripts that match your workflow
-3. Copy the script content to your local DotRun instance:
-   ```bash
-   drun add my-category/script-name
-   # Paste the example script content
-   ```
-4. Customize variables and paths for your environment
-5. Test and enjoy your new automation!
-
-Or use the interative script to pick and install!
-
-```bash
-cd dotrun/
-./examples.sh
-```
-
-It will print the list of scripts available to pick like so:
-
-![image](https://github.com/user-attachments/assets/213b85a1-5728-43df-8ea7-294f04971ec9)
+MIT License - see LICENSE file for details.
 
 ---
 
-## Example: Creating Your First Script
+**Happy scripting!** 🚀
 
-Here's how to create a script from start to finish and manage it with a dotfiles manager:
-
-### 1. Create a new script
-
-```bash
-# Create and edit a new backup script
-drun add backup/daily-backup
-
-# This opens your $EDITOR with a template, add your script content:
-#!/usr/bin/env bash
-### DOC: Daily backup script for important files
-set -euo pipefail
-
-cp -r ~/Documents/ ~/Backups/Documents/
-echo "Daily backup completed at $(date)"
-```
-
-### 2. Add documentation
-
-```bash
-# Create documentation for your script
-drun edit:docs backup/daily-backup.md
-
-# Add markdown documentation:
-# Daily Backup Script
-#
-# Backs up Documents folder to ~/Backups/Documents/
-# Uses standard cp command for simple file copying
-```
-
-### 3. Test and run
-
-```bash
-# Test your script
-drun backup/daily-backup
-
-# View help
-drun help backup/daily-backup
-
-# List all scripts
-drun -l
-```
-
-### 4. Manage with dotfiles (recommended)
-
-DotRun works excellently with dotfiles managers. We recommend **yadm** for its simplicity and Git integration:
-
-```bash
-# Install yadm
-sudo apt install yadm  # or brew install yadm
-
-# Initialize your dotfiles repo
-yadm init
-yadm remote add origin https://github.com/yourusername/dotfiles.git
-
-# Add DotRun config to your dotfiles
-yadm add ~/.config/dotrun/
-yadm add ~/.drunrc
-
-# Commit and push
-yadm commit -m "Add DotRun configuration and scripts"
-yadm push -u origin main
-
-# On a new machine, simply:
-yadm clone https://github.com/yourusername/dotfiles.git
-# Your scripts and configs are automatically available!
-```
-
-This approach lets you sync your personal scripts across all your machines seamlessly.
-
----
-
-## Shell Integration
-
-DotRun supports bash, zsh, and fish shells with intelligent detection. After installation:
-
-- **Bash/Zsh**: Add `source ~/.drunrc` to your shell config
-- **Fish**: Add `source ~/.drunrc` to `~/.config/fish/config.fish`
-
-The installer provides specific instructions for your detected shell.
-
----
-
-## Contributing
-
-1. Fork and clone this repository
-2. Run `./install.sh` (installs to your config dir for development)
-3. Create or edit scripts in `bin/`, docs in `docs/`, helpers in `helpers/`
-4. Test with `drun <your-script>`
-
-Happy scripting! 🚀
+_Built with ❤️ for developers who love automation_
