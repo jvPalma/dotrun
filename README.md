@@ -84,7 +84,6 @@ The repository includes a collection of ready-to-use script examples in the `exa
 
 - **git.md** - Git workflow automation
 
-  - Branch cleanup and maintenance
   - Automated commit and push workflows
   - Repository health checks
   - Multi-repo operations
@@ -113,6 +112,17 @@ The repository includes a collection of ready-to-use script examples in the `exa
    ```
 4. Customize variables and paths for your environment
 5. Test and enjoy your new automation!
+
+Or use the interative script to pick and install!
+
+```bash
+cd dotrun/
+./examples.sh
+```
+
+It will print the list of scripts available to pick like so:
+
+![image](https://github.com/user-attachments/assets/213b85a1-5728-43df-8ea7-294f04971ec9)
 
 ---
 
