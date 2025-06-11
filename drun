@@ -15,7 +15,6 @@ DOC_DIR="$DRUN_CONFIG/docs"
 DOC_TOKEN="### DOC"
 _default_editor="$(command -v code >/dev/null && echo "code" || echo "nano")"
 EDITOR="${EDITOR:-$_default_editor}"
-export HELPERS_PATH="$DRUN_CONFIG/helpers"
 
 mkdir -p "$BIN_DIR"
 mkdir -p "$DOC_DIR"
@@ -124,22 +123,23 @@ create_script_skeleton() {
   mkdir -p "$(dirname "$docFile")"
 
   # Create documentation file
+  local script_basename="$(basename "$name")"
   local doc_content
-  doc_content="# $(basename "$name")\n\nDescribe what this script does here.\n\n## Usage\n\n\`\`\`bash\n$ $(basename "$name") [args...]\n\`\`\`\n"
+  doc_content="# $script_basename\n\nDescribe what this script does here.\n\n## Usage\n\n\`\`\`bash\n$ drun $name [args...]\n\`\`\`\n"
   echo -e "$doc_content" >"$docFile"
 
   # Create script file with skeleton
   cat >"$file" <<EOF
 #!/usr/bin/env bash
 $DOC_TOKEN
-# $(basename "$name") - describe what this script does
+# $script_basename - describe what this script does
 $DOC_TOKEN
 set -euo pipefail
 
-# source "$DRUN_CONFIG/pkg.sh"
+# source "$DRUN_CONFIG/helpers/pkg.sh"
 
 main() {
-  echo "Running $(basename "$name")..."
+  echo "Running $script_basename..."
 }
 
 main "\$@"
@@ -197,13 +197,29 @@ edit_docs() {
   local file
   file=$(find_script_file "$1")
   if [[ -n "$file" ]]; then
-    local doc_file="$DOC_DIR/$(basename "$file" .sh).md"
+    # Get relative path from bin directory and convert to doc path
+    local rel_path="${file#$BIN_DIR/}"
+    local doc_file="$DOC_DIR/$(basename "$rel_path" .sh).md"
+
+    # Preserve folder structure: bin/ai/gpt.sh -> docs/ai/gpt.md
+    if [[ "$rel_path" == */* ]]; then
+      local folder_path="$(dirname "$rel_path")"
+      doc_file="$DOC_DIR/$folder_path/$(basename "$rel_path" .sh).md"
+    fi
+
     if [[ -f "$doc_file" ]]; then
       "$EDITOR" "$doc_file"
     else
       echo "Error: Documentation file '$doc_file' not found" >&2
       echo "Creating documentation file..." >&2
-      create_script_skeleton "$(basename "$file" .sh)"
+      mkdir -p "$(dirname "$doc_file")"
+
+      # Create documentation with correct script name including folder
+      local script_name="${rel_path%%.sh}"
+      local doc_content
+      doc_content="# $(basename "$script_name")\n\nDescribe what this script does here.\n\n## Usage\n\n\`\`\`bash\n$ drun $script_name [args...]\n\`\`\`\n"
+      echo -e "$doc_content" >"$doc_file"
+
       "$EDITOR" "$doc_file"
     fi
   else
@@ -220,6 +236,43 @@ show_help() {
     exit 1
   fi
   awk "/^$DOC_TOKEN/ { p = !p; next } p" "$file"
+}
+
+show_docs() {
+  local file
+  file=$(find_script_file "$1")
+  if [[ -z "$file" ]]; then
+    echo "Error: Script '$1' not found" >&2
+    exit 1
+  fi
+
+  # Get relative path from bin directory and convert to doc path
+  local rel_path="${file#$BIN_DIR/}"
+  local doc_file="$DOC_DIR/$(basename "$rel_path" .sh).md"
+
+  # Preserve folder structure: bin/ai/gpt.sh -> docs/ai/gpt.md
+  if [[ "$rel_path" == */* ]]; then
+    local folder_path="$(dirname "$rel_path")"
+    doc_file="$DOC_DIR/$folder_path/$(basename "$rel_path" .sh).md"
+  fi
+
+  if [[ -f "$doc_file" ]]; then
+    if command -v glow >/dev/null 2>&1; then
+      echo "──────────────────────────────────────────"
+      glow "$doc_file"
+    else
+      echo "📖 (install 'glow' for better formatting)"
+      echo "──────────────────────────────────────────"
+      cat "$doc_file"
+    fi
+  else
+    echo "📖 No markdown documentation found for '$1'" >&2
+    echo "Showing inline help instead:" >&2
+    echo "──────────────────────────────────────────"
+    show_help "$1"
+    echo ""
+    echo "💡 Create full documentation with: drun edit:docs $1"
+  fi
 }
 
 run_script() {
@@ -258,13 +311,6 @@ edit)
   echo "Editing script: $2 ---- with editor: $EDITOR"
   edit_script "$2"
   ;;
-docs:edit)
-  [[ -z "${2:-}" ]] && {
-    echo "Usage: drun docs:edit <name>"
-    exit 1
-  }
-  edit_docs "$2"
-  ;;
 edit:docs)
   [[ -z "${2:-}" ]] && {
     echo "Usage: drun edit:docs <name>"
@@ -279,6 +325,13 @@ help)
   }
   show_help "$2"
   ;;
+docs | details)
+  [[ -z "${2:-}" ]] && {
+    echo "Usage: drun $1 <name>"
+    exit 1
+  }
+  show_docs "$2"
+  ;;
 "" | -h | --help)
   echo "drun <command> [args...]"
   echo
@@ -289,8 +342,9 @@ help)
   echo "  add <name>          Create and open <name>.sh in editor"
   echo "  edit <name>         Open existing script in editor"
   echo "  edit:docs <name>    Edit documentation for <name>"
-  echo "  docs:edit <name>    Edit documentation for <name>"
   echo "  help <name>         Show embedded docs for <name>"
+  echo "  docs <name>         Show full markdown documentation (with glow)"
+  echo "  details <name>      Alias for 'docs' command"
   echo "  <name> [args…]      Execute script <name> from anywhere"
   echo
   echo "Environment Variables"
@@ -298,6 +352,7 @@ help)
   echo "  EDITOR              Command to open editor (default: auto-detect)"
   echo
   echo "Note: drun auto-runs ShellCheck after add/edit if available"
+  echo "      'glow' is recommended for beautiful markdown rendering"
   exit 0
   ;;
 *)
