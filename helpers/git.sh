@@ -5,7 +5,7 @@
 # shellcheck disable=SC1091
 # shellcheck disable=SC2016
 
-source "$DOTRUN_PREFIX/helpers/pkg.sh"
+source "$DRUN_CONFIG/helpers/pkg.sh"
 
 validatePkg git
 
