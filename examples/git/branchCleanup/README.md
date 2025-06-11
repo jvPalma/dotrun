@@ -34,12 +34,112 @@ The Git Branch Cleanup script is an intelligent, interactive tool designed to he
 | 💻🌐(gone) | Local exists, remote deleted |
 | 💻⬛ | Local only, no remote |
 
+
+
+## Examples
+
+### Example 1: Basic Cleanup
+
+```bash
+$ /home/user/.config/dotrun/bin/git/branchCleanup.sh
+
+🧹 Starting branch cleanup
+   Current branch: feature/my-work
+   Default branch: master
+
+🔄 Switching to master
+📥 Pulling latest changes
+🎯 Starting interactive branch cleanup...
+
+Found 5 branches. Numbers 1-9 can be used for quick selection
+
+- 👉 feature/my-work Current branch
+    2 hours ago • John Doe • ↑3 • (💻🌐)
+1) 🔵 📦 feature/completed-task
+    3 days ago • John Doe • (💻⬛)
+2) 🔵 ✅ bugfix/urgent-fix  
+    1 week ago • Jane Smith • (💻🌐(gone))
+3) ⚫ ⬆️ feature/in-progress
+    2 days ago • John Doe • ↑5 • (💻🌐)
+
+Currently selected branches:
+  Total: 2 branches
+
+Choice [c]: c
+
+```
+---
+
+```bash
+
+📋 Deletion Summary:
+────────────────────────────────────────────
+📦 feature/completed-task
+   Last commit: 3 days ago • John Doe
+   Remote status: 💻⬛
+   📦 Squash-merged into master
+
+✅ bugfix/urgent-fix
+   Last commit: 1 week ago • Jane Smith  
+   Remote status: 💻🌐(gone)
+   ✅ Merged into master
+
+Total: 2 branch(es) selected for deletion
+
+Delete these local branches? (y/N): y
+
+Also delete remote branches on origin? (y/N): y
+
+```
+---
+
+```bash
+
+🗑️  Deleting branches...
+
+✓ Deleted local branch: feature/completed-task
+  ℹ Remote branch origin/feature/completed-task does not exist
+✓ Deleted local branch: bugfix/urgent-fix
+  ✓ Deleted remote branch: origin/bugfix/urgent-fix
+
+✅ Branch cleanup completed!
+Local branches - Successfully deleted: 2
+Remote branches - Successfully deleted: 1
+
+🌿 Pruning remote tracking branches
+🔄 Restoring original branch: feature/my-work
+✅ Branch cleanup completed
+
+```
+
+### Example 2: With Uncommitted Changes
+
+```bash
+$ /home/user/.config/dotrun/bin/git/branchCleanup.sh
+
+🧹 Starting branch cleanup
+   Current branch: feature/my-work
+   Default branch: master
+
+📦 Uncommitted changes detected. Stashing them for safekeeping...
+✓ Changes stashed successfully
+   Stash message: Auto-stash by branch cleanup script on 2025-06-19 14:30:15
+
+# ... cleanup process ...
+
+🔄 Restoring original branch: feature/my-work
+📦 Restoring stashed changes...
+✓ Stashed changes restored
+✅ Branch cleanup completed
+```
+
+
 ## Usage
 
 ### Basic Usage
 ```bash
 # Run from any Git repository
-/home/user/.config/dotrun/bin/git/branchCleanup.sh
+drun branchCleanup
 ```
 
 ### Workflow
@@ -112,7 +212,7 @@ Automatically handles uncommitted changes:
 - Staged changes
 
 # Creates timestamped stash:
-"Auto-stash by branch cleanup script on 2024-12-19 14:30:15"
+"Auto-stash by branch cleanup script on 2025-06-19 14:30:15"
 
 # Restores changes after cleanup
 ```
@@ -130,7 +230,7 @@ Automatically handles uncommitted changes:
 ### File Structure
 
 ```
-/home/user/.config/dotrun/
+~/.config/dotrun/
 ├── bin/git/branchCleanup.sh              # Main entry point
 ├── helpers/bash-interactive-cleanup.sh   # Core interactive logic
 ├── helpers/git.sh                        # Git utility functions
@@ -260,7 +360,7 @@ git push origin feature/my-branch
 # ... create PR, get approved, squash merge ...
 
 # Later cleanup
-/home/user/.config/dotrun/bin/git/branchCleanup.sh
+drun branchCleanup
 # Automatically detects and offers to delete feature/my-branch
 ```
 
@@ -295,104 +395,9 @@ git stash pop  # Or git stash apply
 ```bash
 # Enable verbose output
 set -x
-/home/user/.config/dotrun/bin/git/branchCleanup.sh
+~/.config/dotrun/bin/git/branchCleanup.sh
 ```
 
-## Examples
-
-### Example 1: Basic Cleanup
-
-```bash
-$ /home/user/.config/dotrun/bin/git/branchCleanup.sh
-
-🧹 Starting branch cleanup
-   Current branch: feature/my-work
-   Default branch: master
-
-🔄 Switching to master
-📥 Pulling latest changes
-🎯 Starting interactive branch cleanup...
-
-Found 5 branches. Numbers 1-9 can be used for quick selection
-
-- 👉 feature/my-work Current branch
-    2 hours ago • John Doe • ↑3 • (💻🌐)
-1) 🔵 📦 feature/completed-task
-    3 days ago • John Doe • (💻⬛)
-2) 🔵 ✅ bugfix/urgent-fix  
-    1 week ago • Jane Smith • (💻🌐(gone))
-3) ⚫ ⬆️ feature/in-progress
-    2 days ago • John Doe • ↑5 • (💻🌐)
-
-Currently selected branches:
-  Total: 2 branches
-
-Choice [c]: c
-
-📋 Deletion Summary:
-────────────────────────────────────────────
-📦 feature/completed-task
-   Last commit: 3 days ago • John Doe
-   Remote status: 💻⬛
-   📦 Squash-merged into master
-
-✅ bugfix/urgent-fix
-   Last commit: 1 week ago • Jane Smith  
-   Remote status: 💻🌐(gone)
-   ✅ Merged into master
-
-Total: 2 branch(es) selected for deletion
-
-Delete these local branches? (y/N): y
-
-Also delete remote branches on origin? (y/N): y
-
-🗑️  Deleting branches...
-
-✓ Deleted local branch: feature/completed-task
-  ℹ Remote branch origin/feature/completed-task does not exist
-✓ Deleted local branch: bugfix/urgent-fix
-  ✓ Deleted remote branch: origin/bugfix/urgent-fix
-
-✅ Branch cleanup completed!
-Local branches - Successfully deleted: 2
-Remote branches - Successfully deleted: 1
-
-🌿 Pruning remote tracking branches
-🔄 Restoring original branch: feature/my-work
-✅ Branch cleanup completed
-```
-
-### Example 2: With Uncommitted Changes
-
-```bash
-$ /home/user/.config/dotrun/bin/git/branchCleanup.sh
-
-🧹 Starting branch cleanup
-   Current branch: feature/my-work
-   Default branch: master
-
-📦 Uncommitted changes detected. Stashing them for safekeeping...
-✓ Changes stashed successfully
-   Stash message: Auto-stash by branch cleanup script on 2024-12-19 14:30:15
-
-# ... cleanup process ...
-
-🔄 Restoring original branch: feature/my-work
-📦 Restoring stashed changes...
-✓ Stashed changes restored
-✅ Branch cleanup completed
-```
-
-## Version History
-
-- **v2.0** - Added remote branch deletion support
-- **v1.5** - Enhanced squash-merge detection
-- **v1.4** - Added automatic stash management  
-- **v1.3** - Improved current branch detection
-- **v1.2** - Added icon legend and color coding
-- **v1.1** - Enhanced interactive selection
-- **v1.0** - Initial release with basic cleanup
 
 ## Dependencies
 
