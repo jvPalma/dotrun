@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=SC2155
+# shellcheck disable=SC1091
+# shellcheck disable=SC2016
+
 source "$HELPERS_PATH/constants.sh"
 
 workstationConfigs() {

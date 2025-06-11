@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
 
-# ─── Configuration ───────────────────────────────────────────────
-DOTRUN_PREFIX="${DOTRUN_PREFIX:-${XDG_CONFIG_HOME:-$HOME/.config}/dotrun}"
-BIN_DIR="$DOTRUN_PREFIX/bin"
-HELPERS_PATH="$DOTRUN_PREFIX/helpers"
+# shellcheck disable=SC2155
+# shellcheck disable=SC1091
+# shellcheck disable=SC2016
+# Strict error handling
+set -euo pipefail
 
+IFS=$'\n\t'
+
+# Configuration
+DRUN_CONFIG="${DRUN_CONFIG:-$HOME/.config/dotrun}"
+BIN_DIR="$DRUN_CONFIG/bin"
+DOC_DIR="$DRUN_CONFIG/docs"
 DOC_TOKEN="### DOC"
 _default_editor="$(command -v code >/dev/null && echo "code" || echo "nano")"
 EDITOR="${EDITOR:-$_default_editor}"
-
-
+export HELPERS_PATH="$DRUN_CONFIG/helpers"
 
 mkdir -p "$BIN_DIR"
+mkdir -p "$DOC_DIR"
 
 # Color functions
 color_folder() {
@@ -26,10 +33,35 @@ color_folder() {
 color_script="\033[1;92m" # Bright Green
 color_doc="\033[0;37m"    # Gray
 color_reset="\033[0m"
-# Functions
+
+# Input validation
+validate_script_name() {
+  local name="$1"
+  if [[ -z "$name" ]]; then
+    echo "Error: Script name cannot be empty" >&2
+    return 1
+  fi
+  if [[ "$name" =~ [^a-zA-Z0-9_/-] ]]; then
+    echo "Error: Script name contains invalid characters. Use only alphanumeric, underscore, dash, and forward slash." >&2
+    return 1
+  fi
+}
+
+# Check if required directories exist and are writable
+check_prerequisites() {
+  if [[ ! -d "$BIN_DIR" ]] && ! mkdir -p "$BIN_DIR" 2>/dev/null; then
+    echo "Error: Cannot create or access BIN_DIR: $BIN_DIR" >&2
+    exit 1
+  fi
+  if [[ ! -d "$DOC_DIR" ]] && ! mkdir -p "$DOC_DIR" 2>/dev/null; then
+    echo "Error: Cannot create or access DOC_DIR: $DOC_DIR" >&2
+    exit 1
+  fi
+}
 
 # Helpers
-LINT_HELPER="$DOTRUN_PREFIX/helpers/lint.sh"
+LINT_HELPER="$DRUN_CONFIG/helpers/lint.sh"
+# shellcheck disable=SC1090
 [[ -f "$LINT_HELPER" ]] && source "$LINT_HELPER"
 
 # Traverse bin directory and print scripts with doc in tree-style and colors
@@ -64,6 +96,7 @@ list_scripts() {
   }
 
   while IFS= read -r -d '' file; do
+    # shellcheck disable=SC2295
     rel_path="${file#$BIN_DIR/}"
     script_name="$(basename "$rel_path" .sh)"
     folder_path="$(dirname "$rel_path")"
@@ -86,7 +119,16 @@ list_scripts() {
 create_script_skeleton() {
   local name="$1"
   local file="$BIN_DIR/$name.sh"
+  local docFile="$DOC_DIR/$name.md"
   mkdir -p "$(dirname "$file")"
+  mkdir -p "$(dirname "$docFile")"
+
+  # Create documentation file
+  local doc_content
+  doc_content="# $(basename "$name")\n\nDescribe what this script does here.\n\n## Usage\n\n\`\`\`bash\n$ $(basename "$name") [args...]\n\`\`\`\n"
+  echo -e "$doc_content" >"$docFile"
+
+  # Create script file with skeleton
   cat >"$file" <<EOF
 #!/usr/bin/env bash
 $DOC_TOKEN
@@ -94,8 +136,7 @@ $DOC_TOKEN
 $DOC_TOKEN
 set -euo pipefail
 
-#SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-#source "\$SCRIPT_DIR/../helpers/myfile.sh"
+# source "$DRUN_CONFIG/pkg.sh"
 
 main() {
   echo "Running $(basename "$name")..."
@@ -107,11 +148,6 @@ EOF
 }
 
 # Search script by name regardless of path
-# ─── Locate a script  ──────────────────────────────────────────
-# Accepts:
-#   • plain   name   (wsl   →  …/workstation/wsl.sh  or …/wsl.sh)
-#   • folder/ name   (workstation/wsl → …/workstation/wsl.sh)
-# Returns first match, or nothing.
 find_script_file() {
   local query="$1"
 
@@ -125,23 +161,16 @@ find_script_file() {
   fi
 
   # 2) fallback: search anywhere for basename
-  local base="$(basename "$query").sh"
+  local base
+  base="$(basename "$query").sh"
   find "$BIN_DIR" -type f -name "$base" | head -n 1
-}
-
-new_script() {
-  local name="$1"
-  local file="$BIN_DIR/$name.sh"
-  if [[ -e "$file" ]]; then
-    echo "Script '$name' already exists at $file"
-    exit 1
-  fi
-  create_script_skeleton "$name"
-  echo "Created new script: $file"
 }
 
 add_script() {
   local name="$1"
+  validate_script_name "$name" || exit 1
+  check_prerequisites
+
   local file="$BIN_DIR/$name.sh"
   if [[ ! -f "$file" ]]; then
     create_script_skeleton "$name"
@@ -158,7 +187,27 @@ edit_script() {
     "$EDITOR" "$file"
     [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
   else
-    echo "Script '$1' not found"
+    echo "Error: Script '$1' not found" >&2
+    echo "Use 'drun -l' to list available scripts" >&2
+    exit 1
+  fi
+}
+
+edit_docs() {
+  local file
+  file=$(find_script_file "$1")
+  if [[ -n "$file" ]]; then
+    local doc_file="$DOC_DIR/$(basename "$file" .sh).md"
+    if [[ -f "$doc_file" ]]; then
+      "$EDITOR" "$doc_file"
+    else
+      echo "Error: Documentation file '$doc_file' not found" >&2
+      echo "Creating documentation file..." >&2
+      create_script_skeleton "$(basename "$file" .sh)"
+      "$EDITOR" "$doc_file"
+    fi
+  else
+    echo "Error: Script '$1' not found" >&2
     exit 1
   fi
 }
@@ -167,7 +216,7 @@ show_help() {
   local file
   file=$(find_script_file "$1")
   if [[ -z "$file" ]]; then
-    echo "Script '$1' not found"
+    echo "Error: Script '$1' not found" >&2
     exit 1
   fi
   awk "/^$DOC_TOKEN/ { p = !p; next } p" "$file"
@@ -179,51 +228,52 @@ run_script() {
   local file
   file=$(find_script_file "$name")
   if [[ -z "$file" ]]; then
-    echo "Script '$name' not found"
+    echo "Error: Script '$name' not found" >&2
+    echo "Use 'drun -l' to list available scripts" >&2
     exit 1
   fi
   "$file" "$@"
 }
 
 # Main command parser
-case "$1" in
+case "${1:-}" in
 -l | -L)
   show_docs=0
   [[ "$1" == "-L" ]] && show_docs=1
   scope="${2:-}" # optional second arg
   list_scripts "$show_docs" "$scope"
   ;;
-new)
-  [[ -z "$2" ]] && {
-    echo "Usage: drun new <name>"
-    exit 1
-  }
-  new_script "$2"
-  ;;
 add)
-  [[ -z "$2" ]] && {
+  [[ -z "${2:-}" ]] && {
     echo "Usage: drun add <name>"
     exit 1
   }
   add_script "$2"
   ;;
 edit)
-  [[ -z "$2" ]] && {
+  [[ -z "${2:-}" ]] && {
     echo "Usage: drun edit <name>"
     exit 1
   }
   echo "Editing script: $2 ---- with editor: $EDITOR"
   edit_script "$2"
   ;;
+docs:edit)
+  [[ -z "${2:-}" ]] && {
+    echo "Usage: drun docs:edit <name>"
+    exit 1
+  }
+  edit_docs "$2"
+  ;;
 edit:docs)
-  [[ -z "$2" ]] && {
+  [[ -z "${2:-}" ]] && {
     echo "Usage: drun edit:docs <name>"
     exit 1
   }
   edit_docs "$2"
   ;;
 help)
-  [[ -z "$2" ]] && {
+  [[ -z "${2:-}" ]] && {
     echo "Usage: drun help <name>"
     exit 1
   }
@@ -236,24 +286,26 @@ help)
   echo "  -l                  List all scripts (names only)"
   echo "  -L                  List scripts with docs, optionally scoped"
   echo "  -l/L [folder/]      List scripts within the scoped folder"
-  echo "  list                List all managed scripts in tree format"
-  echo "  new <name>          Create <name>.sh skeleton in \$BIN_DIR"
   echo "  add <name>          Create and open <name>.sh in editor"
   echo "  edit <name>         Open existing script in editor"
+  echo "  edit:docs <name>    Edit documentation for <name>"
+  echo "  docs:edit <name>    Edit documentation for <name>"
   echo "  help <name>         Show embedded docs for <name>"
   echo "  <name> [args…]      Execute script <name> from anywhere"
   echo
-  echo "Env"
-  echo "  DOTRUN_PREFIX       Override root (default \$HOME/.dotrun)"
-  echo "  EDITOR              Command to open editor (default: nano)"
-  echo "  (drun auto-runs ShellCheck after add/edit if available)"
+  echo "Environment Variables"
+  echo "  DRUN_CONFIG         Override root (default \$HOME/.config/dotrun)"
+  echo "  EDITOR              Command to open editor (default: auto-detect)"
+  echo
+  echo "Note: drun auto-runs ShellCheck after add/edit if available"
   exit 0
   ;;
 *)
-  if [[ -n "$1" ]]; then
+  if [[ -n "${1:-}" ]]; then
     run_script "$@"
   else
-    echo "Unknown command: $1"
+    echo "Error: No command provided" >&2
+    echo "Run 'drun --help' for usage information" >&2
     exit 1
   fi
   ;;
