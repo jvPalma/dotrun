@@ -5,7 +5,7 @@ _drun_autocomplete() {
   prev="${COMP_WORDS[COMP_CWORD - 1]}"
 
   local commands="list new add edit edit:docs help"
-  local BIN_DIR="${DOTRUN_PREFIX:-$HOME/.dotrun}/bin"
+  local BIN_DIR="${DRUN_CONFIG:-$HOME/.config/dotrun}/bin"
   local scripts
   IFS=$'\n' scripts=($(find "$BIN_DIR" -type f -name "*.sh" -printf "%P\n" | sed 's/\.sh$//'))
 
