@@ -371,7 +371,6 @@ get_shell_config() {
 # ------------------------------------------------------------------
 # Main Installation Logic
 # ------------------------------------------------------------------
-
 main() {
   local os_type shell_type force_override=false
 
