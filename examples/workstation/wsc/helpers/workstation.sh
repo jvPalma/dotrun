@@ -4,7 +4,7 @@
 # shellcheck disable=SC1091
 # shellcheck disable=SC2016
 
-source "$DOTRUN_PREFIX/helpers/constants.sh"
+source "$DRUN_CONFIG/helpers/constants.sh"
 
 workstationConfigs() {
   local cmd="$1"

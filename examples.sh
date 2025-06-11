@@ -7,9 +7,9 @@ set -euo pipefail
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXAMPLES_DIR="$SCRIPT_DIR/examples"
-DOTRUN_PREFIX="${DOTRUN_PREFIX:-$HOME/.config/dotrun}"
-BIN_DIR="$DOTRUN_PREFIX/bin"
-DOC_DIR="$DOTRUN_PREFIX/docs"
+DRUN_CONFIG="${DRUN_CONFIG:-$HOME/.config/dotrun}"
+BIN_DIR="$DRUN_CONFIG/bin"
+DOC_DIR="$DRUN_CONFIG/docs"
 DOC_TOKEN="### DOC"
 
 # Colors
@@ -213,7 +213,7 @@ install_example() {
 
   # Copy helper files
   if [[ -d "$example_path/helpers" ]]; then
-    local helpers_target="$DOTRUN_PREFIX/helpers/$example_name"
+    local helpers_target="$DRUN_CONFIG/helpers/$example_name"
     mkdir -p "$helpers_target"
 
     while IFS= read -r -d '' helper; do
