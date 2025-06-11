@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-#
 # Re-usable Git helpers for any drun script
-#
+
+# shellcheck disable=SC2155
+# shellcheck disable=SC1091
+# shellcheck disable=SC2016
+
 source "$DOTRUN_PREFIX/helpers/pkg.sh"
 
 validatePkg git
