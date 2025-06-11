@@ -1,8 +1,9 @@
-
 #!/usr/bin/env bash
-#
 # helpers/filters.sh – reusable include/exclude logic
-#
+
+# shellcheck disable=SC2155
+# shellcheck disable=SC1091
+# shellcheck disable=SC2016
 
 # Folders we never traverse (relative path segments)
 EXCL_FOLDERS=(
@@ -18,7 +19,8 @@ EXCL_FILES=(
   "*.out" "jest.*" "jest."
 )
 
-gpt_exclude_patterns=(
+# shellcheck disable=SC2034
+global_exclude_patterns=(
   "${EXCL_FOLDERS[@]}"
   "${EXCL_FILES[@]}"
 )
@@ -30,9 +32,10 @@ gpt_exclude_patterns=(
 # ------------------------------------------------------------------
 gpt_should_exclude() {
   local abs="$1"
-  local rel="${abs#$SCAN_ROOT/}"          # strip leading root/
+  # shellcheck disable=SC2295
+  local rel="${abs#$SCAN_ROOT/}" # strip leading root/
   local base="$(basename "$rel")"
-  local dir="$(dirname  "$rel")"
+  local dir="$(dirname "$rel")"
 
   # folder test
   for pat in "${EXCL_FOLDERS[@]}"; do
@@ -40,7 +43,7 @@ gpt_should_exclude() {
   done
   # file test (basename only)
   for pat in "${EXCL_FILES[@]}"; do
-    [[ "$base" == $pat ]] && return 0
+    [[ "$base" == "$pat" ]] && return 0
   done
   return 1
 }
