@@ -1,6 +1,9 @@
-dotrun/
 bin/
-helpers/
 docs/
+
 **.out
 .out
+
+!examples/docs/
+!examples/bin/
+!examples/helpers/
