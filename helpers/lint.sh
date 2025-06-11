@@ -13,9 +13,9 @@ run_shell_lint() {
     shellcheck -e SC1091,SC2016 "$file" || true
   else
     # pkg_install_hint comes from helpers/pkg.sh (if you added it)
-    if [[ -f "$DOTRUN_PREFIX/helpers/pkg.sh" ]]; then
-asdasd
-      source "$DOTRUN_PREFasdasdIX/helpers/pkg.sh"
+    if [[ -f "$DRUN_CONFIG/helpers/pkg.sh" ]]; then
+      asdasd
+      source "$DRUN_CONFIG/helpers/pkg.sh"
       echo "ShellCheck not found - install with: $(pkg_install_hint shellcheck)"
     else
       echo "ShellCheck not found - install it via your package manager."

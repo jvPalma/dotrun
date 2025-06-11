@@ -46,7 +46,7 @@ validatePkg() {
   local tool="$1"
   command -v "$tool" &>/dev/null && return
 
-  echo "'$tool' is missing – install it with:"
+  echo "'$tool' is missing - install it with:"
   echo "  $(pkg_install_hint "$tool")"
   exit 1
 }
