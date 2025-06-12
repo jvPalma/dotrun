@@ -7,6 +7,7 @@ The Git Branch Cleanup script is an intelligent, interactive tool designed to he
 ## Features
 
 ### 🎯 **Core Functionality**
+
 - **Interactive Branch Selection** - Visual branch management with emoji indicators
 - **Smart Merge Detection** - Detects both regular merges and squash-merges
 - **Stash Management** - Automatically handles uncommitted changes
@@ -16,32 +17,30 @@ The Git Branch Cleanup script is an intelligent, interactive tool designed to he
 
 ### 🧠 **Intelligent Branch Classification**
 
-| Icon | Type | Description |
-|------|------|-------------|
-| 👉 | Current | The branch you're currently working on |
-| ✅ | Merged | Branches merged via regular Git merge |
-| 📦 | Squash-Merged | Branches merged via GitHub "squash and merge" |
-| ⬆️ | Ahead | Branches with commits not in master |
-| ⬇️ | Behind | Branches missing commits from master |
-| 🔀 | Diverged | Branches both ahead and behind master |
-| 🆕 | Untracked | Local-only branches with no remote |
+| Icon | Type          | Description                                   |
+| ---- | ------------- | --------------------------------------------- |
+| 👉   | Current       | The branch you're currently working on        |
+| ✅   | Merged        | Branches merged via regular Git merge         |
+| 📦   | Squash-Merged | Branches merged via GitHub "squash and merge" |
+| ⬆️   | Ahead         | Branches with commits not in master           |
+| ⬇️   | Behind        | Branches missing commits from master          |
+| 🔀   | Diverged      | Branches both ahead and behind master         |
+| 🆕   | Untracked     | Local-only branches with no remote            |
 
 ### 🌐 **Remote Status Indicators**
 
-| Symbol | Meaning |
-|--------|---------|
-| 💻🌐 | Local + Remote exists |
+| Symbol     | Meaning                      |
+| ---------- | ---------------------------- |
+| 💻🌐       | Local + Remote exists        |
 | 💻🌐(gone) | Local exists, remote deleted |
-| 💻⬛ | Local only, no remote |
-
-
+| 💻⬛       | Local only, no remote        |
 
 ## Examples
 
 ### Example 1: Basic Cleanup
 
 ```bash
-$ /home/user/.config/dotrun/bin/git/branchCleanup.sh
+drun branchCleanup
 
 🧹 Starting branch cleanup
    Current branch: feature/my-work
@@ -57,7 +56,7 @@ Found 5 branches. Numbers 1-9 can be used for quick selection
     2 hours ago • John Doe • ↑3 • (💻🌐)
 1) 🔵 📦 feature/completed-task
     3 days ago • John Doe • (💻⬛)
-2) 🔵 ✅ bugfix/urgent-fix  
+2) 🔵 ✅ bugfix/urgent-fix
     1 week ago • Jane Smith • (💻🌐(gone))
 3) ⚫ ⬆️ feature/in-progress
     2 days ago • John Doe • ↑5 • (💻🌐)
@@ -68,6 +67,7 @@ Currently selected branches:
 Choice [c]: c
 
 ```
+
 ---
 
 ```bash
@@ -80,7 +80,7 @@ Choice [c]: c
    📦 Squash-merged into master
 
 ✅ bugfix/urgent-fix
-   Last commit: 1 week ago • Jane Smith  
+   Last commit: 1 week ago • Jane Smith
    Remote status: 💻🌐(gone)
    ✅ Merged into master
 
@@ -91,6 +91,7 @@ Delete these local branches? (y/N): y
 Also delete remote branches on origin? (y/N): y
 
 ```
+
 ---
 
 ```bash
@@ -115,7 +116,7 @@ Remote branches - Successfully deleted: 1
 ### Example 2: With Uncommitted Changes
 
 ```bash
-$ /home/user/.config/dotrun/bin/git/branchCleanup.sh
+drun branchCleanup
 
 🧹 Starting branch cleanup
    Current branch: feature/my-work
@@ -133,33 +134,29 @@ $ /home/user/.config/dotrun/bin/git/branchCleanup.sh
 ✅ Branch cleanup completed
 ```
 
-
-## Usage
-
-### Basic Usage
-```bash
-# Run from any Git repository
-drun branchCleanup
-```
-
 ### Workflow
+
 1. **Preparation Phase**
+
    - Detects current branch
    - Switches to master and pulls latest changes
    - Automatically stashes any uncommitted changes
 
 2. **Analysis Phase**
+
    - Scans all local branches
    - Determines merge status (regular, squash, or unmerged)
    - Calculates ahead/behind commit counts
    - Checks remote branch existence
 
 3. **Interactive Selection**
+
    - Displays categorized branch list
    - Pre-selects merged and squash-merged branches
    - Allows manual selection/deselection
 
 4. **Deletion Phase**
+
    - Confirms deletion with summary
    - Optionally deletes remote branches
    - Provides detailed progress feedback
@@ -173,15 +170,15 @@ drun branchCleanup
 
 ### Main Menu Options
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `1-9` | Toggle Branch | Quick selection by number |
-| `a` | Select All | Select all non-current branches |
-| `m` | Merged Only | Select only merged branches (default) |
-| `n` | None | Clear all selections |
-| `s` | Individual | Enter individual branch selection mode |
-| `c` | Continue | Proceed with current selection |
-| `q` | Quit | Exit without changes |
+| Key   | Action        | Description                            |
+| ----- | ------------- | -------------------------------------- |
+| `1-9` | Toggle Branch | Quick selection by number              |
+| `a`   | Select All    | Select all non-current branches        |
+| `m`   | Merged Only   | Select only merged branches (default)  |
+| `n`   | None          | Clear all selections                   |
+| `s`   | Individual    | Enter individual branch selection mode |
+| `c`   | Continue      | Proceed with current selection         |
+| `q`   | Quit          | Exit without changes                   |
 
 ### Individual Selection Mode
 
@@ -240,12 +237,14 @@ Automatically handles uncommitted changes:
 ### Key Functions
 
 #### Entry Point (`branchCleanup.sh`)
+
 - Validates Git repository
 - Switches to master branch
 - Pulls latest changes
 - Calls interactive cleanup
 
 #### Core Logic (`bash-interactive-cleanup.sh`)
+
 - `get_branch_info()` - Analyzes branch status and metadata
 - `is_branch_merged()` - Detects regular merges
 - `is_branch_squash_merged()` - Detects squash merges
@@ -302,10 +301,12 @@ CURRENT_ICON="👉 "
 ### Common Scenarios
 
 1. **Merge Conflicts During Stash**
+
    - User prompted to resolve manually
    - Option to continue or abort
 
 2. **Remote Deletion Failures**
+
    - Individual failures don't stop process
    - Detailed error reporting
 
@@ -339,12 +340,14 @@ CURRENT_ICON="👉 "
 ### When to Use
 
 ✅ **Ideal Scenarios**:
+
 - After completing feature work
 - Regular maintenance (weekly/monthly)
 - Before major development phases
 - After team merge sessions
 
 ❌ **Avoid When**:
+
 - Uncommitted critical changes
 - During active development
 - On shared/CI machines
@@ -369,6 +372,7 @@ drun branchCleanup
 ### Common Issues
 
 #### "Not in a git repository"
+
 ```bash
 # Ensure you're in a Git repository
 cd /path/to/your/repo
@@ -377,6 +381,7 @@ git status
 ```
 
 #### "Failed to delete remote branch"
+
 ```bash
 # Check permissions and network
 git remote -v
@@ -384,6 +389,7 @@ git push origin --delete branch-name  # Manual test
 ```
 
 #### "Could not restore stashed changes"
+
 ```bash
 # Manual stash management
 git stash list
@@ -398,18 +404,20 @@ set -x
 ~/.config/dotrun/bin/git/branchCleanup.sh
 ```
 
-
 ## Dependencies
 
 ### Required Tools
+
 - `bash` (4.0+)
 - `git` (2.0+)
 - `grep`, `awk`, `sed` (standard Unix tools)
 
 ### Required Scripts
+
 - `$DRUN_CONFIG/helpers/git.sh` - Git utility functions
 
 ### Optional Enhancements
+
 - Terminal with emoji support
 - Color-capable terminal
 - Bash completion support
@@ -432,5 +440,5 @@ To enhance or modify the branch cleanup script:
 
 ---
 
-*Last updated: December 2024*
-*Script location: `/home/user/.config/dotrun/bin/git/branchCleanup.sh`*
+_Last updated: December 2024_
+_Script location: `/home/user/.config/dotrun/bin/git/branchCleanup.sh`_
