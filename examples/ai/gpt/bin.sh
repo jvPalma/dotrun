@@ -9,8 +9,8 @@
 # shellcheck disable=SC2016
 set -euo pipefail
 
-source "$DRUN_CONFIG/pkg.sh"
-source "$DRUN_CONFIG/filters.sh"
+source "$DRUN_CONFIG/helpers/pkg.sh"
+source "$DRUN_CONFIG/helpers/filters.sh"
 
 # shellcheck disable=SC2154
 echo "${global_exclude_patterns[*]}"
