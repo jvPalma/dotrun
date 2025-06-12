@@ -9,7 +9,7 @@
 # shellcheck disable=SC2016
 set -euo pipefail
 
-source "$DRUN_CONFIG/workstation.sh"
+source "$DRUN_CONFIG/helpers/workstation.sh"
 
 main() {
   workstationConfigs list
