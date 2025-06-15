@@ -6,6 +6,8 @@
 
 set -euo pipefail
 
+INSTALL_HOME=${XDG_CONFIG_HOME:-$HOME}
+
 # ------------------------------------------------------------------
 # Utility Functions
 # ------------------------------------------------------------------
@@ -344,26 +346,26 @@ get_shell_config() {
   local shell="$1"
   case "$shell" in
   fish)
-    echo "$HOME/.config/fish/config.fish"
+    echo "$INSTALL_HOME/.config/fish/config.fish"
     ;;
   zsh)
-    if [ -f "$HOME/.zshrc" ]; then
-      echo "$HOME/.zshrc"
+    if [ -f "$INSTALL_HOME/.zshrc" ]; then
+      echo "$INSTALL_HOME/.zshrc"
     else
-      echo "$HOME/.zprofile"
+      echo "$INSTALL_HOME/.zprofile"
     fi
     ;;
   bash)
-    if [ -f "$HOME/.bashrc" ]; then
-      echo "$HOME/.bashrc"
-    elif [ -f "$HOME/.bash_profile" ]; then
-      echo "$HOME/.bash_profile"
+    if [ -f "$HINSTALL_HOMEOME/.bashrc" ]; then
+      echo "$INSTALL_HOME/.bashrc"
+    elif [ -f "$INSTALL_HOME/.bash_profile" ]; then
+      echo "$INSTALL_HOME/.bash_profile"
     else
-      echo "$HOME/.profile"
+      echo "$INSTALL_HOME/.profile"
     fi
     ;;
   *)
-    echo "$HOME/.profile"
+    echo "$INSTALL_HOME/.profile"
     ;;
   esac
 }
@@ -401,9 +403,9 @@ main() {
 
   # Use XDG Base Directory specification where possible
   if [ "$os_type" = "windows" ]; then
-    cfg_dir="${APPDATA:-$HOME/AppData/Roaming}/dotrun"
+    cfg_dir="${APPDATA:-$INSTALL_HOME/AppData/Roaming}/dotrun"
   else
-    cfg_dir="${XDG_CONFIG_HOME:-$HOME/.config}/dotrun"
+    cfg_dir="${INSTALL_HOME/.config}/dotrun"
   fi
 
   # Default binary installation paths by OS
@@ -412,10 +414,10 @@ main() {
     bin_dest="/usr/local/bin"
     ;;
   windows)
-    bin_dest="$HOME/bin"
+    bin_dest="$INSTALL_HOME/bin"
     ;;
   *)
-    bin_dest="$HOME/.local/bin"
+    bin_dest="$INSTALL_HOME/.local/bin"
     ;;
   esac
 
@@ -457,8 +459,8 @@ main() {
 
   # Check if we can write to target directory
   if ! is_writable "$target_dir" 2>/dev/null; then
-    log_warn "Cannot write to $target_dir, using $HOME/.local/bin instead"
-    target_dir="$HOME/.local/bin"
+    log_warn "Cannot write to $target_dir, using $INSTALL_HOME/.local/bin instead"
+    target_dir="$INSTALL_HOME/.local/bin"
     mkdir -p "$target_dir"
   fi
 
@@ -480,7 +482,7 @@ main() {
   # 4. Setup shell integration
   # ------------------------------------------------------------------
 
-  local drunrc_file="$HOME/.drunrc"
+  local drunrc_file="$INSTALL_HOME/.drunrc"
   local shell_config
   shell_config="$(get_shell_config "$shell_type")"
 
