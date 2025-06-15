@@ -273,7 +273,7 @@ copy_files() {
             cp "$src_file" "$dst_file"
             # Preserve executable permissions
             if [ -x "$src_file" ]; then
-              chmod +x "$dst_file"
+              chmod +x "$dst_file"`
             fi
           else
             printf "$(get_message "file differs" 1)" "$rel_path"
@@ -415,7 +415,7 @@ main() {
     bin_dest="$HOME/bin"
     ;;
   *)
-    bin_dest="/usr/local/bin"
+    bin_dest="$HOME/.local/bin"
     ;;
   esac
 
