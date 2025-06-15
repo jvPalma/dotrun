@@ -18,7 +18,9 @@ DotRun is a Git-backed, shell-agnostic script manager designed for developers wh
 ## 🚀 Quick Install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/jvPalma/dotrun/master/install.sh)
+git clone https://github.com/jvPalma/dotrun
+cd dotrun/
+./install.sh
 ```
 
 ### Custom Installation Location
