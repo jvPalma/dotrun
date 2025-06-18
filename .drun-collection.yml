@@ -1,0 +1,28 @@
+# DotRun Collection Metadata
+name: "dotrun-framework"
+description: "DotRun script management framework"
+author: "DotRun Contributors"
+version: "1.0.0"
+created: 2025-06-18T07:58:21Z
+type: "drun-collection"
+
+# Scripts included in this collection
+scripts:
+  # Example:
+  # - name: "example-script"
+  #   path: "bin/example-script.sh"
+  #   description: "An example script"
+
+# Dependencies (other collections this depends on)
+dependencies: []
+
+# Environment compatibility
+environments:
+  - "dev"
+  - "staging" 
+  - "prod"
+
+# Team information (optional)
+team:
+  repo: ""
+  contact: ""

@@ -50,10 +50,19 @@ detect_os() {
   CYGWIN*) echo "windows" ;;
   MINGW*) echo "windows" ;;
   MSYS*) echo "windows" ;;
+  *BSD) echo "bsd" ;;
   FreeBSD*) echo "freebsd" ;;
   OpenBSD*) echo "openbsd" ;;
   NetBSD*) echo "netbsd" ;;
-  *) echo "unknown" ;;
+  DragonFly*) echo "dragonfly" ;;
+  *) 
+    # Additional detection for Git Bash on Windows
+    if [ -n "${MSYSTEM:-}" ]; then
+      echo "windows"
+    else
+      echo "unknown"
+    fi
+    ;;
   esac
 }
 
@@ -118,7 +127,7 @@ copy_files() {
   log_info "Setting up DotRun directories and files"
 
   # Define target directories
-  local target_dirs=("bin" "docs" "helpers")
+  local target_dirs=("bin" "docs" "helpers" "collections")
 
   # Create target directories if they don't exist
   for dir in "${target_dirs[@]}"; do
@@ -150,7 +159,9 @@ copy_files() {
 
   # Files to include at root level (only these specific files)
   local root_files=(
-    "drun_completion"
+    "drun_completion.bash"
+    "drun_completion.zsh"
+    "drun_completion.fish"
     "README.md"
   )
 
@@ -275,7 +286,7 @@ copy_files() {
             cp "$src_file" "$dst_file"
             # Preserve executable permissions
             if [ -x "$src_file" ]; then
-              chmod +x "$dst_file"`
+              chmod +x "$dst_file"
             fi
           else
             printf "$(get_message "file differs" 1)" "$rel_path"
@@ -327,6 +338,38 @@ copy_files() {
     fi
   done
 
+  # Special handling for Fish completion - copy to fish completions directory
+  local fish_completion_src="$src/drun_completion.fish"
+  local fish_completion_dir="$INSTALL_HOME/.config/fish/completions"
+  local fish_completion_dst="$fish_completion_dir/drun.fish"
+  
+  if [ -f "$fish_completion_src" ]; then
+    if [ ! -d "$fish_completion_dir" ]; then
+      mkdir -p "$fish_completion_dir"
+      log_info "Created Fish completions directory: $fish_completion_dir"
+    fi
+    
+    if [ -f "$fish_completion_dst" ]; then
+      local src_checksum dst_checksum
+      src_checksum="$(get_checksum "$fish_completion_src")"
+      dst_checksum="$(get_checksum "$fish_completion_dst")"
+      
+      if [ "$src_checksum" != "$dst_checksum" ]; then
+        if [ "$force_override" = "true" ]; then
+          printf "$(get_message "overwritten" 0)" "~/.config/fish/completions/drun.fish"
+          cp "$fish_completion_src" "$fish_completion_dst"
+        else
+          printf "$(get_message "file differs" 0)" "~/.config/fish/completions/drun.fish"
+        fi
+      else
+        printf "$(get_message "unchanged" 0)" "~/.config/fish/completions/drun.fish"
+      fi
+    else
+      printf "$(get_message "new file" 0)" "~/.config/fish/completions/drun.fish"
+      cp "$fish_completion_src" "$fish_completion_dst"
+    fi
+  fi
+
   # Return status indicating if modifications were detected
   if [ "$modified_files_detected" = "true" ] && [ "$force_override" = "false" ]; then
     return 1 # Indicate modifications were detected but not overridden
@@ -339,6 +382,15 @@ copy_files() {
 is_writable() {
   local dir="$1"
   [ -d "$dir" ] && [ -w "$dir" ]
+}
+
+# Check if directory is in PATH
+is_in_path() {
+  local dir="$1"
+  case ":$PATH:" in
+    *":$dir:"*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 # Get user's preferred shell config file
@@ -356,7 +408,7 @@ get_shell_config() {
     fi
     ;;
   bash)
-    if [ -f "$HINSTALL_HOMEOME/.bashrc" ]; then
+    if [ -f "$INSTALL_HOME/.bashrc" ]; then
       echo "$INSTALL_HOME/.bashrc"
     elif [ -f "$INSTALL_HOME/.bash_profile" ]; then
       echo "$INSTALL_HOME/.bash_profile"
@@ -399,13 +451,60 @@ main() {
 
   # Get absolute path of script directory (works across platforms)
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  src_dir="$script_dir"
+  
+  # Check if we're running from a proper dotrun repository
+  if [ -f "$script_dir/drun" ] && [ -d "$script_dir/bin" ] && [ -d "$script_dir/helpers" ]; then
+    # Running from local repository
+    src_dir="$script_dir"
+    log_info "Using local repository at $src_dir"
+  else
+    # Running via curl - need to download repository
+    log_info "No local repository found - downloading from GitHub..."
+    
+    # Create temporary directory for download
+    temp_dir="$(mktemp -d)"
+    
+    # Download and extract repository
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL "https://github.com/jvPalma/dotrun/archive/master.tar.gz" | tar -xz -C "$temp_dir" --strip-components=1
+    elif command -v wget >/dev/null 2>&1; then
+      wget -qO- "https://github.com/jvPalma/dotrun/archive/master.tar.gz" | tar -xz -C "$temp_dir" --strip-components=1
+    else
+      log_error "Neither curl nor wget found. Please install one of them or clone the repository manually."
+      exit 1
+    fi
+    
+    # Verify download succeeded
+    if [ ! -f "$temp_dir/drun" ] || [ ! -d "$temp_dir/bin" ]; then
+      log_error "Failed to download repository from GitHub"
+      exit 1
+    fi
+    
+    src_dir="$temp_dir"
+    log_success "Repository downloaded to $src_dir"
+    
+    # Set trap to cleanup temp directory
+    cleanup_temp() {
+      if [ -n "${temp_dir:-}" ] && [ -d "$temp_dir" ]; then
+        rm -rf "$temp_dir"
+      fi
+    }
+    trap cleanup_temp EXIT
+  fi
 
   # Use XDG Base Directory specification where possible
   if [ "$os_type" = "windows" ]; then
-    cfg_dir="${APPDATA:-$INSTALL_HOME/AppData/Roaming}/dotrun"
+    # Handle various Windows environments
+    if [ -n "${APPDATA:-}" ]; then
+      cfg_dir="$APPDATA/dotrun"
+    elif [ -d "$INSTALL_HOME/AppData/Roaming" ]; then
+      cfg_dir="$INSTALL_HOME/AppData/Roaming/dotrun"
+    else
+      # Fallback for Git Bash, MSYS2, etc.
+      cfg_dir="$INSTALL_HOME/.config/dotrun"
+    fi
   else
-    cfg_dir="${INSTALL_HOME/.config}/dotrun"
+    cfg_dir="${XDG_CONFIG_HOME:-$INSTALL_HOME/.config}/dotrun"
   fi
 
   # Default binary installation paths by OS
@@ -473,6 +572,12 @@ main() {
     cp "$drun_source" "$drun_target"
     chmod +x "$drun_target"
     log_success "drun binary installed to $drun_target"
+    
+    # Check if target directory is in PATH
+    if ! is_in_path "$target_dir"; then
+      log_warn "$target_dir is not in your PATH"
+      log_info "The installer will add it to your PATH via .drunrc"
+    fi
   else
     log_error "Source binary not found: $drun_source"
     exit 1
@@ -501,9 +606,12 @@ case ":\$PATH:" in
 esac
 
 # Load shell completion if available
-if [ -f "\$DRUN_CONFIG/drun_completion" ]; then
-    source "\$DRUN_CONFIG/drun_completion"
+if [ -n "\${BASH_VERSION:-}" ] && [ -f "\$DRUN_CONFIG/drun_completion.bash" ]; then
+    source "\$DRUN_CONFIG/drun_completion.bash"
+elif [ -n "\${ZSH_VERSION:-}" ] && [ -f "\$DRUN_CONFIG/drun_completion.zsh" ]; then
+    source "\$DRUN_CONFIG/drun_completion.zsh"
 fi
+
 EOF
     log_success "Created $drunrc_file"
   else
@@ -514,10 +622,12 @@ EOF
   # 5. Shell-specific integration advice
   # ------------------------------------------------------------------
 
-  local integration_cmd
+  local integration_cmd fish_instructions=""
   case "$shell_type" in
   fish)
-    integration_cmd="echo 'source $drunrc_file' >> $shell_config"
+    # Fish needs special handling since it doesn't source bash files
+    fish_instructions="true"
+    integration_cmd="# Fish shell integration (see special instructions below)"
     ;;
   *)
     integration_cmd="echo 'source $drunrc_file' >> $shell_config"
@@ -545,6 +655,15 @@ EOF
 
   if [ "$already_integrated" = "true" ]; then
     log_info "Shell integration already configured"
+  elif [ "$fish_instructions" = "true" ]; then
+    log_info "For Fish shell, add these lines to your $shell_config:"
+    echo
+    printf "  \033[1;36m# Add drun to PATH\033[0m\n"
+    printf "  \033[1;36mset -gx PATH \"%s\" \$PATH\033[0m\n" "$target_dir"
+    echo
+    printf "  \033[1;36m# Fish completion is automatically loaded from ~/.config/fish/completions/drun.fish\033[0m\n"
+    printf "  \033[1;36m# (already installed during setup)\033[0m\n"
+    echo
   else
     log_info "To complete setup, add this to your shell config:"
     echo
@@ -554,9 +673,15 @@ EOF
   fi
 
   echo
-  log_info "To start using drun immediately:"
-  printf "  \033[1;36msource %s\033[0m\n" "$drunrc_file"
-  printf "  \033[1;36mdrun --help\033[0m\n"
+  if [ "$fish_instructions" = "true" ]; then
+    log_info "To start using drun immediately in Fish:"
+    printf "  \033[1;36mset -gx PATH \"%s\" \$PATH\033[0m\n" "$target_dir"
+    printf "  \033[1;36mdrun --help\033[0m\n"
+  else
+    log_info "To start using drun immediately:"
+    printf "  \033[1;36msource %s\033[0m\n" "$drunrc_file"
+    printf "  \033[1;36mdrun --help\033[0m\n"
+  fi
   echo
 
   # Test if drun is accessible

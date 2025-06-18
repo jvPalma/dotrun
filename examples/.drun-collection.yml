@@ -1,0 +1,95 @@
+name: "DotRun Examples Collection"
+version: "1.0.0"
+description: "Comprehensive collection of example scripts demonstrating DotRun's capabilities across different development domains"
+author: "DotRun Team"
+team: "DotRun Maintainers"
+maintainers:
+  - "dotrun@example.com"
+
+# Collection metadata
+repository: "https://github.com/jvPalma/dotrun"
+homepage: "https://github.com/jvPalma/dotrun/wiki"
+license: "MIT"
+
+# Dependencies for various scripts
+dependencies:
+  - bash
+  - git
+
+# Optional dependencies that enhance functionality
+optional_dependencies:
+  - cloc           # For codebase structure script language analysis
+  - jq             # For JSON processing in some scripts  
+  - docker         # For workstation management scripts
+  - node           # For React development scripts
+  - npm            # For React development scripts
+  - curl           # For AI API calls
+  - gh             # GitHub CLI for PR operations
+
+# Script categories available in this collection
+categories:
+  - ai             # AI-powered development tools (codebase analysis, commit messages, PR descriptions)
+  - code           # Code quality and analysis tools
+  - git            # Git workflow automation and collaboration
+  - react          # React development utilities
+  - workstation    # System and workstation management
+  - development    # General development tools
+
+# Minimum DotRun version required
+min_dotrun_version: "2.0.0"
+
+# Target environments
+environments:
+  - development
+  - testing
+  - local
+
+# Collection features
+features:
+  - "AI-powered codebase analysis and commit generation"
+  - "Intelligent Git branch management and cleanup"
+  - "AI-generated conventional commit messages"
+  - "AI-powered pull request descriptions"
+  - "Code quality checking and analysis"
+  - "React component scaffolding and testing utilities"
+  - "Cross-platform workstation setup and management"
+  - "Interactive script interfaces with rich CLI feedback"
+  - "Automated cleanup and maintenance tools"
+  - "Git collaboration and PR workflow tools"
+
+# Usage instructions
+usage: |
+  This collection provides practical examples of DotRun scripts across different development domains:
+  
+  AI Tools:
+    drun examples/ai/gpt <directory>           # Generate codebase structure analysis
+    drun examples/ai/aiCommit                 # AI-generated conventional commit messages  
+    drun examples/ai/prDescription            # AI-powered PR title and body generation
+  
+  Code Quality:
+    drun examples/code/codeCheck              # Code quality analysis and checks
+  
+  Git Utilities:
+    drun examples/git/branchCleanup           # Interactive branch cleanup
+    drun examples/git/branchSlice             # Create focused branch commits
+    drun examples/git/branchCoSliced          # Combine branch slices
+    drun examples/git/prStack                 # PR stacking and management
+    drun examples/git/prStats                 # Pull request statistics
+  
+  React Development:
+    drun examples/react/rnewc ComponentName   # Create new React component
+    drun examples/react/rnewh HookName        # Create custom React hook
+    drun examples/react/testAll               # Run comprehensive React tests
+  
+  Workstation Management:
+    drun examples/workstation/wsc             # Configure workstation
+    drun examples/workstation/wss             # Setup development environment
+    drun examples/workstation/wsl             # Linux subsystem setup
+
+# Notes for users
+notes: |
+  - All scripts include comprehensive documentation in their respective README.md files
+  - Scripts are designed to be safe and include confirmation prompts for destructive operations
+  - Many scripts include interactive modes with rich CLI interfaces
+  - Helper functions are shared across related scripts for consistency
+  - Scripts follow DotRun best practices and can serve as templates for your own tools
