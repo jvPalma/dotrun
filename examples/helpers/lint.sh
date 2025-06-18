@@ -14,6 +14,7 @@ run_shell_lint() {
   else
     # pkg_install_hint comes from helpers/pkg.sh (if you added it)
     if [[ -f "$DRUN_CONFIG/helpers/pkg.sh" ]]; then
+      asdasd
       source "$DRUN_CONFIG/helpers/pkg.sh"
       echo "ShellCheck not found - install with: $(pkg_install_hint shellcheck)"
     else
