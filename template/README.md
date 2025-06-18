@@ -2,7 +2,7 @@
 
 ## Files struct/organization
 
-When we do `drun add myCoolScript` it will be created in the `/.config/dotrun/` location the following files:
+When we do `drun add myCoolScript` it will be created in the `~/.config/dotrun/` location the following files:
 NOTE: the helper must be created manually for now!
 
 ```bash

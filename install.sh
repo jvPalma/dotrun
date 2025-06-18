@@ -118,7 +118,7 @@ copy_files() {
   log_info "Setting up DotRun directories and files"
 
   # Define target directories
-  local target_dirs=("bin" "docs" "helpers")
+  local target_dirs=("bin" "docs" "helpers" "collections")
 
   # Create target directories if they don't exist
   for dir in "${target_dirs[@]}"; do
@@ -329,6 +329,38 @@ copy_files() {
     fi
   done
 
+  # Special handling for Fish completion - copy to fish completions directory
+  local fish_completion_src="$src/drun_completion.fish"
+  local fish_completion_dir="$INSTALL_HOME/.config/fish/completions"
+  local fish_completion_dst="$fish_completion_dir/drun.fish"
+  
+  if [ -f "$fish_completion_src" ]; then
+    if [ ! -d "$fish_completion_dir" ]; then
+      mkdir -p "$fish_completion_dir"
+      log_info "Created Fish completions directory: $fish_completion_dir"
+    fi
+    
+    if [ -f "$fish_completion_dst" ]; then
+      local src_checksum dst_checksum
+      src_checksum="$(get_checksum "$fish_completion_src")"
+      dst_checksum="$(get_checksum "$fish_completion_dst")"
+      
+      if [ "$src_checksum" != "$dst_checksum" ]; then
+        if [ "$force_override" = "true" ]; then
+          printf "$(get_message "overwritten" 0)" "~/.config/fish/completions/drun.fish"
+          cp "$fish_completion_src" "$fish_completion_dst"
+        else
+          printf "$(get_message "file differs" 0)" "~/.config/fish/completions/drun.fish"
+        fi
+      else
+        printf "$(get_message "unchanged" 0)" "~/.config/fish/completions/drun.fish"
+      fi
+    else
+      printf "$(get_message "new file" 0)" "~/.config/fish/completions/drun.fish"
+      cp "$fish_completion_src" "$fish_completion_dst"
+    fi
+  fi
+
   # Return status indicating if modifications were detected
   if [ "$modified_files_detected" = "true" ] && [ "$force_override" = "false" ]; then
     return 1 # Indicate modifications were detected but not overridden
@@ -446,7 +478,7 @@ main() {
   if [ "$os_type" = "windows" ]; then
     cfg_dir="${APPDATA:-$INSTALL_HOME/AppData/Roaming}/dotrun"
   else
-    cfg_dir="${INSTALL_HOME/.config}/dotrun"
+    cfg_dir="$INSTALL_HOME/.config/dotrun"
   fi
 
   # Default binary installation paths by OS
@@ -548,12 +580,6 @@ elif [ -n "\${ZSH_VERSION:-}" ] && [ -f "\$DRUN_CONFIG/drun_completion.zsh" ]; t
     source "\$DRUN_CONFIG/drun_completion.zsh"
 fi
 
-# Fish shell completion is handled differently - copy to fish completions directory
-if [ -n "\${FISH_VERSION:-}" ] && [ -f "\$DRUN_CONFIG/drun_completion.fish" ]; then
-    if [ -d "\$HOME/.config/fish/completions" ]; then
-        cp "\$DRUN_CONFIG/drun_completion.fish" "\$HOME/.config/fish/completions/drun.fish" 2>/dev/null || true
-    fi
-fi
 EOF
     log_success "Created $drunrc_file"
   else
@@ -603,10 +629,8 @@ EOF
     printf "  \033[1;36m# Add drun to PATH\033[0m\n"
     printf "  \033[1;36mset -gx PATH \"%s\" \$PATH\033[0m\n" "$target_dir"
     echo
-    printf "  \033[1;36m# Load Fish completion\033[0m\n"
-    printf "  \033[1;36mif test -f \"%s/drun_completion.fish\"\033[0m\n" "$cfg_dir"
-    printf "  \033[1;36m    source \"%s/drun_completion.fish\"\033[0m\n" "$cfg_dir"
-    printf "  \033[1;36mend\033[0m\n"
+    printf "  \033[1;36m# Fish completion is automatically loaded from ~/.config/fish/completions/drun.fish\033[0m\n"
+    printf "  \033[1;36m# (already installed during setup)\033[0m\n"
     echo
   else
     log_info "To complete setup, add this to your shell config:"
