@@ -8,6 +8,9 @@ set -euo pipefail
 
 IFS=$'\n\t'
 
+# Version
+DRUN_VERSION="1.0.1"
+
 # Configuration
 DRUN_CONFIG="${DRUN_CONFIG:-$HOME/.config/dotrun}"
 BIN_DIR="$DRUN_CONFIG/bin"
@@ -15,6 +18,12 @@ DOC_DIR="$DRUN_CONFIG/docs"
 DOC_TOKEN="### DOC"
 _default_editor="$(command -v code >/dev/null && echo "code" || echo "nano")"
 EDITOR="${EDITOR:-$_default_editor}"
+
+# Validate EDITOR environment variable
+if [[ -n "$EDITOR" ]] && ! command -v "$EDITOR" >/dev/null 2>&1; then
+  echo "Warning: EDITOR '$EDITOR' not found in PATH, falling back to $_default_editor" >&2
+  EDITOR="$_default_editor"
+fi
 
 mkdir -p "$BIN_DIR"
 mkdir -p "$DOC_DIR"
@@ -73,9 +82,14 @@ list_scripts() {
   local start_dir="$BIN_DIR/${scope%/}" # strip trailing /
 
   [[ ! -d "$start_dir" ]] && {
-    echo "No such folder: $scope"
+    echo "Error: No such folder: $scope" >&2
     return 1
   }
+
+  # Check for circular symlinks in the directory
+  if find "$start_dir" -type l -exec test ! -e {} \; -print 2>/dev/null | grep -q .; then
+    echo "Warning: Broken symlinks found in $start_dir" >&2
+  fi
 
   declare -A printed_folders=()
 
@@ -96,7 +110,7 @@ list_scripts() {
 
   while IFS= read -r -d '' file; do
     # shellcheck disable=SC2295
-    rel_path="${file#$BIN_DIR/}"
+    rel_path="${file#"$BIN_DIR"/}"
     script_name="$(basename "$rel_path" .sh)"
     folder_path="$(dirname "$rel_path")"
 
@@ -154,16 +168,41 @@ find_script_file() {
   # 1) explicit sub-folder path?
   if [[ "$query" == */* ]]; then
     local exact="$BIN_DIR/$query.sh"
-    [[ -f "$exact" ]] && {
+    if [[ -f "$exact" ]]; then
+      # Check if file is executable
+      if [[ ! -x "$exact" ]]; then
+        echo "Error: Script '$exact' is not executable" >&2
+        return 1
+      fi
+      # Check for circular symlinks
+      if [[ -L "$exact" ]] && ! readlink -e "$exact" >/dev/null 2>&1; then
+        echo "Error: Script '$exact' is a broken symlink" >&2
+        return 1
+      fi
       echo "$exact"
       return
-    }
+    fi
   fi
 
   # 2) fallback: search anywhere for basename
   local base
   base="$(basename "$query").sh"
-  find "$BIN_DIR" -type f -name "$base" | head -n 1
+  local found_file
+  found_file=$(find "$BIN_DIR" -type f -name "$base" 2>/dev/null | head -n 1)
+
+  if [[ -n "$found_file" ]]; then
+    # Check if file is executable
+    if [[ ! -x "$found_file" ]]; then
+      echo "Error: Script '$found_file' is not executable" >&2
+      return 1
+    fi
+    # Check for circular symlinks
+    if [[ -L "$found_file" ]] && ! readlink -e "$found_file" >/dev/null 2>&1; then
+      echo "Error: Script '$found_file' is a broken symlink" >&2
+      return 1
+    fi
+    echo "$found_file"
+  fi
 }
 
 add_script() {
@@ -176,6 +215,13 @@ add_script() {
     create_script_skeleton "$name"
     echo "Created new script: $file"
   fi
+
+  # Validate editor before using
+  if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
+    echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
+    exit 1
+  fi
+
   "$EDITOR" "$file"
   [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
 }
@@ -184,6 +230,12 @@ edit_script() {
   local file
   file=$(find_script_file "$1")
   if [[ -n "$file" ]]; then
+    # Validate editor before using
+    if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
+      echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
+      exit 1
+    fi
+
     "$EDITOR" "$file"
     [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
   else
@@ -197,8 +249,14 @@ edit_docs() {
   local file
   file=$(find_script_file "$1")
   if [[ -n "$file" ]]; then
+    # Validate editor before using
+    if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
+      echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
+      exit 1
+    fi
+
     # Get relative path from bin directory and convert to doc path
-    local rel_path="${file#$BIN_DIR/}"
+    local rel_path="${file#"$BIN_DIR"/}"
     local doc_file="$DOC_DIR/$(basename "$rel_path" .sh).md"
 
     # Preserve folder structure: bin/ai/gpt.sh -> docs/ai/gpt.md
@@ -247,7 +305,7 @@ show_docs() {
   fi
 
   # Get relative path from bin directory and convert to doc path
-  local rel_path="${file#$BIN_DIR/}"
+  local rel_path="${file#"$BIN_DIR"/}"
   local doc_file="$DOC_DIR/$(basename "$rel_path" .sh).md"
 
   # Preserve folder structure: bin/ai/gpt.sh -> docs/ai/gpt.md
@@ -332,6 +390,171 @@ docs | details)
   }
   show_docs "$2"
   ;;
+yadm-init)
+  check_prerequisites
+  if ! command -v yadm_init >/dev/null 2>&1; then
+    echo "Error: Collections helper not available" >&2
+    exit 1
+  fi
+  yadm_init
+  ;;
+import)
+  [[ -z "${2:-}" ]] && {
+    echo "Usage: drun import <source-url|path> [collection-name] [options]"
+    echo "Options:"
+    echo "  --preview           Show collection contents without importing"
+    echo "  --pick <script>     Import only specified script (e.g., frontend/component)"
+    echo "Examples:"
+    echo "  drun import https://github.com/team/scripts.git --preview"
+    echo "  drun import https://github.com/team/scripts.git"
+    echo "  drun import https://github.com/team/scripts.git --pick frontend/build"
+    echo "  drun import /path/to/local/collection team-tools"
+    exit 1
+  }
+  check_prerequisites
+  if ! command -v import_collection >/dev/null 2>&1; then
+    echo "Error: Collections helper not available" >&2
+    exit 1
+  fi
+
+  # Parse arguments
+  source="$2"
+  collection_name=""
+  preview_mode=false
+  pick_script=""
+
+  # Process remaining arguments
+  shift 2
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --preview)
+      preview_mode=true
+      shift
+      ;;
+    --pick)
+      [[ -z "${2:-}" ]] && {
+        echo "Error: --pick requires a script name (e.g., frontend/component)" >&2
+        exit 1
+      }
+      pick_script="$2"
+      shift 2
+      ;;
+    *)
+      # Assume it's the collection name if no flags
+      if [[ ! "$1" =~ ^-- ]]; then
+        collection_name="$1"
+      else
+        echo "Error: Unknown option: $1" >&2
+        exit 1
+      fi
+      shift
+      ;;
+    esac
+  done
+
+  if $preview_mode; then
+    preview_collection "$source"
+  elif [[ -n "$pick_script" ]]; then
+    import_single_script "$source" "$pick_script" "$collection_name"
+  else
+    import_collection "$source" "$collection_name"
+  fi
+  ;;
+export)
+  [[ -z "${2:-}" ]] && {
+    echo "Usage: drun export <collection-name> <export-path> [--git]"
+    echo "Examples:"
+    echo "  drun export my-scripts ./my-scripts-export"
+    echo "  drun export team-tools /tmp/export --git"
+    exit 1
+  }
+  [[ -z "${3:-}" ]] && {
+    echo "Error: Export path required"
+    echo "Usage: drun export <collection-name> <export-path> [--git]"
+    exit 1
+  }
+  check_prerequisites
+  if ! command -v export_collection >/dev/null 2>&1; then
+    echo "Error: Collections helper not available" >&2
+    exit 1
+  fi
+  include_git="false"
+  if [[ "${4:-}" == "--git" ]]; then
+    include_git="true"
+  fi
+  export_collection "$2" "$3" "$include_git"
+  ;;
+collections)
+  check_prerequisites
+  if ! command -v list_collections >/dev/null 2>&1; then
+    echo "Error: Collections helper not available" >&2
+    exit 1
+  fi
+  case "${2:-list}" in
+  list | -l)
+    list_collections
+    ;;
+  list:details | -L)
+    list_collections true
+    ;;
+  remove)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: drun collections remove <collection-name> [--force]"
+      exit 1
+    }
+    force="false"
+    if [[ "${4:-}" == "--force" ]]; then
+      force="true"
+    fi
+    remove_collection "$3" "$force"
+    ;;
+  *)
+    echo "Usage: drun collections <command>"
+    echo "Commands:"
+    echo "  list              List installed collections"
+    echo "  list:details      List collections with detailed information"
+    echo "  remove <name>     Remove a collection"
+    echo "  remove <name> --force  Remove without confirmation"
+    ;;
+  esac
+  ;;
+team)
+  case "${2:-}" in
+  init)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: drun team init <team-repo-url> [team-name]"
+      echo "Example: drun team init git@github.com:company/dotrun-scripts.git company"
+      exit 1
+    }
+    check_prerequisites
+    if ! command -v import_collection >/dev/null 2>&1; then
+      echo "Error: Collections helper not available" >&2
+      exit 1
+    fi
+    team_name="${4:-team}"
+    echo "Setting up team collection: $team_name"
+    import_collection "$3" "$team_name"
+    ;;
+  sync)
+    echo "Team sync functionality coming soon..."
+    echo "For now, use: drun collections remove <team-name> && drun import <team-repo-url> <team-name>"
+    ;;
+  *)
+    echo "Usage: drun team <command>"
+    echo "Commands:"
+    echo "  init <repo-url> [name]  Setup team collection from repository"
+    echo "  sync                    Sync team collections (planned)"
+    echo
+    echo "Examples:"
+    echo "  drun team init git@github.com:company/scripts.git company"
+    echo "  drun team init https://github.com/team/dotrun-tools.git dev-tools"
+    ;;
+  esac
+  ;;
+-v | --version | version)
+  echo "drun version $DRUN_VERSION"
+  exit 0
+  ;;
 "" | -h | --help)
   echo "drun <command> [args...]"
   echo
@@ -347,9 +570,26 @@ docs | details)
   echo "  details <name>      Alias for 'docs' command"
   echo "  <name> [args…]      Execute script <name> from anywhere"
   echo
+  echo "Integration & Collections"
+  echo "  yadm-init           Setup DotRun to work with existing yadm repository"
+  echo "  import <url|path>   Import script collection from git repo or local path"
+  echo "    --preview         Show collection contents without importing"
+  echo "    --pick <script>   Import only specified script (e.g., frontend/build)"
+  echo "  export <name> <path> Export collection to directory [--git]"
+  echo "  collections <cmd>   Manage installed collections (list, remove)"
+  echo "  team <cmd>          Team collaboration commands (init, sync)"
+  echo
   echo "Environment Variables"
   echo "  DRUN_CONFIG         Override root (default \$HOME/.config/dotrun)"
   echo "  EDITOR              Command to open editor (default: auto-detect)"
+  echo
+  echo "Examples"
+  echo "  drun yadm-init      # Setup with existing yadm dotfiles"
+  echo "  drun import https://github.com/team/scripts.git --preview"
+  echo "  drun import https://github.com/team/scripts.git company"
+  echo "  drun import https://github.com/team/scripts.git --pick frontend/build"
+  echo "  drun team init git@github.com:company/tools.git"
+  echo "  drun collections list:details"
   echo
   echo "Note: drun auto-runs ShellCheck after add/edit if available"
   echo "      'glow' is recommended for beautiful markdown rendering"
