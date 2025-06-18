@@ -547,6 +547,13 @@ if [ -n "\${BASH_VERSION:-}" ] && [ -f "\$DRUN_CONFIG/drun_completion.bash" ]; t
 elif [ -n "\${ZSH_VERSION:-}" ] && [ -f "\$DRUN_CONFIG/drun_completion.zsh" ]; then
     source "\$DRUN_CONFIG/drun_completion.zsh"
 fi
+
+# Fish shell completion is handled differently - copy to fish completions directory
+if [ -n "\${FISH_VERSION:-}" ] && [ -f "\$DRUN_CONFIG/drun_completion.fish" ]; then
+    if [ -d "\$HOME/.config/fish/completions" ]; then
+        cp "\$DRUN_CONFIG/drun_completion.fish" "\$HOME/.config/fish/completions/drun.fish" 2>/dev/null || true
+    fi
+fi
 EOF
     log_success "Created $drunrc_file"
   else
