@@ -449,18 +449,9 @@ main() {
     cfg_dir="${INSTALL_HOME/.config}/dotrun"
   fi
 
-  # Default binary installation paths by OS
-  case "$os_type" in
-  macos)
-    bin_dest="/usr/local/bin"
-    ;;
-  windows)
-    bin_dest="$INSTALL_HOME/bin"
-    ;;
-  *)
-    bin_dest="$INSTALL_HOME/.local/bin"
-    ;;
-  esac
+  # Default binary installation path - use ~/.local/bin for all platforms
+  # This ensures drun is installed in user space without requiring sudo
+  bin_dest="$INSTALL_HOME/.local/bin"
 
   log_info "Config directory: $cfg_dir"
   log_info "Binary destination: $bin_dest"

@@ -1,0 +1,30 @@
+# DotRun Collection Metadata
+name: "example-collection"
+description: "An example DotRun script collection for teams"
+author: "DotRun Team"
+version: "1.0.0"
+created: "2025-06-18T00:00:00Z"
+type: "drun-collection"
+
+# Scripts included in this collection
+scripts:
+  - name: "hello-team"
+    path: "bin/hello-team.sh"
+    description: "A simple hello script for team collaboration"
+  - name: "docker-cleanup"
+    path: "bin/docker-cleanup.sh"
+    description: "Clean up Docker containers and images"
+
+# Dependencies (other collections this depends on)
+dependencies: []
+
+# Environment compatibility
+environments:
+  - "dev"
+  - "staging"
+  - "prod"
+
+# Team information
+team:
+  repo: "https://github.com/example/dotrun-collection"
+  contact: "team@example.com"

@@ -6,8 +6,10 @@ _drun_autocomplete() {
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD - 1]}"
 
-  local commands="add edit edit:docs help docs details"
+  local commands="add edit edit:docs help docs details yadm-init import export collections team"
   local flags="-l -L -h --help"
+  local collection_commands="list list:details remove"
+  local team_commands="init sync"
   local BIN_DIR="${DRUN_CONFIG:-$HOME/.config/dotrun}/bin"
   
   # Get all scripts including those in subfolders
@@ -42,6 +44,27 @@ _drun_autocomplete() {
         # Also allow typing new names by not restricting to existing scripts
         if [[ -n "$cur" ]]; then
           COMPREPLY+=("$cur")
+        fi
+        ;;
+      # Collections subcommands
+      collections)
+        COMPREPLY=($(compgen -W "$collection_commands" -- "$cur"))
+        ;;
+      # Team subcommands
+      team)
+        COMPREPLY=($(compgen -W "$team_commands" -- "$cur"))
+        ;;
+      # Import/export need different completion
+      import)
+        # Can complete files/directories for local paths
+        COMPREPLY=($(compgen -f -- "$cur"))
+        ;;
+      export)
+        # Complete with available collections
+        local COLLECTIONS_DIR="${DRUN_CONFIG:-$HOME/.config/dotrun}/collections"
+        if [[ -d "$COLLECTIONS_DIR" ]]; then
+          local collections=($(ls -1 "$COLLECTIONS_DIR" 2>/dev/null))
+          COMPREPLY=($(compgen -W "${collections[*]}" -- "$cur"))
         fi
         ;;
       # -l and -L can take optional folder arguments

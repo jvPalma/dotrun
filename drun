@@ -66,8 +66,11 @@ check_prerequisites() {
 
 # Helpers
 LINT_HELPER="$DRUN_CONFIG/helpers/lint.sh"
+COLLECTIONS_HELPER="$DRUN_CONFIG/helpers/collections.sh"
 # shellcheck disable=SC1090
 [[ -f "$LINT_HELPER" ]] && source "$LINT_HELPER"
+# shellcheck disable=SC1090
+[[ -f "$COLLECTIONS_HELPER" ]] && source "$COLLECTIONS_HELPER"
 
 # Traverse bin directory and print scripts with doc in tree-style and colors
 # list_scripts show_docs scope
@@ -387,10 +390,120 @@ docs | details)
   }
   show_docs "$2"
   ;;
+yadm-init)
+  check_prerequisites
+  if ! command -v yadm_init >/dev/null 2>&1; then
+    echo "Error: Collections helper not available" >&2
+    exit 1
+  fi
+  yadm_init
+  ;;
+import)
+  [[ -z "${2:-}" ]] && {
+    echo "Usage: drun import <source-url|path> [collection-name]"
+    echo "Examples:"
+    echo "  drun import https://github.com/team/scripts.git"
+    echo "  drun import /path/to/local/collection team-tools"
+    exit 1
+  }
+  check_prerequisites
+  if ! command -v import_collection >/dev/null 2>&1; then
+    echo "Error: Collections helper not available" >&2
+    exit 1
+  fi
+  import_collection "$2" "${3:-}"
+  ;;
+export)
+  [[ -z "${2:-}" ]] && {
+    echo "Usage: drun export <collection-name> <export-path> [--git]"
+    echo "Examples:"
+    echo "  drun export my-scripts ./my-scripts-export"
+    echo "  drun export team-tools /tmp/export --git"
+    exit 1
+  }
+  [[ -z "${3:-}" ]] && {
+    echo "Error: Export path required"
+    echo "Usage: drun export <collection-name> <export-path> [--git]"
+    exit 1
+  }
+  check_prerequisites
+  if ! command -v export_collection >/dev/null 2>&1; then
+    echo "Error: Collections helper not available" >&2
+    exit 1
+  fi
+  include_git="false"
+  [[ "${4:-}" == "--git" ]] && include_git="true"
+  export_collection "$2" "$3" "$include_git"
+  ;;
+collections)
+  check_prerequisites
+  if ! command -v list_collections >/dev/null 2>&1; then
+    echo "Error: Collections helper not available" >&2
+    exit 1
+  fi
+  case "${2:-list}" in
+  list | -l)
+    list_collections
+    ;;
+  list:details | -L)
+    list_collections true
+    ;;
+  remove)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: drun collections remove <collection-name> [--force]"
+      exit 1
+    }
+    force="false"
+    [[ "${4:-}" == "--force" ]] && force="true"
+    remove_collection "$3" "$force"
+    ;;
+  *)
+    echo "Usage: drun collections <command>"
+    echo "Commands:"
+    echo "  list              List installed collections"
+    echo "  list:details      List collections with detailed information"
+    echo "  remove <name>     Remove a collection"
+    echo "  remove <name> --force  Remove without confirmation"
+    ;;
+  esac
+  ;;
+team)
+  case "${2:-}" in
+  init)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: drun team init <team-repo-url> [team-name]"
+      echo "Example: drun team init git@github.com:company/dotrun-scripts.git company"
+      exit 1
+    }
+    check_prerequisites
+    if ! command -v import_collection >/dev/null 2>&1; then
+      echo "Error: Collections helper not available" >&2
+      exit 1
+    fi
+    team_name="${4:-team}"
+    echo "Setting up team collection: $team_name"
+    import_collection "$3" "$team_name"
+    ;;
+  sync)
+    echo "Team sync functionality coming soon..."
+    echo "For now, use: drun collections remove <team-name> && drun import <team-repo-url> <team-name>"
+    ;;
+  *)
+    echo "Usage: drun team <command>"
+    echo "Commands:"
+    echo "  init <repo-url> [name]  Setup team collection from repository"
+    echo "  sync                    Sync team collections (planned)"
+    echo
+    echo "Examples:"
+    echo "  drun team init git@github.com:company/scripts.git company"
+    echo "  drun team init https://github.com/team/dotrun-tools.git dev-tools"
+    ;;
+  esac
+  ;;
 "" | -h | --help)
   echo "drun <command> [args...]"
   echo
-  echo "Commands"
+  echo "Script Management"
   echo "  -l                  List all scripts (names only)"
   echo "  -L                  List scripts with docs, optionally scoped"
   echo "  -l/L [folder/]      List scripts within the scoped folder"
@@ -402,9 +515,22 @@ docs | details)
   echo "  details <name>      Alias for 'docs' command"
   echo "  <name> [args…]      Execute script <name> from anywhere"
   echo
+  echo "Integration & Collections"
+  echo "  yadm-init           Setup DotRun to work with existing yadm repository"
+  echo "  import <url|path>   Import script collection from git repo or local path"
+  echo "  export <name> <path> Export collection to directory [--git]"
+  echo "  collections <cmd>   Manage installed collections (list, remove)"
+  echo "  team <cmd>          Team collaboration commands (init, sync)"
+  echo
   echo "Environment Variables"
   echo "  DRUN_CONFIG         Override root (default \$HOME/.config/dotrun)"
   echo "  EDITOR              Command to open editor (default: auto-detect)"
+  echo
+  echo "Examples"
+  echo "  drun yadm-init      # Setup with existing yadm dotfiles"
+  echo "  drun import https://github.com/team/scripts.git company"
+  echo "  drun team init git@github.com:company/tools.git"
+  echo "  drun collections list:details"
   echo
   echo "Note: drun auto-runs ShellCheck after add/edit if available"
   echo "      'glow' is recommended for beautiful markdown rendering"

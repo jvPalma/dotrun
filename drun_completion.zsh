@@ -13,6 +13,11 @@ _drun() {
     'help:Show embedded docs for a script'
     'docs:Show full markdown documentation'
     'details:Alias for docs command'
+    'yadm-init:Setup DotRun to work with existing yadm repository'
+    'import:Import script collection from git repo or local path'
+    'export:Export collection to directory'
+    'collections:Manage installed collections'
+    'team:Team collaboration commands'
   )
   
   # Define flags
@@ -59,6 +64,35 @@ _drun() {
           # These commands need existing script names
           compadd -a scripts
           ;;
+        collections)
+          # Collections subcommands
+          local collection_commands=(
+            'list:List installed collections'
+            'list\:details:List collections with detailed information'
+            'remove:Remove a collection'
+          )
+          compadd -a collection_commands
+          ;;
+        team)
+          # Team subcommands
+          local team_commands=(
+            'init:Setup team collection from repository'
+            'sync:Sync team collections'
+          )
+          compadd -a team_commands
+          ;;
+        import)
+          # File/directory completion for local paths
+          _files
+          ;;
+        export)
+          # Complete with available collections
+          local COLLECTIONS_DIR="${DRUN_CONFIG:-$HOME/.config/dotrun}/collections"
+          if [[ -d "$COLLECTIONS_DIR" ]]; then
+            local collections=(${(f)"$(ls -1 "$COLLECTIONS_DIR" 2>/dev/null)"})
+            compadd -a collections
+          fi
+          ;;
         -l|-L)
           # Optional folder argument
           compadd -a folders
@@ -67,7 +101,7 @@ _drun() {
       ;;
     *)
       # For script execution (when first arg is not a command/flag)
-      if [[ ! "${words[2]}" =~ ^(add|edit|edit:docs|help|docs|details|-l|-L|-h|--help)$ ]]; then
+      if [[ ! "${words[2]}" =~ ^(add|edit|edit:docs|help|docs|details|yadm-init|import|export|collections|team|-l|-L|-h|--help)$ ]]; then
         # Don't complete script arguments
         return 0
       fi
