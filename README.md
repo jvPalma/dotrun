@@ -37,16 +37,42 @@ The installer will:
 3. 🎨 Set up shell completion (Bash/Zsh/Fish)
 4. ✅ Verify installation and show next steps
 
+### Manual Shell Completion Setup
+
+If you're using Zsh or Fish, you can enable enhanced completion by adding the appropriate completion file:
+
+**Zsh:**
+```bash
+# Add to ~/.zshrc
+source ~/.config/dotrun/drun_completion.zsh
+```
+
+**Fish:**
+```bash
+# Copy to Fish completions directory
+cp ~/.config/dotrun/drun_completion.fish ~/.config/fish/completions/drun.fish
+```
+
+**Bash:**
+```bash
+# Add to ~/.bashrc
+source ~/.config/dotrun/drun_completion.bash
+```
+
+**Note:** The installer automatically sets up completion for your detected shell via the `.drunrc` file.
+
 ---
 
 ## 📁 Directory Structure
 
 ```
 ~/.config/dotrun/
-├── bin/                 # 🎯 Executable scripts organized by category
-├── helpers/             # 📚 Shared utility libraries
-├── docs/                # 📖 Comprehensive documentation
-└── drun_completion       # 🎨 Shell completion script
+├── bin/                      # 🎯 Executable scripts organized by category
+├── helpers/                  # 📚 Shared utility libraries
+├── docs/                     # 📖 Comprehensive documentation
+├── drun_completion.bash      # 🎨 Bash completion script
+├── drun_completion.zsh       # 🎨 Zsh completion script
+└── drun_completion.fish      # 🎨 Fish completion script
 ```
 
 ---

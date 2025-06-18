@@ -16,6 +16,12 @@ DOC_TOKEN="### DOC"
 _default_editor="$(command -v code >/dev/null && echo "code" || echo "nano")"
 EDITOR="${EDITOR:-$_default_editor}"
 
+# Validate EDITOR environment variable
+if [[ -n "$EDITOR" ]] && ! command -v "$EDITOR" >/dev/null 2>&1; then
+  echo "Warning: EDITOR '$EDITOR' not found in PATH, falling back to $_default_editor" >&2
+  EDITOR="$_default_editor"
+fi
+
 mkdir -p "$BIN_DIR"
 mkdir -p "$DOC_DIR"
 
@@ -73,9 +79,14 @@ list_scripts() {
   local start_dir="$BIN_DIR/${scope%/}" # strip trailing /
 
   [[ ! -d "$start_dir" ]] && {
-    echo "No such folder: $scope"
+    echo "Error: No such folder: $scope" >&2
     return 1
   }
+  
+  # Check for circular symlinks in the directory
+  if find "$start_dir" -type l -exec test ! -e {} \; -print 2>/dev/null | grep -q .; then
+    echo "Warning: Broken symlinks found in $start_dir" >&2
+  fi
 
   declare -A printed_folders=()
 
@@ -96,7 +107,7 @@ list_scripts() {
 
   while IFS= read -r -d '' file; do
     # shellcheck disable=SC2295
-    rel_path="${file#$BIN_DIR/}"
+    rel_path="${file#"$BIN_DIR"/}"
     script_name="$(basename "$rel_path" .sh)"
     folder_path="$(dirname "$rel_path")"
 
@@ -154,16 +165,41 @@ find_script_file() {
   # 1) explicit sub-folder path?
   if [[ "$query" == */* ]]; then
     local exact="$BIN_DIR/$query.sh"
-    [[ -f "$exact" ]] && {
+    if [[ -f "$exact" ]]; then
+      # Check if file is executable
+      if [[ ! -x "$exact" ]]; then
+        echo "Error: Script '$exact' is not executable" >&2
+        return 1
+      fi
+      # Check for circular symlinks
+      if [[ -L "$exact" ]] && ! readlink -e "$exact" >/dev/null 2>&1; then
+        echo "Error: Script '$exact' is a broken symlink" >&2
+        return 1
+      fi
       echo "$exact"
       return
-    }
+    fi
   fi
 
   # 2) fallback: search anywhere for basename
   local base
   base="$(basename "$query").sh"
-  find "$BIN_DIR" -type f -name "$base" | head -n 1
+  local found_file
+  found_file=$(find "$BIN_DIR" -type f -name "$base" 2>/dev/null | head -n 1)
+  
+  if [[ -n "$found_file" ]]; then
+    # Check if file is executable
+    if [[ ! -x "$found_file" ]]; then
+      echo "Error: Script '$found_file' is not executable" >&2
+      return 1
+    fi
+    # Check for circular symlinks
+    if [[ -L "$found_file" ]] && ! readlink -e "$found_file" >/dev/null 2>&1; then
+      echo "Error: Script '$found_file' is a broken symlink" >&2
+      return 1
+    fi
+    echo "$found_file"
+  fi
 }
 
 add_script() {
@@ -176,6 +212,13 @@ add_script() {
     create_script_skeleton "$name"
     echo "Created new script: $file"
   fi
+  
+  # Validate editor before using
+  if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
+    echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
+    exit 1
+  fi
+  
   "$EDITOR" "$file"
   [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
 }
@@ -184,6 +227,12 @@ edit_script() {
   local file
   file=$(find_script_file "$1")
   if [[ -n "$file" ]]; then
+    # Validate editor before using
+    if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
+      echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
+      exit 1
+    fi
+    
     "$EDITOR" "$file"
     [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
   else
@@ -197,8 +246,14 @@ edit_docs() {
   local file
   file=$(find_script_file "$1")
   if [[ -n "$file" ]]; then
+    # Validate editor before using
+    if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
+      echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
+      exit 1
+    fi
+    
     # Get relative path from bin directory and convert to doc path
-    local rel_path="${file#$BIN_DIR/}"
+    local rel_path="${file#"$BIN_DIR"/}"
     local doc_file="$DOC_DIR/$(basename "$rel_path" .sh).md"
 
     # Preserve folder structure: bin/ai/gpt.sh -> docs/ai/gpt.md
@@ -247,7 +302,7 @@ show_docs() {
   fi
 
   # Get relative path from bin directory and convert to doc path
-  local rel_path="${file#$BIN_DIR/}"
+  local rel_path="${file#"$BIN_DIR"/}"
   local doc_file="$DOC_DIR/$(basename "$rel_path" .sh).md"
 
   # Preserve folder structure: bin/ai/gpt.sh -> docs/ai/gpt.md

@@ -150,7 +150,9 @@ copy_files() {
 
   # Files to include at root level (only these specific files)
   local root_files=(
-    "drun_completion"
+    "drun_completion.bash"
+    "drun_completion.zsh"
+    "drun_completion.fish"
     "README.md"
   )
 
@@ -275,7 +277,7 @@ copy_files() {
             cp "$src_file" "$dst_file"
             # Preserve executable permissions
             if [ -x "$src_file" ]; then
-              chmod +x "$dst_file"`
+              chmod +x "$dst_file"
             fi
           else
             printf "$(get_message "file differs" 1)" "$rel_path"
@@ -356,7 +358,7 @@ get_shell_config() {
     fi
     ;;
   bash)
-    if [ -f "$HINSTALL_HOMEOME/.bashrc" ]; then
+    if [ -f "$INSTALL_HOME/.bashrc" ]; then
       echo "$INSTALL_HOME/.bashrc"
     elif [ -f "$INSTALL_HOME/.bash_profile" ]; then
       echo "$INSTALL_HOME/.bash_profile"
@@ -399,7 +401,46 @@ main() {
 
   # Get absolute path of script directory (works across platforms)
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  src_dir="$script_dir"
+  
+  # Check if we're running from a proper dotrun repository
+  if [ -f "$script_dir/drun" ] && [ -d "$script_dir/bin" ] && [ -d "$script_dir/helpers" ]; then
+    # Running from local repository
+    src_dir="$script_dir"
+    log_info "Using local repository at $src_dir"
+  else
+    # Running via curl - need to download repository
+    log_info "No local repository found - downloading from GitHub..."
+    
+    # Create temporary directory for download
+    temp_dir="$(mktemp -d)"
+    
+    # Download and extract repository
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsSL "https://github.com/jvPalma/dotrun/archive/master.tar.gz" | tar -xz -C "$temp_dir" --strip-components=1
+    elif command -v wget >/dev/null 2>&1; then
+      wget -qO- "https://github.com/jvPalma/dotrun/archive/master.tar.gz" | tar -xz -C "$temp_dir" --strip-components=1
+    else
+      log_error "Neither curl nor wget found. Please install one of them or clone the repository manually."
+      exit 1
+    fi
+    
+    # Verify download succeeded
+    if [ ! -f "$temp_dir/drun" ] || [ ! -d "$temp_dir/bin" ]; then
+      log_error "Failed to download repository from GitHub"
+      exit 1
+    fi
+    
+    src_dir="$temp_dir"
+    log_success "Repository downloaded to $src_dir"
+    
+    # Set trap to cleanup temp directory
+    cleanup_temp() {
+      if [ -n "${temp_dir:-}" ] && [ -d "$temp_dir" ]; then
+        rm -rf "$temp_dir"
+      fi
+    }
+    trap cleanup_temp EXIT
+  fi
 
   # Use XDG Base Directory specification where possible
   if [ "$os_type" = "windows" ]; then
@@ -501,8 +542,10 @@ case ":\$PATH:" in
 esac
 
 # Load shell completion if available
-if [ -f "\$DRUN_CONFIG/drun_completion" ]; then
-    source "\$DRUN_CONFIG/drun_completion"
+if [ -n "\${BASH_VERSION:-}" ] && [ -f "\$DRUN_CONFIG/drun_completion.bash" ]; then
+    source "\$DRUN_CONFIG/drun_completion.bash"
+elif [ -n "\${ZSH_VERSION:-}" ] && [ -f "\$DRUN_CONFIG/drun_completion.zsh" ]; then
+    source "\$DRUN_CONFIG/drun_completion.zsh"
 fi
 EOF
     log_success "Created $drunrc_file"
@@ -514,10 +557,12 @@ EOF
   # 5. Shell-specific integration advice
   # ------------------------------------------------------------------
 
-  local integration_cmd
+  local integration_cmd fish_instructions=""
   case "$shell_type" in
   fish)
-    integration_cmd="echo 'source $drunrc_file' >> $shell_config"
+    # Fish needs special handling since it doesn't source bash files
+    fish_instructions="true"
+    integration_cmd="# Fish shell integration (see special instructions below)"
     ;;
   *)
     integration_cmd="echo 'source $drunrc_file' >> $shell_config"
@@ -545,6 +590,17 @@ EOF
 
   if [ "$already_integrated" = "true" ]; then
     log_info "Shell integration already configured"
+  elif [ "$fish_instructions" = "true" ]; then
+    log_info "For Fish shell, add these lines to your $shell_config:"
+    echo
+    printf "  \033[1;36m# Add drun to PATH\033[0m\n"
+    printf "  \033[1;36mset -gx PATH \"%s\" \$PATH\033[0m\n" "$target_dir"
+    echo
+    printf "  \033[1;36m# Load Fish completion\033[0m\n"
+    printf "  \033[1;36mif test -f \"%s/drun_completion.fish\"\033[0m\n" "$cfg_dir"
+    printf "  \033[1;36m    source \"%s/drun_completion.fish\"\033[0m\n" "$cfg_dir"
+    printf "  \033[1;36mend\033[0m\n"
+    echo
   else
     log_info "To complete setup, add this to your shell config:"
     echo
@@ -554,9 +610,15 @@ EOF
   fi
 
   echo
-  log_info "To start using drun immediately:"
-  printf "  \033[1;36msource %s\033[0m\n" "$drunrc_file"
-  printf "  \033[1;36mdrun --help\033[0m\n"
+  if [ "$fish_instructions" = "true" ]; then
+    log_info "To start using drun immediately in Fish:"
+    printf "  \033[1;36mset -gx PATH \"%s\" \$PATH\033[0m\n" "$target_dir"
+    printf "  \033[1;36mdrun --help\033[0m\n"
+  else
+    log_info "To start using drun immediately:"
+    printf "  \033[1;36msource %s\033[0m\n" "$drunrc_file"
+    printf "  \033[1;36mdrun --help\033[0m\n"
+  fi
   echo
 
   # Test if drun is accessible
