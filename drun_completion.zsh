@@ -13,6 +13,11 @@ _drun() {
     'help:Show embedded docs for a script'
     'docs:Show full markdown documentation'
     'details:Alias for docs command'
+    'move:Move/rename a script'
+    'rename:Move/rename a script (alias for move)'
+    'mv:Move/rename a script (alias for move)'
+    'aliases:Manage shell aliases'
+    'config:Manage configuration variables'
   )
   
   # Define flags
@@ -37,6 +42,46 @@ _drun() {
     folders=()
   fi
   
+  # Get aliases and config for completion
+  local ALIASES_DIR="${DRUN_CONFIG:-$HOME/.config/dotrun}/aliases"
+  local CONFIG_DIR="${DRUN_CONFIG:-$HOME/.config/dotrun}/config"
+  
+  # Get alias names
+  local aliases=()
+  if [[ -f "$ALIASES_DIR/.aliases" ]]; then
+    aliases+=(${(f)"$(grep -E "^alias " "$ALIASES_DIR/.aliases" 2>/dev/null | sed 's/^alias \([^=]*\)=.*/\1/' | sort)"})
+  fi
+  if [[ -d "$ALIASES_DIR/.aliases.d" ]]; then
+    for category_file in "$ALIASES_DIR/.aliases.d"/*.aliases; do
+      [[ -f "$category_file" ]] && aliases+=(${(f)"$(grep -E "^alias " "$category_file" 2>/dev/null | sed 's/^alias \([^=]*\)=.*/\1/' | sort)"})
+    done
+  fi
+  
+  # Get config keys
+  local config_keys=()
+  if [[ -f "$CONFIG_DIR/.dotrun_config" ]]; then
+    config_keys+=(${(f)"$(grep -E "^export " "$CONFIG_DIR/.dotrun_config" 2>/dev/null | sed 's/^export \([^=]*\)=.*/\1/' | sort)"})
+  fi
+  if [[ -d "$CONFIG_DIR/.dotrun_config.d" ]]; then
+    for category_file in "$CONFIG_DIR/.dotrun_config.d"/*.config; do
+      [[ -f "$category_file" ]] && config_keys+=(${(f)"$(grep -E "^export " "$category_file" 2>/dev/null | sed 's/^export \([^=]*\)=.*/\1/' | sort)"})
+    done
+  fi
+  
+  # Get categories
+  local alias_categories=()
+  if [[ -d "$ALIASES_DIR/.aliases.d" ]]; then
+    for category_file in "$ALIASES_DIR/.aliases.d"/*.aliases; do
+      [[ -f "$category_file" ]] && alias_categories+=($(basename "$category_file" .aliases))
+    done
+  fi
+  local config_categories=()
+  if [[ -d "$CONFIG_DIR/.dotrun_config.d" ]]; then
+    for category_file in "$CONFIG_DIR/.dotrun_config.d"/*.config; do
+      [[ -f "$category_file" ]] && config_categories+=($(basename "$category_file" .config))
+    done
+  fi
+  
   # Main completion logic
   case $CURRENT in
     2)
@@ -59,6 +104,10 @@ _drun() {
           # These commands need existing script names
           compadd -a scripts
           ;;
+        move|rename|mv)
+          # Move/rename commands need existing script names as first argument
+          compadd -a scripts
+          ;;
         collections)
           # Collections subcommands
           local collection_commands=(
@@ -75,6 +124,31 @@ _drun() {
             'sync:Sync team collections'
           )
           compadd -a team_commands
+          ;;
+        aliases)
+          # Aliases subcommands
+          local aliases_commands=(
+            'init:Initialize aliases system'
+            'add:Add new alias'
+            'list:List all aliases'
+            'edit:Edit existing alias'
+            'remove:Remove alias'
+            'reload:Reload aliases in current shell'
+          )
+          compadd -a aliases_commands
+          ;;
+        config)
+          # Config subcommands
+          local config_commands=(
+            'init:Initialize configuration system'
+            'set:Set configuration value'
+            'get:Get configuration value'
+            'list:List all configuration'
+            'edit:Edit existing configuration'
+            'unset:Remove configuration'
+            'reload:Reload config in current shell'
+          )
+          compadd -a config_commands
           ;;
         import)
           # File/directory completion for local paths or options
@@ -96,9 +170,85 @@ _drun() {
           ;;
       esac
       ;;
+    4)
+      # Third argument (for move/rename commands - destination)
+      case "${words[2]}" in
+        move|rename|mv)
+          # For destination, suggest existing scripts and folders, but allow custom names
+          _alternative \
+            'scripts:existing script:compadd -a scripts' \
+            'folders:folder:compadd -a folders' \
+            'files:custom name:_files'
+          ;;
+        aliases)
+          case "${words[3]}" in
+            edit|remove)
+              compadd -a aliases
+              ;;
+            list)
+              compadd -- --categories --category
+              ;;
+            add)
+              compadd -- --category
+              ;;
+          esac
+          ;;
+        config)
+          case "${words[3]}" in
+            get|edit|unset)
+              compadd -a config_keys
+              ;;
+            list)
+              compadd -- --categories --category --keys-only
+              ;;
+            set)
+              compadd -- --category --secure
+              ;;
+          esac
+          ;;
+      esac
+      ;;
+    5)
+      # Fourth argument (category completion for --category flags)
+      case "${words[2]}" in
+        aliases)
+          case "${words[3]}" in
+            list)
+              if [[ "${words[4]}" == "--category" ]]; then
+                compadd -a alias_categories
+              fi
+              ;;
+            add)
+              if [[ "${words[4]}" == "--category" ]]; then
+                compadd -a alias_categories
+              fi
+              ;;
+          esac
+          ;;
+        config)
+          case "${words[3]}" in
+            get)
+              if [[ "${words[4]}" == "${config_keys[(r)${words[4]}]}" ]]; then
+                compadd -- --show-value
+              fi
+              ;;
+            list)
+              if [[ "${words[4]}" == "--category" ]]; then
+                compadd -a config_categories
+              fi
+              ;;
+            set)
+              if [[ "${words[4]}" == "--category" ]]; then
+                compadd -a config_categories
+              fi
+              ;;
+          esac
+          ;;
+      esac
+      ;;
     *)
       # For script execution (when first arg is not a command/flag)
-      if [[ ! "${words[2]}" =~ ^(add|edit|edit:docs|help|docs|details|-l|-L|-h|--help)$ ]]; then
+      if [[ ! "${words[2]}" =~ ^(add|edit|edit:docs|help|docs|details|move|rename|mv|aliases|config|-l|-L|-h|--help)$ ]]; then
         # Don't complete script arguments
         return 0
       fi
