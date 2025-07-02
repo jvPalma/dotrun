@@ -69,8 +69,14 @@ check_prerequisites() {
 
 # Helpers
 LINT_HELPER="$DRUN_CONFIG/helpers/lint.sh"
+ALIASES_HELPER="$DRUN_CONFIG/helpers/aliases.sh"
+CONFIG_HELPER="$DRUN_CONFIG/helpers/config.sh"
 # shellcheck disable=SC1090
 [[ -f "$LINT_HELPER" ]] && source "$LINT_HELPER"
+# shellcheck disable=SC1090
+[[ -f "$ALIASES_HELPER" ]] && source "$ALIASES_HELPER"
+# shellcheck disable=SC1090
+[[ -f "$CONFIG_HELPER" ]] && source "$CONFIG_HELPER"
 
 # Traverse bin directory and print scripts with doc in tree-style and colors
 # list_scripts show_docs scope
@@ -333,6 +339,151 @@ show_docs() {
   fi
 }
 
+# Move/rename a script and its documentation
+move_script() {
+  local source="$1"
+  local destination="$2"
+  
+  # Validate inputs
+  validate_script_name "$source" || exit 1
+  validate_script_name "$destination" || exit 1
+  
+  # Find source script file
+  local source_file
+  source_file=$(find_script_file "$source")
+  if [[ -z "$source_file" ]]; then
+    echo "Error: Source script '$source' not found" >&2
+    echo "Use 'drun -l' to list available scripts" >&2
+    exit 1
+  fi
+  
+  # Get relative paths
+  local source_rel="${source_file#"$BIN_DIR"/}"
+  local source_name="$(basename "$source_rel" .sh)"
+  local source_dir="$(dirname "$source_rel")"
+  
+  # Construct destination paths
+  local dest_file="$BIN_DIR/$destination.sh"
+  local dest_name="$(basename "$destination")"
+  local dest_dir="$(dirname "$destination")"
+  
+  # Normalize directory paths
+  [[ "$source_dir" == "." ]] && source_dir=""
+  [[ "$dest_dir" == "." ]] && dest_dir=""
+  
+  # Check if destination already exists
+  if [[ -f "$dest_file" ]]; then
+    echo "Error: Destination script '$destination' already exists" >&2
+    exit 1
+  fi
+  
+  # Check for circular move (source and destination are the same)
+  if [[ "$source_file" == "$dest_file" ]]; then
+    echo "Error: Source and destination are the same" >&2
+    exit 1
+  fi
+  
+  # Check write permissions on destination directory
+  local dest_parent_dir="$BIN_DIR"
+  [[ -n "$dest_dir" ]] && dest_parent_dir="$BIN_DIR/$dest_dir"
+  if [[ -d "$dest_parent_dir" ]] && [[ ! -w "$dest_parent_dir" ]]; then
+    echo "Error: No write permission for destination directory: $dest_parent_dir" >&2
+    exit 1
+  fi
+  
+  # Create destination directories if needed
+  if [[ -n "$dest_dir" ]]; then
+    if ! mkdir -p "$BIN_DIR/$dest_dir" 2>/dev/null; then
+      echo "Error: Failed to create destination directory: $BIN_DIR/$dest_dir" >&2
+      exit 1
+    fi
+    if ! mkdir -p "$DOC_DIR/$dest_dir" 2>/dev/null; then
+      echo "Error: Failed to create documentation directory: $DOC_DIR/$dest_dir" >&2
+      exit 1
+    fi
+  fi
+  
+  # Move script file
+  if ! mv "$source_file" "$dest_file" 2>/dev/null; then
+    echo "Error: Failed to move script file" >&2
+    exit 1
+  fi
+  echo "✓ Moved script: $source -> $destination"
+  
+  # Handle documentation file
+  local source_doc="$DOC_DIR/$source_rel"
+  source_doc="${source_doc%.sh}.md"
+  local dest_doc="$DOC_DIR/$destination.md"
+  
+  if [[ -f "$source_doc" ]]; then
+    # Ensure destination doc directory exists
+    local dest_doc_dir="$(dirname "$dest_doc")"
+    if [[ ! -d "$dest_doc_dir" ]]; then
+      mkdir -p "$dest_doc_dir" 2>/dev/null || true
+    fi
+    
+    if ! mv "$source_doc" "$dest_doc" 2>/dev/null; then
+      echo "⚠ Warning: Failed to move documentation file" >&2
+    else
+      echo "✓ Moved documentation: $(basename "$source_doc") -> $(basename "$dest_doc")"
+      
+      # Update documentation content to reflect new name if it changed
+      if [[ "$source_name" != "$dest_name" ]]; then
+        # Update title and usage examples in the doc file
+        # Use temporary file to avoid issues with sed -i on some systems
+        local temp_doc="$dest_doc.tmp"
+        sed "s/# $source_name/# $dest_name/g" "$dest_doc" | sed "s|drun $source|drun $destination|g" > "$temp_doc"
+        mv "$temp_doc" "$dest_doc"
+        echo "✓ Updated documentation references"
+      fi
+    fi
+  else
+    echo "ℹ No documentation file found for '$source'"
+  fi
+  
+  # Update inline documentation in script if name changed
+  if [[ "$source_name" != "$dest_name" ]]; then
+    # Update script name references in DOC_TOKEN section
+    local temp_script="$dest_file.tmp"
+    sed "s/# $source_name -/# $dest_name -/g" "$dest_file" > "$temp_script"
+    mv "$temp_script" "$dest_file"
+    chmod +x "$dest_file"  # Ensure script remains executable
+    echo "✓ Updated script inline documentation"
+  fi
+  
+  # Clean up empty source directories (including parent directories)
+  if [[ -n "$source_dir" ]]; then
+    # Clean up bin directories
+    local dir_to_check="$source_dir"
+    while [[ -n "$dir_to_check" ]]; do
+      if [[ -d "$BIN_DIR/$dir_to_check" && -z "$(ls -A "$BIN_DIR/$dir_to_check" 2>/dev/null)" ]]; then
+        rmdir "$BIN_DIR/$dir_to_check" 2>/dev/null && echo "✓ Removed empty directory: bin/$dir_to_check"
+      else
+        break  # Directory not empty or doesn't exist, stop checking parents
+      fi
+      # Move to parent directory
+      dir_to_check="$(dirname "$dir_to_check")"
+      [[ "$dir_to_check" == "." ]] && break
+    done
+    
+    # Clean up doc directories
+    dir_to_check="$source_dir"
+    while [[ -n "$dir_to_check" ]]; do
+      if [[ -d "$DOC_DIR/$dir_to_check" && -z "$(ls -A "$DOC_DIR/$dir_to_check" 2>/dev/null)" ]]; then
+        rmdir "$DOC_DIR/$dir_to_check" 2>/dev/null && echo "✓ Removed empty directory: docs/$dir_to_check"
+      else
+        break  # Directory not empty or doesn't exist, stop checking parents
+      fi
+      # Move to parent directory
+      dir_to_check="$(dirname "$dir_to_check")"
+      [[ "$dir_to_check" == "." ]] && break
+    done
+  fi
+  
+  echo "Successfully moved/renamed script: $source -> $destination"
+  echo "Run with: drun $destination"
+}
+
 run_script() {
   local name="$1"
   shift
@@ -375,6 +526,18 @@ edit:docs)
     exit 1
   }
   edit_docs "$2"
+  ;;
+move | rename | mv)
+  [[ -z "${2:-}" || -z "${3:-}" ]] && {
+    echo "Usage: drun $1 <source> <destination>"
+    echo "Examples:"
+    echo "  drun move oldName newName        # Simple rename"
+    echo "  drun move gitCmd git/gitCmd      # Move to folder"
+    echo "  drun move folderA/cmd folderB/cmd # Move between folders"
+    echo "  drun move oldName folder/newName # Rename and move"
+    exit 1
+  }
+  move_script "$2" "$3"
   ;;
 help)
   [[ -z "${2:-}" ]] && {
@@ -551,6 +714,230 @@ team)
     ;;
   esac
   ;;
+aliases)
+  check_prerequisites
+  if [[ $(type -t aliases_init) != "function" ]]; then
+    echo "Error: Aliases helper not available" >&2
+    exit 1
+  fi
+  case "${2:-}" in
+  init)
+    aliases_init
+    ;;
+  add)
+    [[ -z "${3:-}" || -z "${4:-}" ]] && {
+      echo "Usage: drun aliases add <name> <command> [--category <category>]"
+      echo "Examples:"
+      echo "  drun aliases add ll 'ls -la'"
+      echo "  drun aliases add gs 'git status' --category git"
+      echo "  drun aliases add dc 'docker-compose' --category docker"
+      exit 1
+    }
+    name="$3"
+    command="$4"
+    category=""
+    # Check for --category flag
+    if [[ "${5:-}" == "--category" && -n "${6:-}" ]]; then
+      category="$6"
+    fi
+    aliases_add "$name" "$command" "$category"
+    ;;
+  list)
+    show_categories="false"
+    filter_category=""
+    # Check for flags
+    if [[ "${3:-}" == "--categories" ]]; then
+      show_categories="true"
+    elif [[ "${3:-}" == "--category" && -n "${4:-}" ]]; then
+      filter_category="$4"
+    fi
+    aliases_list "$show_categories" "$filter_category"
+    ;;
+  edit)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: drun aliases edit <name>"
+      exit 1
+    }
+    aliases_edit "$3"
+    ;;
+  remove | rm)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: drun aliases remove <name>"
+      exit 1
+    }
+    aliases_remove "$3"
+    ;;
+  reload)
+    aliases_reload
+    ;;
+  *)
+    echo "Usage: drun aliases <command>"
+    echo "Commands:"
+    echo "  init                          Initialize aliases system"
+    echo "  add <name> <command>          Add new alias"
+    echo "  add <name> <cmd> --category <cat>  Add alias to specific category"
+    echo "  list                          List all aliases"
+    echo "  list --categories             List all aliases with category info"
+    echo "  list --category <name>        List aliases in specific category"
+    echo "  edit <name>                   Edit existing alias"
+    echo "  remove <name>                 Remove alias (alias: rm)"
+    echo "  reload                        Reload aliases in current shell"
+    echo
+    echo "Examples:"
+    echo "  drun aliases init"
+    echo "  drun aliases add ll 'ls -la'"
+    echo "  drun aliases add gs 'git status' --category git"
+    echo "  drun aliases list --category git"
+    echo "  drun aliases edit ll"
+    echo "  drun aliases remove gs"
+    echo "  drun aliases reload"
+    ;;
+  esac
+  ;;
+config)
+  check_prerequisites
+  if [[ $(type -t config_init) != "function" ]]; then
+    echo "Error: Config helper not available" >&2
+    exit 1
+  fi
+  case "${2:-}" in
+  init)
+    config_init
+    ;;
+  set)
+    [[ -z "${3:-}" || -z "${4:-}" ]] && {
+      echo "Usage: drun config set <key> <value> [--category <category>] [--secure]"
+      echo "Examples:"
+      echo "  drun config set API_KEY abc123"
+      echo "  drun config set DB_HOST localhost --category dev"
+      echo "  drun config set SECRET_TOKEN xyz789 --secure"
+      echo "  drun config set API_URL https://api.example.com --category api"
+      exit 1
+    }
+    key="$3"
+    value="$4"
+    category=""
+    secure="false"
+    # Check for flags
+    shift 4
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+      --category)
+        [[ -z "${2:-}" ]] && {
+          echo "Error: --category requires a category name" >&2
+          exit 1
+        }
+        category="$2"
+        shift 2
+        ;;
+      --secure)
+        secure="true"
+        shift
+        ;;
+      *)
+        echo "Error: Unknown option: $1" >&2
+        exit 1
+        ;;
+      esac
+    done
+    config_set "$key" "$value" "$category" "$secure"
+    ;;
+  get)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: drun config get <key> [--show-value]"
+      echo "Examples:"
+      echo "  drun config get API_KEY"
+      echo "  drun config get SECRET_TOKEN --show-value  # Show actual value for secure keys"
+      exit 1
+    }
+    key="$3"
+    show_masked="false"
+    if [[ "${4:-}" == "--show-value" ]]; then
+      show_masked="true"
+    fi
+    config_get "$key" "$show_masked"
+    ;;
+  list)
+    show_categories="false"
+    filter_category=""
+    show_values="true"
+    # Check for flags
+    shift 2
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+      --categories)
+        show_categories="true"
+        shift
+        ;;
+      --category)
+        [[ -z "${2:-}" ]] && {
+          echo "Error: --category requires a category name" >&2
+          exit 1
+        }
+        filter_category="$2"
+        shift 2
+        ;;
+      --keys-only)
+        show_values="false"
+        shift
+        ;;
+      *)
+        echo "Error: Unknown option: $1" >&2
+        exit 1
+        ;;
+      esac
+    done
+    config_list "$show_categories" "$filter_category" "$show_values"
+    ;;
+  edit)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: drun config edit <key>"
+      echo "Example: drun config edit API_KEY"
+      exit 1
+    }
+    config_edit "$3"
+    ;;
+  unset | remove | rm)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: drun config unset <key>"
+      echo "Example: drun config unset API_KEY"
+      exit 1
+    }
+    config_unset "$3"
+    ;;
+  reload)
+    config_reload
+    ;;
+  *)
+    echo "Usage: drun config <command>"
+    echo "Commands:"
+    echo "  init                          Initialize configuration system"
+    echo "  set <key> <value>             Set configuration value"
+    echo "  set <key> <val> --category <cat>  Set config in specific category"
+    echo "  set <key> <val> --secure      Mark as secure/sensitive"
+    echo "  get <key>                     Get configuration value (masked if secure)"
+    echo "  get <key> --show-value        Get actual value (even if secure)"
+    echo "  list                          List all configuration"
+    echo "  list --categories             List all config with category info"
+    echo "  list --category <name>        List config in specific category"
+    echo "  list --keys-only              List only keys (no values)"
+    echo "  edit <key>                    Edit existing configuration"
+    echo "  unset <key>                   Remove configuration (aliases: remove, rm)"
+    echo "  reload                        Reload config in current shell"
+    echo
+    echo "Examples:"
+    echo "  drun config init"
+    echo "  drun config set API_KEY abc123"
+    echo "  drun config set DB_HOST localhost --category dev"
+    echo "  drun config set SECRET_TOKEN xyz789 --secure"
+    echo "  drun config get API_KEY"
+    echo "  drun config list --category api"
+    echo "  drun config edit API_KEY"
+    echo "  drun config unset API_KEY"
+    echo "  drun config reload"
+    ;;
+  esac
+  ;;
 -v | --version | version)
   echo "drun version $DRUN_VERSION"
   exit 0
@@ -565,10 +952,28 @@ team)
   echo "  add <name>          Create and open <name>.sh in editor"
   echo "  edit <name>         Open existing script in editor"
   echo "  edit:docs <name>    Edit documentation for <name>"
+  echo "  move <src> <dst>    Move/rename script (aliases: rename, mv)"
   echo "  help <name>         Show embedded docs for <name>"
   echo "  docs <name>         Show full markdown documentation (with glow)"
   echo "  details <name>      Alias for 'docs' command"
   echo "  <name> [args…]      Execute script <name> from anywhere"
+  echo
+  echo "Aliases Management"
+  echo "  aliases init        Initialize aliases system with shell integration"
+  echo "  aliases add <name> <command>  Add new alias"
+  echo "  aliases list        List all aliases"
+  echo "  aliases edit <name> Edit existing alias"
+  echo "  aliases remove <name> Remove alias"
+  echo "  aliases reload      Reload aliases in current shell"
+  echo
+  echo "Configuration Management"
+  echo "  config init         Initialize configuration system with shell integration"
+  echo "  config set <key> <value>  Set global configuration variable"
+  echo "  config get <key>    Get configuration value (masked if secure)"
+  echo "  config list         List all configuration variables"
+  echo "  config edit <key>   Edit existing configuration"
+  echo "  config unset <key>  Remove configuration variable"
+  echo "  config reload       Reload config variables in current shell"
   echo
   echo "Integration & Collections"
   echo "  yadm-init           Setup DotRun to work with existing yadm repository"
@@ -584,12 +989,22 @@ team)
   echo "  EDITOR              Command to open editor (default: auto-detect)"
   echo
   echo "Examples"
-  echo "  drun yadm-init      # Setup with existing yadm dotfiles"
+  echo "  drun add myScript              # Create new script"
+  echo "  drun move oldName newName      # Rename script"
+  echo "  drun mv script tools/script    # Move to folder"
+  echo "  drun yadm-init                 # Setup with existing yadm dotfiles"
   echo "  drun import https://github.com/team/scripts.git --preview"
   echo "  drun import https://github.com/team/scripts.git company"
   echo "  drun import https://github.com/team/scripts.git --pick frontend/build"
   echo "  drun team init git@github.com:company/tools.git"
   echo "  drun collections list:details"
+  echo "  drun aliases init                      # Setup aliases system"
+  echo "  drun aliases add ll 'ls -la'           # Add simple alias"
+  echo "  drun aliases add gs 'git status' --category git  # Add categorized alias"
+  echo "  drun config init                       # Setup config system"
+  echo "  drun config set API_KEY abc123         # Set API key"
+  echo "  drun config set DB_HOST localhost --category dev  # Set categorized config"
+  echo "  drun config set SECRET_TOKEN xyz789 --secure      # Set secure config"
   echo
   echo "Note: drun auto-runs ShellCheck after add/edit if available"
   echo "      'glow' is recommended for beautiful markdown rendering"
