@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-INSTALL_HOME=${XDG_CONFIG_HOME:-$HOME}
+INSTALL_CFG_PATH=${XDG_CONFIG_HOME:-$HOME/.config}
 
 # ------------------------------------------------------------------
 # Utility Functions
@@ -123,6 +123,10 @@ copy_files() {
   local dst="$2"
   local force_override="${3:-false}"
   local modified_files_detected=false
+  
+  # Arrays to track modified files (declared as global so main can access them)
+  modified_files=()
+  modified_src_files=()
 
   log_info "Setting up DotRun directories and files"
 
@@ -290,6 +294,9 @@ copy_files() {
             fi
           else
             printf "$(get_message "file differs" 1)" "$rel_path"
+            # Track modified files for later reporting
+            modified_files+=("$dst_file")
+            modified_src_files+=("$src_file")
           fi
         else
           printf "$(get_message "unchanged" 1)" "$rel_path"
@@ -326,6 +333,9 @@ copy_files() {
             cp "$src_file" "$dst_file"
           else
             printf "$(get_message "file differs" 0)" "$file"
+            # Track modified files for later reporting
+            modified_files+=("$dst_file")
+            modified_src_files+=("$src_file")
           fi
         else
           printf "$(get_message "unchanged" 0)" "$file"
@@ -340,7 +350,7 @@ copy_files() {
 
   # Special handling for Fish completion - copy to fish completions directory
   local fish_completion_src="$src/drun_completion.fish"
-  local fish_completion_dir="$INSTALL_HOME/.config/fish/completions"
+  local fish_completion_dir="$INSTALL_CFG_PATH/fish/completions"
   local fish_completion_dst="$fish_completion_dir/drun.fish"
   
   if [ -f "$fish_completion_src" ]; then
@@ -360,6 +370,9 @@ copy_files() {
           cp "$fish_completion_src" "$fish_completion_dst"
         else
           printf "$(get_message "file differs" 0)" "~/.config/fish/completions/drun.fish"
+          # Track modified files for later reporting
+          modified_files+=("$fish_completion_dst")
+          modified_src_files+=("$fish_completion_src")
         fi
       else
         printf "$(get_message "unchanged" 0)" "~/.config/fish/completions/drun.fish"
@@ -398,26 +411,26 @@ get_shell_config() {
   local shell="$1"
   case "$shell" in
   fish)
-    echo "$INSTALL_HOME/.config/fish/config.fish"
+    echo "$INSTALL_CFG_PATH/fish/config.fish"
     ;;
   zsh)
-    if [ -f "$INSTALL_HOME/.zshrc" ]; then
-      echo "$INSTALL_HOME/.zshrc"
+    if [ -f "$HOME/.zshrc" ]; then
+      echo "~/.zshrc"
     else
-      echo "$INSTALL_HOME/.zprofile"
+      echo "~/.zprofile"
     fi
     ;;
   bash)
-    if [ -f "$INSTALL_HOME/.bashrc" ]; then
-      echo "$INSTALL_HOME/.bashrc"
-    elif [ -f "$INSTALL_HOME/.bash_profile" ]; then
-      echo "$INSTALL_HOME/.bash_profile"
+    if [ -f "$HOME/.bashrc" ]; then
+      echo "~/.bashrc"
+    elif [ -f "$HOME/.bash_profile" ]; then
+      echo "~/.bash_profile"
     else
-      echo "$INSTALL_HOME/.profile"
+      echo "~/.profile"
     fi
     ;;
   *)
-    echo "$INSTALL_HOME/.profile"
+    echo "~/.profile"
     ;;
   esac
 }
@@ -448,6 +461,10 @@ main() {
   # ------------------------------------------------------------------
 
   local script_dir src_dir cfg_dir bin_dest target_dir
+  
+  # Global arrays for tracking modified files
+  modified_files=()
+  modified_src_files=()
 
   # Get absolute path of script directory (works across platforms)
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -497,14 +514,14 @@ main() {
     # Handle various Windows environments
     if [ -n "${APPDATA:-}" ]; then
       cfg_dir="$APPDATA/dotrun"
-    elif [ -d "$INSTALL_HOME/AppData/Roaming" ]; then
-      cfg_dir="$INSTALL_HOME/AppData/Roaming/dotrun"
+    elif [ -d "$INSTALL_CFG_PATH/AppData/Roaming" ]; then
+      cfg_dir="$INSTALL_CFG_PATH/AppData/Roaming/dotrun"
     else
       # Fallback for Git Bash, MSYS2, etc.
-      cfg_dir="$INSTALL_HOME/.config/dotrun"
+      cfg_dir="$INSTALL_CFG_PATH/dotrun"
     fi
   else
-    cfg_dir="${XDG_CONFIG_HOME:-$INSTALL_HOME/.config}/dotrun"
+    cfg_dir="$INSTALL_CFG_PATH/dotrun"
   fi
 
   # Default binary installation paths by OS
@@ -513,10 +530,10 @@ main() {
     bin_dest="/usr/local/bin"
     ;;
   windows)
-    bin_dest="$INSTALL_HOME/bin"
+    bin_dest="$INSTALL_CFG_PATH/bin"
     ;;
   *)
-    bin_dest="$INSTALL_HOME/.local/bin"
+    bin_dest="$HOME/.local/bin"
     ;;
   esac
 
@@ -558,20 +575,90 @@ main() {
 
   # Check if we can write to target directory
   if ! is_writable "$target_dir" 2>/dev/null; then
-    log_warn "Cannot write to $target_dir, using $INSTALL_HOME/.local/bin instead"
-    target_dir="$INSTALL_HOME/.local/bin"
+    log_warn "Cannot write to $target_dir, using ~/.local/bin instead"
+    target_dir="$HOME/.local/bin"
     mkdir -p "$target_dir"
   fi
 
-  # Install the binary directly from source (not from config directory)
+  # Always prefer ~/.local/bin as the installation directory
+  local preferred_dir="$HOME/.local/bin"
+  
+  # Create preferred directory if it doesn't exist
+  if [ ! -d "$preferred_dir" ]; then
+    mkdir -p "$preferred_dir"
+  fi
+  
+  # Check if we can write to preferred directory
+  if is_writable "$preferred_dir" 2>/dev/null; then
+    target_dir="$preferred_dir"
+  else
+    log_warn "Cannot write to $preferred_dir, using $target_dir instead"
+  fi
+
+  # Install the binary
   local drun_source="$src_dir/drun"
   local drun_target="$target_dir/drun"
+  local drun_preferred="$preferred_dir/drun"
+  local binary_differs=false
+  local override_files=()
+
+  # Function to extract version from drun binary
+  get_drun_version() {
+    local binary="$1"
+    if [ -f "$binary" ] && [ -x "$binary" ]; then
+      "$binary" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown"
+    else
+      echo "unknown"
+    fi
+  }
 
   if [ -f "$drun_source" ]; then
-    # Use cp instead of install for compatibility
-    cp "$drun_source" "$drun_target"
-    chmod +x "$drun_target"
-    log_success "drun binary installed to $drun_target"
+    local source_version=$(grep -E '^DRUN_VERSION=' "$drun_source" | cut -d'"' -f2 || echo "unknown")
+    
+    # Check if binary already exists in target location
+    if [ -f "$drun_target" ]; then
+      if ! cmp -s "$drun_source" "$drun_target" 2>/dev/null; then
+        local target_version=$(get_drun_version "$drun_target")
+        binary_differs=true
+        override_files+=("$drun_target")
+        
+        if [ "$source_version" = "$target_version" ]; then
+          log_warn "Existing drun binary has changes but is the same version ($source_version)"
+        else
+          log_warn "Existing drun binary version ($target_version) differs from new version ($source_version)"
+        fi
+      else
+        # Files are identical, just update permissions
+        chmod +x "$drun_target"
+      fi
+    else
+      # File doesn't exist, just copy it
+      cp "$drun_source" "$drun_target"
+      chmod +x "$drun_target"
+      log_success "drun binary installed to $drun_target"
+    fi
+    
+    # If target is not preferred dir but preferred dir is writable, check there too
+    if [ "$target_dir" != "$preferred_dir" ] && is_writable "$preferred_dir" 2>/dev/null; then
+      if [ -f "$drun_preferred" ]; then
+        if ! cmp -s "$drun_source" "$drun_preferred" 2>/dev/null; then
+          local preferred_version=$(get_drun_version "$drun_preferred")
+          binary_differs=true
+          override_files+=("$drun_preferred")
+          
+          if [ "$source_version" = "$preferred_version" ]; then
+            log_warn "Existing drun binary in $preferred_dir has changes but is the same version ($source_version)"
+          else
+            log_warn "Existing drun binary in $preferred_dir version ($preferred_version) differs from new version ($source_version)"
+          fi
+        fi
+      else
+        # Also install to preferred location
+        cp "$drun_source" "$drun_preferred"
+        chmod +x "$drun_preferred"
+        log_info "Also installed drun binary to preferred location: $preferred_dir"
+      fi
+    fi
     
     # Check if target directory is in PATH
     if ! is_in_path "$target_dir"; then
@@ -587,7 +674,7 @@ main() {
   # 4. Setup shell integration
   # ------------------------------------------------------------------
 
-  local drunrc_file="$INSTALL_HOME/.drunrc"
+  local drunrc_file="$HOME/.drunrc"
   local shell_config
   shell_config="$(get_shell_config "$shell_type")"
 
@@ -595,21 +682,13 @@ main() {
   if [ ! -f "$drunrc_file" ]; then
     log_info "Creating $drunrc_file"
 
-    cat >"$drunrc_file" <<EOF
+    cat >"$drunrc_file" <<'EOF'
 # DotRun Configuration
-export DRUN_CONFIG="$cfg_dir"
+export DRUN_CONFIG="$HOME/.config/dotrun"
 
-# Add drun binary to PATH if not already present
-case ":\$PATH:" in
-    *":$target_dir:"*) ;;
-    *) export PATH="$target_dir:\$PATH" ;;
-esac
-
-# Load shell completion if available
-if [ -n "\${BASH_VERSION:-}" ] && [ -f "\$DRUN_CONFIG/drun_completion.bash" ]; then
-    source "\$DRUN_CONFIG/drun_completion.bash"
-elif [ -n "\${ZSH_VERSION:-}" ] && [ -f "\$DRUN_CONFIG/drun_completion.zsh" ]; then
-    source "\$DRUN_CONFIG/drun_completion.zsh"
+# Source the config loader if it exists
+if [ -f "$DRUN_CONFIG/.drun_config_loader" ]; then
+    source "$DRUN_CONFIG/.drun_config_loader"
 fi
 
 EOF
@@ -618,11 +697,79 @@ EOF
     log_info "$drunrc_file already exists, skipping creation"
   fi
 
+  # Create .drun_config_loader if it doesn't exist
+  local config_loader_file="$cfg_dir/.drun_config_loader"
+  if [ ! -f "$config_loader_file" ]; then
+    log_info "Creating $config_loader_file"
+
+    cat >"$config_loader_file" <<'EOF'
+#!/usr/bin/env bash
+
+source "$DRUN_CONFIG/helpers/pkg.sh"
+
+# DotRun Configuration
+# This file is managed by DotRun. Manual edits may be overwritten.
+# Use 'drun config set/get/unset' commands to manage configuration.
+
+#* =================== SHELL CONFIGURATIONS ====== *#
+export CURRENT_SHELL=$(detect_shell)
+
+# Add drun binary to PATH if not already present
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
+SHELL_COMPLETION="$DRUN_CONFIG/drun_completion"
+SHELL_CONFIGS="$DRUN_CONFIG/config/shell"
+SHELL_ALIASES="$DRUN_CONFIG/aliases/shell"
+
+[[ $CURRENT_SHELL == "bash" ]] && {
+  SHELL_COMPLETION="$SHELL_COMPLETION.bash"
+  SHELL_CONFIGS="$SHELL_CONFIGS/bash_config"
+  SHELL_ALIASES="$SHELL_ALIASES/bash_aliases"
+}
+
+[[ $CURRENT_SHELL == "zsh" ]] && {
+  SHELL_COMPLETION="$SHELL_COMPLETION.zsh"
+  SHELL_CONFIGS="$SHELL_CONFIGS/zsh_config"
+  SHELL_ALIASES="$SHELL_ALIASES/zsh_aliases"
+}
+
+[[ $CURRENT_SHELL == "fish" ]] && {
+  SHELL_COMPLETION="$SHELL_COMPLETION.fish"
+  SHELL_CONFIGS="$SHELL_CONFIGS/fish_config"
+  SHELL_ALIASES="$SHELL_ALIASES/fish_aliases"
+}
+
+if [ -f "$SHELL_COMPLETION" ]; then
+  source "$SHELL_COMPLETION"
+fi
+
+if [ -f "$SHELL_ALIASES" ]; then
+  source "$SHELL_ALIASES"
+fi
+
+if [ -f "$SHELL_CONFIGS" ]; then
+  source "$SHELL_CONFIGS"
+fi
+
+EOF
+    chmod +x "$config_loader_file"
+    log_success "Created $config_loader_file"
+  else
+    log_info "$config_loader_file already exists, skipping creation"
+  fi
+
   # ------------------------------------------------------------------
   # 5. Shell-specific integration advice
   # ------------------------------------------------------------------
 
   local integration_cmd fish_instructions=""
+  local display_target_dir=$(echo "$target_dir" | sed "s|^$HOME|~|")
+  local display_drunrc_file=$(echo "$drunrc_file" | sed "s|^$HOME|~|")
+
+
   case "$shell_type" in
   fish)
     # Fish needs special handling since it doesn't source bash files
@@ -630,7 +777,7 @@ EOF
     integration_cmd="# Fish shell integration (see special instructions below)"
     ;;
   *)
-    integration_cmd="echo 'source $drunrc_file' >> $shell_config"
+    integration_cmd="echo 'source $display_drunrc_file' >> $shell_config"
     ;;
   esac
 
@@ -653,13 +800,16 @@ EOF
   printf "  💻 Operating system: %s\n" "$os_type"
   echo
 
+
+
+
   if [ "$already_integrated" = "true" ]; then
     log_info "Shell integration already configured"
   elif [ "$fish_instructions" = "true" ]; then
     log_info "For Fish shell, add these lines to your $shell_config:"
     echo
     printf "  \033[1;36m# Add drun to PATH\033[0m\n"
-    printf "  \033[1;36mset -gx PATH \"%s\" \$PATH\033[0m\n" "$target_dir"
+    printf "  \033[1;36mset -gx PATH \"%s\" \$PATH\033[0m\n" "${display_target_dir}"
     echo
     printf "  \033[1;36m# Fish completion is automatically loaded from ~/.config/fish/completions/drun.fish\033[0m\n"
     printf "  \033[1;36m# (already installed during setup)\033[0m\n"
@@ -669,17 +819,17 @@ EOF
     echo
     printf "  \033[1;36m%s\033[0m\n" "$integration_cmd"
     echo
-    printf "  Or manually add: \033[1;36msource %s\033[0m\n" "$drunrc_file"
+    printf "  Or manually add: \033[1;36msource %s\033[0m\n" "${display_drunrc_file}"
   fi
 
   echo
   if [ "$fish_instructions" = "true" ]; then
     log_info "To start using drun immediately in Fish:"
-    printf "  \033[1;36mset -gx PATH \"%s\" \$PATH\033[0m\n" "$target_dir"
+    printf "  \033[1;36mset -gx PATH \"%s\" \$PATH\033[0m\n" "${display_target_dir}"
     printf "  \033[1;36mdrun --help\033[0m\n"
   else
     log_info "To start using drun immediately:"
-    printf "  \033[1;36msource %s\033[0m\n" "$drunrc_file"
+    printf "  \033[1;36msource %s\033[0m\n" "${display_drunrc_file}"
     printf "  \033[1;36mdrun --help\033[0m\n"
   fi
   echo
@@ -689,6 +839,39 @@ EOF
     log_success "drun is ready to use!"
   else
     log_warn "drun not found in PATH. You may need to restart your shell or source $drunrc_file"
+  fi
+
+  # If there were files with differences, show override commands
+  if [ "$binary_differs" = "true" ] || [ ${#modified_files[@]} -gt 0 ]; then
+    echo
+    log_warn "Some files were not updated due to existing modifications"
+    log_info "To selectively override files, use these commands:"
+    echo
+    
+    # Show binary override commands if needed
+    if [ "$binary_differs" = "true" ] && [ ${#override_files[@]} -gt 0 ]; then
+      for file in "${override_files[@]}"; do
+        local display_M_dst=$(echo "$file" | sed "s|^$HOME|~|")
+        local display_M_src=$(echo "$drun_source" | sed "s|^$HOME|~|")
+        printf "  \033[1;36mcp %s %s\033[0m\n" "$display_M_src" "$display_M_dst"
+      done
+    fi
+    
+    # Show other file override commands from the copy process
+    if [ ${#modified_files[@]} -gt 0 ]; then
+      for i in "${!modified_files[@]}"; do
+        local src_file="${modified_src_files[$i]}"
+        local dst_file="${modified_files[$i]}"
+        local display_M_dst=$(echo "$dst_file" | sed "s|^$HOME|~|")
+        local display_M_src=$(echo "$src_file" | sed "s|^$HOME|~|")
+        printf "  \033[1;36mcp %s %s\033[0m\n" "$display_M_src" "$display_M_dst"
+      done
+    fi
+    
+    echo
+    log_info "Or to override all modified files at once:"
+    printf "  \033[1;36m./install.sh --force\033[0m\n"
+    echo
   fi
 }
 
