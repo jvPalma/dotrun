@@ -1,0 +1,1028 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2155
+# shellcheck disable=SC1091
+# shellcheck disable=SC2016
+# Strict error handling
+set -euo pipefail
+
+IFS=$'\n\t'
+
+# Version - Read from VERSION file or fallback to 3.0.0
+# Resolve symlinks to find the actual script location
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+while [[ -L "$SCRIPT_PATH" ]]; do
+  SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+  SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
+  [[ "$SCRIPT_PATH" != /* ]] && SCRIPT_PATH="$SCRIPT_DIR/$SCRIPT_PATH"
+done
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+
+if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
+  DRUN_VERSION="$(cat "$SCRIPT_DIR/VERSION")"
+else
+  DRUN_VERSION="3.0.0"  # Fallback if VERSION file not found
+fi
+
+# Configuration
+DR_CONFIG="${DR_CONFIG:-$HOME/.config/dotrun}"
+BIN_DIR="$DR_CONFIG/scripts"
+DOC_TOKEN="### DOC"
+_default_editor="$(command -v code >/dev/null && echo "code" || echo "nano")"
+EDITOR="${EDITOR:-$_default_editor}"
+
+# Validate EDITOR environment variable
+if [[ -n "$EDITOR" ]] && ! command -v "$EDITOR" >/dev/null 2>&1; then
+  echo "Warning: EDITOR '$EDITOR' not found in PATH, falling back to $_default_editor" >&2
+  EDITOR="$_default_editor"
+fi
+
+mkdir -p "$BIN_DIR"
+
+# Color functions
+color_folder() {
+  local level=$1
+  case $level in
+  0) echo -e "\033[1;34m" ;; # Bright Blue
+  1) echo -e "\033[1;36m" ;; # Bright Cyan
+  2) echo -e "\033[1;35m" ;; # Bright Magenta
+  *) echo -e "\033[1;33m" ;; # Bright Yellow
+  esac
+}
+color_script="\033[1;92m" # Bright Green
+color_doc="\033[0;37m"    # Gray
+color_reset="\033[0m"
+
+# Input validation
+validate_script_name() {
+  local name="$1"
+  if [[ -z "$name" ]]; then
+    echo "Error: Script name cannot be empty" >&2
+    return 1
+  fi
+  if [[ "$name" =~ [^a-zA-Z0-9_/-] ]]; then
+    echo "Error: Script name contains invalid characters. Use only alphanumeric, underscore, dash, and forward slash." >&2
+    return 1
+  fi
+}
+
+# Check if required directories exist and are writable
+check_prerequisites() {
+  if [[ ! -d "$BIN_DIR" ]] && ! mkdir -p "$BIN_DIR" 2>/dev/null; then
+    echo "Error: Cannot create or access BIN_DIR: $BIN_DIR" >&2
+    exit 1
+  fi
+}
+
+# Core feature helpers (tool logic)
+LINT_HELPER="$DR_CONFIG/helpers/lint.sh"  # User-optional linting
+ALIASES_HELPER="$SCRIPT_DIR/core/aliases.sh"  # Core aliases system
+CONFIG_HELPER="$SCRIPT_DIR/core/config.sh"     # Core config system (TODO)
+COLLECTIONS_HELPER="$SCRIPT_DIR/core/collections.sh"  # Core collections system
+
+# Source core helpers
+# shellcheck disable=SC1090
+[[ -f "$LINT_HELPER" ]] && source "$LINT_HELPER"
+# shellcheck disable=SC1090
+[[ -f "$ALIASES_HELPER" ]] && source "$ALIASES_HELPER"
+# shellcheck disable=SC1090
+[[ -f "$CONFIG_HELPER" ]] && source "$CONFIG_HELPER"
+# shellcheck disable=SC1090
+[[ -f "$COLLECTIONS_HELPER" ]] && source "$COLLECTIONS_HELPER"
+
+# ????????????????????
+# Traverse bin directory and print scripts with doc in tree-style and colors
+# list_scripts show_docs scope
+#   show_docs: 0 = names only, 1 = include docs
+#   scope:     optional sub-folder (e.g. "code/")
+list_scripts() {
+  local show_docs="$1"
+  local scope="$2"
+  local start_dir="$BIN_DIR/${scope%/}" # strip trailing /
+
+  [[ ! -d "$start_dir" ]] && {
+    echo "Error: No such folder: $scope" >&2
+    return 1
+  }
+
+  # Check for circular symlinks in the directory
+  if find "$start_dir" -type l -exec test ! -e {} \; -print 2>/dev/null | grep -q .; then
+    echo "Warning: Broken symlinks found in $start_dir" >&2
+  fi
+
+  declare -A printed_folders=()
+
+  _print_folder_chain() {
+    local path="$1" indent=""
+    [[ "$path" == "." || -z "$path" ]] && return
+    local current=""
+    IFS='/' read -ra parts <<<"$path"
+    for part in "${parts[@]}"; do
+      current="${current:+$current/}$part"
+      if [[ -z "${printed_folders[$current]+x}" ]]; then
+        echo -e "${indent}\033[1;33m📂 $part${color_reset}"
+        printed_folders["$current"]=1
+      fi
+      indent+="  "
+    done
+  }
+
+  while IFS= read -r -d '' file; do
+    # shellcheck disable=SC2295
+    rel_path="${file#"$BIN_DIR"/}"
+    script_name="$(basename "$rel_path" .sh)"
+    folder_path="$(dirname "$rel_path")"
+
+    _print_folder_chain "$folder_path"
+
+    # indent scripts one level deeper than their folder depth
+    local depth=0 indent=""
+    [[ "$folder_path" != "." ]] && depth=$(awk -F'/' '{print NF}' <<<"$folder_path")
+    for ((i = 0; i < depth; i++)); do indent+="  "; done
+
+    echo -e "${indent}${color_script}${script_name}${color_reset}"
+    if ((show_docs)); then
+      awk "/^$DOC_TOKEN/ { p = !p; next } p { print \"${indent}  ${color_doc}\" \$0 \"$color_reset\" }" "$file"
+    fi
+  done < <(find "$start_dir" -type f -name "*.sh" -print0 | sort -z)
+}
+
+# Create script skeleton
+create_script_skeleton() {
+  local name="$1"
+  local file="$BIN_DIR/$name.sh"
+  mkdir -p "$(dirname "$file")"
+
+  # Create script file with skeleton
+  local script_basename="$(basename "$name")"
+  cat >"$file" <<EOF
+#!/usr/bin/env bash
+$DOC_TOKEN
+# $script_basename - describe what this script does
+$DOC_TOKEN
+
+set -euo pipefail
+
+# Load loadHelpers function for dual-mode execution
+[[ -n "\${DR_LOAD_HELPERS:-}" ]] && source "\$DR_LOAD_HELPERS"
+
+# Load required helper
+loadHelpers global/colors
+
+main() {
+  echo "Running $script_basename..."
+}
+
+main "\$@"
+EOF
+  chmod +x "$file"
+}
+
+# Search script by name regardless of path
+find_script_file() {
+  local query="$1"
+
+  # 1) explicit sub-folder path?
+  if [[ "$query" == */* ]]; then
+    local exact="$BIN_DIR/$query.sh"
+    if [[ -f "$exact" ]]; then
+      # Check if file is executable
+      if [[ ! -x "$exact" ]]; then
+        echo "Error: Script '$exact' is not executable" >&2
+        return 1
+      fi
+      # Check for circular symlinks
+      if [[ -L "$exact" ]] && ! readlink -e "$exact" >/dev/null 2>&1; then
+        echo "Error: Script '$exact' is a broken symlink" >&2
+        return 1
+      fi
+      echo "$exact"
+      return
+    fi
+  fi
+
+  # 2) fallback: search anywhere for basename
+  local base
+  base="$(basename "$query").sh"
+  local found_file
+  found_file=$(find "$BIN_DIR" -type f -name "$base" 2>/dev/null | head -n 1)
+
+  if [[ -n "$found_file" ]]; then
+    # Check if file is executable
+    if [[ ! -x "$found_file" ]]; then
+      echo "Error: Script '$found_file' is not executable" >&2
+      return 1
+    fi
+    # Check for circular symlinks
+    if [[ -L "$found_file" ]] && ! readlink -e "$found_file" >/dev/null 2>&1; then
+      echo "Error: Script '$found_file' is a broken symlink" >&2
+      return 1
+    fi
+    echo "$found_file"
+  fi
+}
+
+add_script() {
+  local name="$1"
+  validate_script_name "$name" || exit 1
+  check_prerequisites
+
+  local file="$BIN_DIR/$name.sh"
+  if [[ ! -f "$file" ]]; then
+    create_script_skeleton "$name"
+    echo "Created new script: $file"
+  fi
+
+  # Validate editor before using
+  if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
+    echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
+    exit 1
+  fi
+
+  "$EDITOR" "$file"
+  [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
+}
+
+edit_script() {
+  local file
+  file=$(find_script_file "$1")
+  if [[ -n "$file" ]]; then
+    # Validate editor before using
+    if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
+      echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
+      exit 1
+    fi
+
+    "$EDITOR" "$file"
+    [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
+  else
+    echo "Error: Script '$1' not found" >&2
+    echo "Use 'dr -l' to list available scripts" >&2
+    exit 1
+  fi
+}
+
+# Set script (idempotent - creates if missing, edits if exists)
+set_script() {
+  local name="$1"
+  validate_script_name "$name" || exit 1
+  check_prerequisites
+
+  # Validate editor before using
+  if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
+    echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
+    exit 1
+  fi
+
+  local file="$BIN_DIR/$name.sh"
+
+  # If file doesn't exist, create skeleton
+  if [[ ! -f "$file" ]]; then
+    create_script_skeleton "$name"
+    echo "✓ Created new script: $file"
+  else
+    echo "Opening existing script: $file"
+  fi
+
+  # Open in editor (works for both new and existing)
+  "$EDITOR" "$file"
+  [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
+}
+
+show_help() {
+  local file
+  file=$(find_script_file "$1")
+  if [[ -z "$file" ]]; then
+    echo "Error: Script '$1' not found" >&2
+    exit 1
+  fi
+  awk "/^$DOC_TOKEN/ { p = !p; next } p" "$file"
+}
+
+# Move/rename a script
+move_script() {
+  local source="$1"
+  local destination="$2"
+  
+  # Validate inputs
+  validate_script_name "$source" || exit 1
+  validate_script_name "$destination" || exit 1
+  
+  # Find source script file
+  local source_file
+  source_file=$(find_script_file "$source")
+  if [[ -z "$source_file" ]]; then
+    echo "Error: Source script '$source' not found" >&2
+    echo "Use 'dr -l' to list available scripts" >&2
+    exit 1
+  fi
+  
+  # Get relative paths
+  local source_rel="${source_file#"$BIN_DIR"/}"
+  local source_name="$(basename "$source_rel" .sh)"
+  local source_dir="$(dirname "$source_rel")"
+  
+  # Construct destination paths
+  local dest_file="$BIN_DIR/$destination.sh"
+  local dest_name="$(basename "$destination")"
+  local dest_dir="$(dirname "$destination")"
+  
+  # Normalize directory paths
+  [[ "$source_dir" == "." ]] && source_dir=""
+  [[ "$dest_dir" == "." ]] && dest_dir=""
+  
+  # Check if destination already exists
+  if [[ -f "$dest_file" ]]; then
+    echo "Error: Destination script '$destination' already exists" >&2
+    exit 1
+  fi
+  
+  # Check for circular move (source and destination are the same)
+  if [[ "$source_file" == "$dest_file" ]]; then
+    echo "Error: Source and destination are the same" >&2
+    exit 1
+  fi
+  
+  # Check write permissions on destination directory
+  local dest_parent_dir="$BIN_DIR"
+  [[ -n "$dest_dir" ]] && dest_parent_dir="$BIN_DIR/$dest_dir"
+  if [[ -d "$dest_parent_dir" ]] && [[ ! -w "$dest_parent_dir" ]]; then
+    echo "Error: No write permission for destination directory: $dest_parent_dir" >&2
+    exit 1
+  fi
+  
+  # Create destination directories if needed
+  if [[ -n "$dest_dir" ]]; then
+    if ! mkdir -p "$BIN_DIR/$dest_dir" 2>/dev/null; then
+      echo "Error: Failed to create destination directory: $BIN_DIR/$dest_dir" >&2
+      exit 1
+    fi
+  fi
+  
+  # Move script file
+  if ! mv "$source_file" "$dest_file" 2>/dev/null; then
+    echo "Error: Failed to move script file" >&2
+    exit 1
+  fi
+  echo "✓ Moved script: $source -> $destination"
+
+  # Update inline documentation in script if name changed
+  if [[ "$source_name" != "$dest_name" ]]; then
+    # Update script name references in DOC_TOKEN section
+    local temp_script="$dest_file.tmp"
+    sed "s/# $source_name -/# $dest_name -/g" "$dest_file" > "$temp_script"
+    mv "$temp_script" "$dest_file"
+    chmod +x "$dest_file"  # Ensure script remains executable
+    echo "✓ Updated script inline documentation"
+  fi
+  
+  # Clean up empty source directories (including parent directories)
+  if [[ -n "$source_dir" ]]; then
+    # Clean up bin directories
+    local dir_to_check="$source_dir"
+    while [[ -n "$dir_to_check" ]]; do
+      if [[ -d "$BIN_DIR/$dir_to_check" && -z "$(ls -A "$BIN_DIR/$dir_to_check" 2>/dev/null)" ]]; then
+        rmdir "$BIN_DIR/$dir_to_check" 2>/dev/null && echo "✓ Removed empty directory: bin/$dir_to_check"
+      else
+        break  # Directory not empty or doesn't exist, stop checking parents
+      fi
+      # Move to parent directory
+      dir_to_check="$(dirname "$dir_to_check")"
+      [[ "$dir_to_check" == "." ]] && break
+    done
+  fi
+  
+  echo "Successfully moved/renamed script: $source -> $destination"
+  echo "Run with: dr $destination"
+}
+
+run_script() {
+  local name="$1"
+  shift
+  local file
+  file=$(find_script_file "$name")
+  if [[ -z "$file" ]]; then
+    echo "Error: Script '$name' not found" >&2
+    echo "Use 'dr -l' to list available scripts" >&2
+    exit 1
+  fi
+
+  # Export environment variables for scripts
+  export DR_CONFIG
+  export DR_LOAD_HELPERS="${HOME}/.local/share/dotrun/helpers/loadHelpers.sh"
+
+  "$file" "$@"
+}
+
+# Main command parser
+case "${1:-}" in
+-l | -L)
+  show_docs=0
+  [[ "$1" == "-L" ]] && show_docs=1
+  scope="${2:-}" # optional second arg
+  list_scripts "$show_docs" "$scope"
+  ;;
+-s|scripts)
+  # Script management namespace
+  case "${2:-}" in
+  set)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr $1 set <name>"
+      exit 1
+    }
+    set_script "$3"
+    ;;
+  edit)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr $1 edit <name>"
+      exit 1
+    }
+    echo "Editing script: $3 ---- with editor: $EDITOR"
+    edit_script "$3"
+    ;;
+  move|rename)
+    [[ -z "${3:-}" || -z "${4:-}" ]] && {
+      echo "Usage: dr $1 move <source> <destination>"
+      echo "Examples:"
+      echo "  dr $1 move oldName newName        # Simple rename"
+      echo "  dr $1 move gitCmd git/gitCmd      # Move to folder"
+      echo "  dr $1 move folderA/cmd folderB/cmd # Move between folders"
+      echo "  dr $1 move oldName folder/newName # Rename and move"
+      exit 1
+    }
+    move_script "$3" "$4"
+    ;;
+  help)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr $1 help <name>"
+      exit 1
+    }
+    show_help "$3"
+    ;;
+  list)
+    # Optional folder scope for list
+    show_docs=0
+    scope="${3:-}"
+    list_scripts "$show_docs" "$scope"
+    ;;
+  *)
+    echo "Usage: dr $1 <command>"
+    echo "Commands:"
+    echo "  set <name>          Create or open a script in editor (idempotent)"
+    echo "  edit <name>         Open existing script in editor"
+    echo "  move <src> <dst>    Move/rename a script"
+    echo "  rename <src> <dst>  Move/rename a script (alias for move)"
+    echo "  help <name>         Show script documentation"
+    echo "  list [folder]       List scripts"
+    echo
+    echo "Examples:"
+    echo "  dr $1 set myScript"
+    echo "  dr $1 edit myScript"
+    echo "  dr $1 move old new"
+    echo "  dr $1 help myScript"
+    echo "  dr $1 list"
+    echo "  dr $1 list git/"
+    ;;
+  esac
+  ;;
+set)
+  [[ -z "${2:-}" ]] && {
+    echo "Usage: dr set <name>"
+    exit 1
+  }
+  set_script "$2"
+  ;;
+edit)
+  [[ -z "${2:-}" ]] && {
+    echo "Usage: dr edit <name>"
+    exit 1
+  }
+  echo "Editing script: $2 ---- with editor: $EDITOR"
+  edit_script "$2"
+  ;;
+move | rename | mv)
+  [[ -z "${2:-}" || -z "${3:-}" ]] && {
+    echo "Usage: dr $1 <source> <destination>"
+    echo "Examples:"
+    echo "  dr move oldName newName        # Simple rename"
+    echo "  dr move gitCmd git/gitCmd      # Move to folder"
+    echo "  dr move folderA/cmd folderB/cmd # Move between folders"
+    echo "  dr move oldName folder/newName # Rename and move"
+    exit 1
+  }
+  move_script "$2" "$3"
+  ;;
+help)
+  [[ -z "${2:-}" ]] && {
+    echo "Usage: dr help <name>"
+    exit 1
+  }
+  show_help "$2"
+  ;;
+yadm-init)
+  check_prerequisites
+  if ! command -v yadm_init >/dev/null 2>&1; then
+    echo "Error: Collections helper not available" >&2
+    exit 1
+  fi
+  yadm_init
+  ;;
+-col|collections)
+  check_prerequisites
+  if [[ $(type -t cmd_col_init) != "function" ]]; then
+    echo "Error: Collections helper not available" >&2
+    exit 1
+  fi
+  case "${2:-}" in
+  "")
+    # No arguments - run interactive browser
+    cmd_col_interactive
+    ;;
+  init)
+    cmd_col_init
+    ;;
+  add)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr $1 add <github-url>"
+      echo "Example: dr $1 add https://github.com/user/repo"
+      exit 1
+    }
+    cmd_col_add "$3"
+    ;;
+  list)
+    cmd_col_list
+    ;;
+  sync)
+    cmd_col_sync
+    ;;
+  update)
+    # Allow both interactive (no args) and direct (with name) modes
+    cmd_col_update "${3:-}"
+    ;;
+  remove)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr $1 remove <collection-name>"
+      echo "Run 'dr $1 list' to see installed collections"
+      exit 1
+    }
+    cmd_col_remove "$3"
+    ;;
+  --help|-h|help)
+    # Color codes for help output
+    BOLD=$'\e[1m'
+    CYAN=$'\e[36m'
+    GREEN=$'\e[32m'
+    BLUE=$'\e[34m'
+    YELLOW=$'\e[33m'
+    GRAY=$'\e[90m'
+    RESET=$'\e[0m'
+
+    cat <<EOF
+${BOLD}${CYAN}DotRun Collections System${RESET}
+
+A version-controlled, copy-based system for sharing and managing script collections from
+Git repositories. Collections use SHA256 hash tracking for modification detection and
+provide interactive conflict resolution during updates.
+
+${BOLD}ARCHITECTURE${RESET}
+
+  ${GRAY}Copy-Based Imports${RESET}   Resources are ${BOLD}copied${RESET} to your config (not symlinked)
+                     You can freely edit imported files without breaking updates
+
+  ${GRAY}Hash Tracking${RESET}        SHA256 hashes (8-char) detect if you've modified imported files
+                     Update workflow changes based on modification status
+
+  ${GRAY}Git Versioning${RESET}       Collections use semantic version tags (v1.0.0, v1.1.0, etc.)
+                     \`sync\` checks for updates, \`update\` applies them interactively
+
+  ${GRAY}Persistent Clones${RESET}    Collections stored in \$DR_CONFIG/collections/ as full git repos
+                     Enables diff, merge, and version comparison
+
+${BOLD}COMMANDS${RESET}
+
+  ${GREEN}dr -col${RESET}                  ${GRAY}[Interactive Browser]${RESET}
+                           Browse installed collections and import additional resources
+                           Shows update badges (🔄) for collections with available updates
+
+  ${GREEN}dr -col init${RESET}             ${GRAY}[For Collection Authors]${RESET}
+                           Initialize collection structure in current directory
+                           Creates: dotrun.collection.yml, scripts/, aliases/, helpers/, configs/
+                           Use when creating a new collection to share
+
+  ${GREEN}dr -col add${RESET} ${YELLOW}<url>${RESET}         ${GRAY}[Install Collection]${RESET}
+                           Clone collection from GitHub, display resource menu, import selected
+                           Tracks: version, URL, imported files with hashes
+                           Example: dr -col add https://github.com/user/devtools.git
+
+  ${GREEN}dr -col list${RESET}             ${GRAY}[Show Installed]${RESET}
+                           List all installed collections with:
+                           - Collection name and current version
+                           - Repository URL
+                           - Count of imported resources by type
+
+  ${GREEN}dr -col sync${RESET}             ${GRAY}[Check Updates]${RESET}
+                           Fetch latest tags from all collections, compare versions
+                           Shows which files changed in each update
+                           Non-destructive: only checks, doesn't modify files
+
+  ${GREEN}dr -col update${RESET} ${YELLOW}[name]${RESET}     ${GRAY}[Apply Updates]${RESET}
+                           Update collection to latest version with conflict resolution
+                           ${YELLOW}[name]${RESET} optional - shows interactive selection if omitted
+
+                           For ${BOLD}unmodified${RESET} files: [U]pdate, [D]iff, [S]kip
+                           For ${BOLD}modified${RESET} files:   [K]eep, [O]verwrite, [D]iff, [M]erge, [B]ackup
+                           For ${BOLD}new${RESET} files:        [I]mport, [V]iew, [S]kip
+
+  ${GREEN}dr -col remove${RESET} ${YELLOW}<name>${RESET}     ${GRAY}[Remove Tracking]${RESET}
+                           Remove collection from tracking and delete repository clone
+                           ${YELLOW}NOTE${RESET}: Imported files remain in your config (you own them)
+                           Delete manually if unwanted
+
+${BOLD}WORKFLOWS${RESET}
+
+  ${CYAN}→ As a Collection User${RESET}
+
+    1. Discover and install:
+       ${GRAY}dr -col add https://github.com/team/deployment-scripts.git${RESET}
+
+    2. Select resources to import from interactive menu
+       Scripts, aliases, helpers, configs displayed by category
+
+    3. Check for updates periodically:
+       ${GRAY}dr -col sync${RESET}
+
+    4. Apply updates when available:
+       ${GRAY}dr -col update deployment-scripts${RESET}
+
+    5. Resolve conflicts interactively:
+       - Keep your changes or accept collection's version
+       - View diffs to understand changes
+       - Merge conflicting edits when possible
+
+  ${CYAN}→ As a Collection Author${RESET}
+
+    1. Initialize collection structure:
+       ${GRAY}cd ~/my-team-scripts && dr -col init${RESET}
+
+    2. Edit dotrun.collection.yml metadata:
+       ${GRAY}name, version, description, author, repository${RESET}
+
+    3. Organize resources in subdirectories:
+       ${GRAY}scripts/    - Executable scripts (.sh)${RESET}
+       ${GRAY}aliases/    - Shell aliases (.aliases)${RESET}
+       ${GRAY}helpers/    - Sourced helper modules${RESET}
+       ${GRAY}configs/    - Configuration files (.config)${RESET}
+
+    4. Commit and tag with semantic versions:
+       ${GRAY}git add . && git commit -m "Add deployment automation"${RESET}
+       ${GRAY}git tag v1.0.0 && git push --tags${RESET}
+
+    5. Share repository URL with your team
+       They install with: ${GRAY}dr -col add <your-repo-url>${RESET}
+
+    6. For updates, increment version and create new tag:
+       ${GRAY}# Edit dotrun.collection.yml: version: "1.1.0"${RESET}
+       ${GRAY}git commit -am "Add monitoring script" && git tag v1.1.0${RESET}
+       ${GRAY}git push --tags${RESET}
+
+${BOLD}COLLECTION STRUCTURE${RESET}
+
+  ${GRAY}Repository Layout:${RESET}
+
+    dotrun.collection.yml    ${GRAY}# Required metadata${RESET}
+    scripts/                 ${GRAY}# Executable scripts${RESET}
+      deploy.sh
+      backup.sh
+      git/                   ${GRAY}# Subdirectories preserved on import${RESET}
+        sync.sh
+    aliases/                 ${GRAY}# Shell aliases${RESET}
+      01-git.aliases
+      02-docker.aliases
+    helpers/                 ${GRAY}# Sourced modules${RESET}
+      validation.sh
+    configs/                 ${GRAY}# Global variables${RESET}
+      01-api.config
+
+  ${GRAY}Metadata (dotrun.collection.yml):${RESET}
+
+    name: "deployment-tools"          ${GRAY}# Required: unique identifier${RESET}
+    version: "1.0.0"                  ${GRAY}# Required: semantic version${RESET}
+    description: "Deploy automation"  ${GRAY}# Required: brief description${RESET}
+    author: "DevOps Team"             ${GRAY}# Required: creator name${RESET}
+    repository: "https://github.com/team/deploy.git"  ${GRAY}# Required: git URL${RESET}
+    license: "MIT"                    ${GRAY}# Optional${RESET}
+    homepage: "https://docs.team.com" ${GRAY}# Optional${RESET}
+    dependencies: []                  ${GRAY}# Optional: other collections${RESET}
+
+${BOLD}TRACKING & STORAGE${RESET}
+
+  ${GRAY}Collections Directory${RESET}   \$DR_CONFIG/collections/${YELLOW}<name>${RESET}/
+                           Full git clone for each collection
+                           Example: ~/.config/dotrun/collections/devtools/
+
+  ${GRAY}Tracking Database${RESET}       ~/.local/share/dotrun/collections.conf
+                           INI format with sections per collection
+                           Stores: URL, version, path, imported files with hashes
+
+  ${GRAY}Imported Resources${RESET}      \$DR_CONFIG/{scripts,aliases,helpers,configs}/
+                           Copied from collection to your config
+                           You own these files and can edit freely
+
+${BOLD}CONFLICT RESOLUTION${RESET}
+
+  When updating a collection, DotRun compares file hashes to detect modifications:
+
+  ${GREEN}Unmodified File${RESET} (hash matches original)
+    ${GRAY}[U]pdate${RESET}  - Overwrite with collection's new version
+    ${GRAY}[D]iff${RESET}    - Show changes between versions
+    ${GRAY}[S]kip${RESET}    - Keep current version, don't update
+
+  ${YELLOW}Modified File${RESET} (you changed it after import)
+    ${GRAY}[K]eep${RESET}     - Keep your version, skip update
+    ${GRAY}[O]verwrite${RESET} - Replace with collection version (lose your changes)
+    ${GRAY}[D]iff${RESET}     - Show 3-way diff: original | yours | collection's
+    ${GRAY}[M]erge${RESET}    - Attempt 3-way merge (git merge-file)
+    ${GRAY}[B]ackup${RESET}   - Save yours as .bak, then overwrite
+
+  ${BLUE}New File${RESET} (added in collection update)
+    ${GRAY}[I]mport${RESET}  - Copy to your config
+    ${GRAY}[V]iew${RESET}    - Display file contents
+    ${GRAY}[S]kip${RESET}    - Don't import
+
+${BOLD}EXAMPLES${RESET}
+
+  ${GRAY}# Install and browse collection${RESET}
+  dr -col add https://github.com/user/devtools.git
+  dr -col                                    ${GRAY}# Browse interactively${RESET}
+
+  ${GRAY}# Check and apply updates${RESET}
+  dr -col sync                               ${GRAY}# Check all for updates${RESET}
+  dr -col update                             ${GRAY}# Interactive: select collection${RESET}
+  dr -col update devtools                    ${GRAY}# Direct: update specific collection${RESET}
+
+  ${GRAY}# Create and share a collection${RESET}
+  mkdir ~/team-scripts && cd ~/team-scripts
+  dr -col init                               ${GRAY}# Initialize structure${RESET}
+  # ... add scripts to scripts/, aliases to aliases/ ...
+  vim dotrun.collection.yml                  ${GRAY}# Edit metadata${RESET}
+  git init && git add .
+  git commit -m "Initial collection"
+  git tag v1.0.0
+  git remote add origin https://github.com/team/scripts.git
+  git push -u origin master --tags
+
+  ${GRAY}# Manage installed collections${RESET}
+  dr -col list                               ${GRAY}# Show all installed${RESET}
+  dr -col remove old-collection              ${GRAY}# Remove tracking${RESET}
+
+${BOLD}TIPS & BEST PRACTICES${RESET}
+
+  ${GRAY}For Users:${RESET}
+  - Run ${GREEN}dr -col sync${RESET} regularly to stay updated
+  - Use ${GRAY}[D]iff${RESET} option during updates to understand changes
+  - Modified files won't be overwritten without confirmation
+  - Imported files are yours - edit freely without breaking updates
+
+  ${GRAY}For Authors:${RESET}
+  - Use semantic versioning: MAJOR.MINOR.PATCH (1.0.0, 1.1.0, 2.0.0)
+  - Increment MAJOR for breaking changes, MINOR for features, PATCH for fixes
+  - Tag every release: ${GRAY}git tag v1.0.0${RESET}
+  - Keep dotrun.collection.yml version in sync with git tags
+  - Document breaking changes in scripts with ${GRAY}### DOC${RESET} blocks
+  - Test imports in a clean environment before sharing
+
+  ${GRAY}Version Management:${RESET}
+  - Collections track installed version vs. available version
+  - ${GREEN}sync${RESET} fetches tags but doesn't modify files
+  - ${GREEN}update${RESET} checks out new tag and prompts for each changed file
+  - Git history preserved - can always ${GRAY}git checkout${RESET} older versions
+
+${GRAY}Use 'dr -col <command>' to manage collections. Both flag (-col) and subcommand${RESET}
+${GRAY}(collections) styles work identically.${RESET}
+EOF
+    exit 0
+    ;;
+  *)
+    echo "Usage: dr $1 [command]"
+    echo
+    echo "Commands:"
+    echo "  (no args)         Interactive collection browser"
+    echo "  init              Initialize collection structure for authors"
+    echo "  add <url>         Install collection from GitHub repository"
+    echo "  list              List installed collections with versions"
+    echo "  sync              Check all collections for updates"
+    echo "  update [name]     Update collection (interactive if no name given)"
+    echo "  remove <name>     Remove collection tracking"
+    echo "  --help, -h        Show detailed collections help"
+    echo
+    echo "Examples:"
+    echo "  dr $1 init                                          # Initialize collection"
+    echo "  dr $1 add https://github.com/user/repo              # Install collection"
+    echo "  dr $1 list                                          # List collections"
+    echo "  dr $1 sync                                          # Check for updates"
+    echo "  dr $1 update                                        # Select interactively"
+    echo "  dr $1 update my-scripts                             # Update specific one"
+    echo "  dr $1 remove my-scripts                             # Remove collection"
+    echo "  dr $1 --help                                        # Detailed guide"
+    ;;
+  esac
+  ;;
+-a|aliases)
+  check_prerequisites
+  if [[ $(type -t aliases_init) != "function" ]]; then
+    echo "Error: Aliases helper not available" >&2
+    exit 1
+  fi
+  case "${2:-}" in
+  init)
+    aliases_init
+    ;;
+  set)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr aliases set <path/to/file>" >&2
+      echo "" >&2
+      echo "Creates or opens an alias file for editing (idempotent)." >&2
+      echo "One file can contain multiple aliases." >&2
+      echo "" >&2
+      echo "Examples:" >&2
+      echo "  dr aliases set 01-git          # Opens ~/.config/dotrun/aliases/01-git.aliases" >&2
+      echo "  dr aliases set cd/shortcuts    # Opens ~/.config/dotrun/aliases/cd/shortcuts.aliases" >&2
+      exit 1
+    }
+    aliases_set "$3"
+    ;;
+  list)
+    show_categories="false"
+    filter_category=""
+    # Check for flags
+    if [[ "${3:-}" == "--categories" ]]; then
+      show_categories="true"
+    elif [[ "${3:-}" == "--category" && -n "${4:-}" ]]; then
+      filter_category="$4"
+    fi
+    aliases_list "$show_categories" "$filter_category"
+    ;;
+  remove | rm)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr aliases remove <name>"
+      exit 1
+    }
+    aliases_remove "$3"
+    ;;
+  reload)
+    aliases_reload
+    ;;
+  *)
+    echo "Usage: dr aliases <command>"
+    echo "Commands:"
+    echo "  init                          Initialize aliases system"
+    echo "  set <path/to/file>            Create or edit alias file (one file, multiple aliases)"
+    echo "  list                          List all alias files"
+    echo "  list --categories             List files with category information"
+    echo "  list --category <name>        List files in specific category"
+    echo "  remove <path/to/file>         Remove alias file"
+    echo "  reload                        Reload aliases in current shell"
+    echo
+    echo "File-based workflow: Each file can contain multiple aliases"
+    echo
+    echo "Examples:"
+    echo "  dr aliases init"
+    echo "  dr aliases set 01-git         # Creates/edits ~/.config/dotrun/aliases/01-git.aliases"
+    echo "  dr aliases set cd/shortcuts   # Creates/edits in category folder"
+    echo "  dr aliases list --category cd"
+    echo "  dr aliases remove 01-git"
+    echo "  dr aliases reload"
+    ;;
+  esac
+  ;;
+-c|config)
+  check_prerequisites
+  if [[ $(type -t config_set) != "function" ]]; then
+    echo "Error: Config helper not available" >&2
+    exit 1
+  fi
+  case "${2:-}" in
+  set)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr config set <path/to/file>" >&2
+      echo "" >&2
+      echo "Creates or opens a config file for editing (idempotent)." >&2
+      echo "One file can contain multiple configuration exports." >&2
+      echo "" >&2
+      echo "Examples:" >&2
+      echo "  dr config set 01-main          # Opens ~/.config/dotrun/configs/01-main.config" >&2
+      echo "  dr config set api/keys         # Opens ~/.config/dotrun/configs/api/keys.config" >&2
+      exit 1
+    }
+    config_set "$3"
+    ;;
+  list)
+    show_categories="false"
+    filter_category=""
+    # Check for flags
+    if [[ "${3:-}" == "--categories" ]]; then
+      show_categories="true"
+    elif [[ "${3:-}" == "--category" && -n "${4:-}" ]]; then
+      filter_category="$4"
+    fi
+    config_list "$show_categories" "$filter_category"
+    ;;
+  remove | rm)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr config remove <name>"
+      exit 1
+    }
+    config_remove "$3"
+    ;;
+  *)
+    echo "Usage: dr config <command>"
+    echo "Commands:"
+    echo "  set <path/to/file>            Create or edit config file (one file, multiple exports)"
+    echo "  list                          List all config files"
+    echo "  list --categories             List files with category information"
+    echo "  list --category <name>        List files in specific category"
+    echo "  remove <path/to/file>         Remove config file"
+    echo
+    echo "File-based workflow: Each file can contain multiple export statements"
+    echo
+    echo "Examples:"
+    echo "  dr config set 01-main         # Creates/edits ~/.config/dotrun/configs/01-main.config"
+    echo "  dr config set api/keys        # Creates/edits in category folder"
+    echo "  dr config list --category api"
+    echo "  dr config remove 01-main"
+    ;;
+  esac
+  ;;
+-v | --version | version)
+  echo "dr version $DRUN_VERSION"
+  exit 0
+  ;;
+"" | -h | --help)
+  # Color codes for help output
+  BOLD=$'\e[1m'
+  CYAN=$'\e[36m'
+  GREEN=$'\e[32m'
+  PURPLE=$'\e[35m'
+  RED=$'\e[31m'
+  YELLOW=$'\e[33m'
+  BLUE=$'\e[34m'
+  GRAY=$'\e[90m'
+  RESET=$'\e[0m'
+
+  cat <<EOF
+
+${BOLD}${CYAN}dr${RESET} ${GRAY}<command> [args...]${RESET}
+
+${BOLD}Core Commands${RESET}
+  ${CYAN}-l${RESET}                  List all scripts (names only)
+  ${CYAN}-L${RESET}                  List scripts with docs, optionally scoped
+  ${CYAN}-l/L${RESET} ${YELLOW}[folder/]${RESET}      List scripts within the scoped folder
+  ${CYAN}-r/reload${RESET}           Reload full DotRun tool features
+
+${BOLD}${GREEN}Script Management${RESET} ${GRAY}(${GREEN}-s${RESET}${GRAY} or ${GREEN}scripts${RESET}${GRAY}, or ${GREEN}nothing${RESET}${GRAY} - the \`Script\` feature is default behavior)${RESET}
+  ${GREEN}set${RESET} ${YELLOW}<name>${RESET}       Create or open ${YELLOW}<name>${RESET}.sh in editor (idempotent)
+  ${GREEN}edit${RESET} ${YELLOW}<name>${RESET}      Open existing script in editor
+  ${GREEN}move${RESET} ${YELLOW}<src> <dst>${RESET} Move/rename script
+  ${GREEN}help${RESET} ${YELLOW}<name>${RESET}      Show inline docs
+  ${GREEN}${YELLOW}<name>${RESET} ${GRAY}[args…]${RESET}   Execute script ${YELLOW}<name>${RESET} from anywhere
+
+${BOLD}${PURPLE}Aliases Management${RESET} ${GRAY}(${PURPLE}-a${RESET}${GRAY} or ${PURPLE}aliases${RESET}${GRAY})${RESET}
+  ${PURPLE}-a init${RESET}             Initialize aliases system with shell integration
+  ${PURPLE}-a set${RESET} ${YELLOW}<path/to/file>${RESET}  Create or edit alias file (one file = multiple aliases)
+  ${PURPLE}-a list${RESET}             List all alias files
+  ${PURPLE}-a remove${RESET} ${YELLOW}<file>${RESET}    Remove alias file
+  ${PURPLE}-a reload${RESET}           Reload aliases in current shell
+
+${BOLD}${RED}Configuration Management${RESET} ${GRAY}(${RED}-c${RESET}${GRAY} or ${RED}config${RESET}${GRAY})${RESET}
+  ${RED}-c set${RESET} ${YELLOW}<path/to/file>${RESET}  Create or edit config file (one file = multiple exports)
+  ${RED}-c list${RESET}             List all config files
+  ${RED}-c remove${RESET} ${YELLOW}<file>${RESET}    Remove config file
+
+${BOLD}${BLUE}Collections System${RESET} ${GRAY}(${BLUE}-col${RESET}${GRAY} or ${BLUE}collections${RESET}${GRAY})${RESET}
+  ${GRAY}Share and update script collections from Git repositories with version tracking,${RESET}
+  ${GRAY}conflict resolution, and modification detection via SHA256 hashes.${RESET}
+
+  ${BLUE}-col${RESET}                Interactive collection browser (browse and import resources)
+  ${BLUE}-col init${RESET}           Initialize collection structure (for authors creating collections)
+  ${BLUE}-col add${RESET} ${YELLOW}<url>${RESET}      Install collection from GitHub (clone, import resources, track version)
+  ${BLUE}-col list${RESET}           List installed collections with versions and imported resources
+  ${BLUE}-col sync${RESET}           Check all collections for available updates (fetch latest tags)
+  ${BLUE}-col update${RESET} ${YELLOW}[name]${RESET}  Update collection (interactive selection if no name given)
+  ${BLUE}-col remove${RESET} ${YELLOW}<name>${RESET}  Remove collection tracking (keeps imported files)
+  ${BLUE}-col --help${RESET}         Show detailed collections help with workflows and examples
+
+${BOLD}Environment Variables${RESET}
+  ${YELLOW}EDITOR${RESET}            Command to open editor (default: auto-detect)
+EOF
+  exit 0
+  ;;
+*)
+  if [[ -n "${1:-}" ]]; then
+    run_script "$@"
+  else
+    echo "Error: No command provided" >&2
+    echo "Run 'dr --help' for usage information" >&2
+    exit 1
+  fi
+  ;;
+esac

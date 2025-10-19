@@ -1,10 +1,10 @@
-./bin/
-./docs/
-./helpers/
+.claude
+.local
+openspec
+ai-docs
 
 **.out
 .out
-
-!examples/docs/
-!examples/bin/
-!examples/helpers/
+AGENTS.md
+CLAUDE.md
+.mcp.json

@@ -1,0 +1,15 @@
+# DotRun Aliases - Navigation
+#
+# File naming convention: NN-category.aliases
+# - NN: Two-digit number (01, 02, etc.) for load order
+# - category: Descriptive name (cd, git, docker, etc.)
+# - extension: .aliases (required)
+#
+# Files are loaded in alphanumeric order, so use numbers to control
+# which aliases are available first.
+
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias .....='cd ../../../..'
+alias ......='cd ../../../../..'
