@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+
+# DotRun Configuration
+# This file is managed by DotRun. Manual edits may be overwritten.
+# Use 'dr config set/get/unset' commands to manage configuration.
+
+#* =================== SHELL CONFIGURATIONS ====== *#
+# Detect current shell
+if [ -n "$BASH_VERSION" ]; then
+  CURRENT_SHELL="bash"
+elif [ -n "$ZSH_VERSION" ]; then
+  CURRENT_SHELL="zsh"
+elif [ -n "$FISH_VERSION" ]; then
+  CURRENT_SHELL="fish"
+else
+  CURRENT_SHELL="unknown"
+fi
+export CURRENT_SHELL
+
+# Add ~/.local/bin to PATH if not already present
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+
+# Set paths for shell-specific files in ~/.local/share/dotrun/
+DOTRUN_SHARED="${HOME}/.local/share/dotrun"
+SHELL_COMPLETION="${DOTRUN_SHARED}/shell/${CURRENT_SHELL}/dr_completion"
+SHELL_ALIASES="${DOTRUN_SHARED}/shell/${CURRENT_SHELL}/aliases.sh"
+SHELL_CONFIGS="${DOTRUN_SHARED}/shell/${CURRENT_SHELL}/configs.sh"
+
+# Set completion file extension based on shell
+# For bash, detect if ble.sh is loaded and use enhanced completion
+if [[ $CURRENT_SHELL == "bash" ]]; then
+  if [[ -n "${BLE_VERSION-}" ]]; then
+    # [[ ! ${BLE_VERSION-} ]] || ble-attach
+    # ble.sh is loaded - use enhanced completion with colors
+    SHELL_COMPLETION="${SHELL_COMPLETION}_ble.sh"
+  else
+    # Standard bash - use basic completion
+    SHELL_COMPLETION="${SHELL_COMPLETION}.bash"
+  fi
+elif [[ $CURRENT_SHELL == "zsh" ]]; then
+  SHELL_COMPLETION="${SHELL_COMPLETION}.zsh"
+elif [[ $CURRENT_SHELL == "fish" ]]; then
+  SHELL_COMPLETION="${SHELL_COMPLETION}.fish"
+fi
+
+#! 1st - Source configs loader
+if [ -f "$SHELL_CONFIGS" ]; then
+  source "$SHELL_CONFIGS"
+fi
+
+#! 2nd - Source aliases loader
+if [ -f "$SHELL_ALIASES" ]; then
+  source "$SHELL_ALIASES"
+fi
+
+#! 3rd - Source completion file
+if [ -f "$SHELL_COMPLETION" ]; then
+    source "$SHELL_COMPLETION"
+
+  # For ble.sh, skip completion loading here - it will be loaded via ~/.blerc
+  # if [[ $CURRENT_SHELL == "bash" ]] && [[ -n "${BLE_VERSION-}" ]]; then
+  #   # Ensure we run after the completion module is loaded
+  #   blehook/eval-after-load complete 'dr/define-completion'
+  # else
+    # Standard bash or other shells - source immediately
+
+    # For zsh, register completion after sourcing if compdef is available
+    # If not available yet, set up a hook to register when shell is ready
+    if [[ $CURRENT_SHELL == "zsh" ]]; then
+      if (( $+functions[compdef] )); then
+        # compdef is available, register now
+        compdef _dr dr 2>/dev/null
+      else
+        # compdef not available yet, register when shell initialization completes
+        _dr_register_completion() {
+          if (( $+functions[compdef] )) && (( $+functions[_dr] )); then
+            compdef _dr dr 2>/dev/null
+            # Remove this function after it runs once
+            unfunction _dr_register_completion
+          fi
+        }
+        # Add to precmd_functions so it runs after .zshrc completes
+        precmd_functions+=(_dr_register_completion)
+      fi
+    # fi
+  fi
+fi
