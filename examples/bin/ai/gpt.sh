@@ -8,8 +8,8 @@
 # shellcheck disable=SC2016
 set -euo pipefail
 
-source "$DRUN_CONFIG/helpers/pkg.sh"
-source "$DRUN_CONFIG/helpers/filters.sh"
+source "$DR_CONFIG/helpers/pkg.sh"
+source "$DR_CONFIG/helpers/filters.sh"
 
 validatePkg tree
 validatePkg git

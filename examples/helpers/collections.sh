@@ -6,20 +6,20 @@
 # shellcheck disable=SC1091
 # shellcheck disable=SC2016
 
-# Ensure required variables are set (when not sourced from main drun script)
-DRUN_CONFIG="${DRUN_CONFIG:-$HOME/.config/dotrun}"
-BIN_DIR="${BIN_DIR:-$DRUN_CONFIG/bin}"
-DOC_DIR="${DOC_DIR:-$DRUN_CONFIG/docs}"
+# Ensure required variables are set (when not sourced from main dr script)
+DR_CONFIG="${DR_CONFIG:-$HOME/.config/dotrun}"
+BIN_DIR="${BIN_DIR:-$DR_CONFIG/bin}"
+DOC_DIR="${DOC_DIR:-$DR_CONFIG/docs}"
 
-source "$DRUN_CONFIG/helpers/pkg.sh"
-source "$DRUN_CONFIG/helpers/git.sh"
+source "$DR_CONFIG/helpers/pkg.sh"
+source "$DR_CONFIG/helpers/git.sh"
 
 validatePkg git
 validatePkg curl
 
 # Collection metadata file
-COLLECTION_METADATA=".drun-collection.yml"
-COLLECTIONS_DIR="$DRUN_CONFIG/collections"
+COLLECTION_METADATA=".dr-collection.yml"
+COLLECTIONS_DIR="$DR_CONFIG/collections"
 
 # Ensure collections directory exists
 mkdir -p "$COLLECTIONS_DIR"
@@ -43,7 +43,7 @@ description: "$description"
 author: "$author"
 version: "$version"
 created: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-type: "drun-collection"
+type: "dr-collection"
 
 # Scripts included in this collection
 scripts:
@@ -389,28 +389,28 @@ yadm_init() {
     mkdir -p "$yadm_drun_dir"/{bin,docs,helpers,collections}
     
     # Create symlink from current config to yadm-managed location
-    if [[ -d "$DRUN_CONFIG" && "$DRUN_CONFIG" != "$yadm_drun_dir" ]]; then
+    if [[ -d "$DR_CONFIG" && "$DR_CONFIG" != "$yadm_drun_dir" ]]; then
       echo "Migrating existing DotRun config to yadm..."
       
       # Copy existing content
-      if [[ -d "$DRUN_CONFIG/bin" ]]; then
-        cp -r "$DRUN_CONFIG/bin"/* "$yadm_drun_dir/bin/" 2>/dev/null || true
+      if [[ -d "$DR_CONFIG/bin" ]]; then
+        cp -r "$DR_CONFIG/bin"/* "$yadm_drun_dir/bin/" 2>/dev/null || true
       fi
-      if [[ -d "$DRUN_CONFIG/docs" ]]; then
-        cp -r "$DRUN_CONFIG/docs"/* "$yadm_drun_dir/docs/" 2>/dev/null || true
+      if [[ -d "$DR_CONFIG/docs" ]]; then
+        cp -r "$DR_CONFIG/docs"/* "$yadm_drun_dir/docs/" 2>/dev/null || true
       fi
-      if [[ -d "$DRUN_CONFIG/helpers" ]]; then
-        cp -r "$DRUN_CONFIG/helpers"/* "$yadm_drun_dir/helpers/" 2>/dev/null || true
+      if [[ -d "$DR_CONFIG/helpers" ]]; then
+        cp -r "$DR_CONFIG/helpers"/* "$yadm_drun_dir/helpers/" 2>/dev/null || true
       fi
       
       # Backup old config
-      mv "$DRUN_CONFIG" "$DRUN_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
+      mv "$DR_CONFIG" "$DR_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
       echo "  ✓ Backed up existing config"
     fi
     
     # Create symlink
-    ln -sf "$yadm_drun_dir" "$DRUN_CONFIG"
-    echo "  ✓ Created symlink: $DRUN_CONFIG -> $yadm_drun_dir"
+    ln -sf "$yadm_drun_dir" "$DR_CONFIG"
+    echo "  ✓ Created symlink: $DR_CONFIG -> $yadm_drun_dir"
   fi
   
   # Create .gitignore for collections (they should be managed separately)
@@ -436,8 +436,8 @@ EOF
   echo "Collections can be imported separately and are excluded from your personal repo."
   echo
   echo "Next steps:"
-  echo "  1. Add your scripts: drun add myscript"
-  echo "  2. Import team collections: drun import <team-repo-url>"
+  echo "  1. Add your scripts: dr add myscript"
+  echo "  2. Import team collections: dr import <team-repo-url>"
   echo "  3. Commit changes: yadm commit -m 'Add DotRun setup'"
   
   return 0

@@ -27,7 +27,7 @@ DotRun gives you instant access to any script from anywhere:
 git fetch --all && git branch -vv | awk '/: gone]/{print $1}' | xargs git branch -d
 
 # Just run this
-drun git/cleanup
+dr git/cleanup
 ```
 
 **One command replaces dozens of scattered scripts, aliases, and copy-paste workflows.**
@@ -41,10 +41,10 @@ Install and run your first script in 30 seconds:
 bash <(curl -fsSL https://raw.githubusercontent.com/jvPalma/dotrun/master/install.sh)
 
 # 2. Create a script
-drun add deploy
+dr add deploy
 
 # 3. Run it from anywhere
-cd ~/any-project && drun deploy
+cd ~/any-project && dr deploy
 ```
 
 ## Before vs After
@@ -61,9 +61,9 @@ grep -r "deploy" ~/.bash_history | tail -5
 **After DotRun:**
 ```bash
 # Everything in one place, documented, and searchable
-drun -L deploy          # List all deployment scripts
-drun help deploy        # Show documentation
-drun deploy staging     # Run with confidence
+dr -L deploy          # List all deployment scripts
+dr help deploy        # Show documentation
+dr deploy staging     # Run with confidence
 ```
 
 ## Why DotRun?
@@ -75,7 +75,7 @@ drun deploy staging     # Run with confidence
 
 ## Key Features
 
-- **🚀 Instant Access** - Run any script with `drun scriptname` from anywhere
+- **🚀 Instant Access** - Run any script with `dr scriptname` from anywhere
 - **📚 Self-Documenting** - Every script includes usage examples and help text
 - **👥 Team Sharing** - Import/export collections while keeping personal scripts separate
 - **🔍 Smart Discovery** - Find scripts by name, category, or description
@@ -87,45 +87,45 @@ drun deploy staging     # Run with confidence
 bash <(curl -fsSL https://raw.githubusercontent.com/jvPalma/dotrun/master/install.sh)
 ```
 
-Installs to `~/.local/bin/drun` with workspace in `~/.config/dotrun/`
+Installs to `~/.local/bin/dr` with workspace in `~/.config/dotrun/`
 
 ## Quick Start
 
 ### Create Your First Script
 ```bash
-drun add hello
+dr add hello
 # Opens editor with documentation template
 # Add: echo "Hello from anywhere!"
-drun hello  # Run from any directory
+dr hello  # Run from any directory
 ```
 
 ### Import Examples Collection
 ```bash
-drun import https://github.com/jvPalma/dotrun.git examples
-drun -L examples/    # Browse 20+ ready-to-use scripts
-drun examples/git/cleanup    # Clean up old Git branches
+dr import https://github.com/jvPalma/dotrun.git examples
+dr -L examples/    # Browse 20+ ready-to-use scripts
+dr examples/git/cleanup    # Clean up old Git branches
 ```
 
 ### Real-World Example
 ```bash
 # Create a deployment script
-drun add deploy/staging
+dr add deploy/staging
 # Add your deployment logic with parameters
 # Document usage with ### DOC sections
 
 # Now deploy from any project
-cd ~/frontend-app && drun deploy/staging
-cd ~/backend-service && drun deploy/staging
-cd ~/mobile-app && drun deploy/staging
+cd ~/frontend-app && dr deploy/staging
+cd ~/backend-service && dr deploy/staging
+cd ~/mobile-app && dr deploy/staging
 ```
 
 ## Core Workflow
 
-1. **Create:** `drun add scriptname` - Creates script with documentation template
+1. **Create:** `dr add scriptname` - Creates script with documentation template
 2. **Document:** Add `### DOC` sections for usage examples and help
-3. **Run:** `drun scriptname` - Execute from anywhere with tab completion
-4. **Share:** `drun export collection` - Package scripts for team sharing
-5. **Discover:** `drun -L` - Browse all scripts with descriptions
+3. **Run:** `dr scriptname` - Execute from anywhere with tab completion
+4. **Share:** `dr export collection` - Package scripts for team sharing
+5. **Discover:** `dr -L` - Browse all scripts with descriptions
 
 ## Popular Use Cases
 
@@ -142,7 +142,7 @@ All comprehensive guides are available in our wiki:
 - [📖 Installation Guide](https://github.com/jvPalma/dotrun/wiki/Installation-Guide) - Detailed setup and customization
 - [📖 User Guide](https://github.com/jvPalma/dotrun/wiki/User-Guide) - Complete feature walkthrough
 - [📖 Script Development](https://github.com/jvPalma/dotrun/wiki/Script-Development) - Best practices and templates
-- [📖 Team Collaboration](https://github.com/jvPalma/dotrun/wiki/Team-Workflows) - Sharing and collection management
+- [📖 Collection Management](https://github.com/jvPalma/dotrun/wiki/Collection-Management) - Sharing and collection management
 
 ## Examples Collection
 

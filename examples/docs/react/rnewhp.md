@@ -12,6 +12,6 @@ Same as **rnewh** but allows nested paths. Produces `use<Name>.tsx`,
 ### Example
 
 ```bash
-$ drun rnewhp ui/Modal
+$ dr rnewhp ui/Modal
 Hook provider component Modal created successfully in ui/Modal
 ```

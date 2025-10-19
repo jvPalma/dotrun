@@ -5,7 +5,7 @@ Quick status check for your Google Cloud Workstation, providing instant visibili
 ## Synopsis
 
 ```bash
-drun workstation/wsl
+dr workstation/wsl
 ```
 
 ## Description
@@ -16,21 +16,21 @@ The script lists all workstations in the configured cluster and extracts the sta
 
 ## Output States
 
-| Status | Meaning |
-|--------|---------|
-| `RUNNING` | Workstation is active and ready for connections |
-| `STOPPED` | Workstation is stopped and needs to be started |
-| `STARTING` | Workstation is currently booting up |
-| `STOPPING` | Workstation is in the process of shutting down |
+| Status     | Meaning                                         |
+| ---------- | ----------------------------------------------- |
+| `RUNNING`  | Workstation is active and ready for connections |
+| `STOPPED`  | Workstation is stopped and needs to be started  |
+| `STARTING` | Workstation is currently booting up             |
+| `STOPPING` | Workstation is in the process of shutting down  |
 
 ## Usage
 
 ```bash
 # Check current workstation status
-drun workstation/wsl
+dr workstation/wsl
 
 # Use in scripts for conditional logic
-if [[ "$(drun workstation/wsl)" == "RUNNING" ]]; then
+if [[ "$(dr workstation/wsl)" == "RUNNING" ]]; then
   echo "Workstation is ready"
 else
   echo "Workstation needs to be started"
@@ -40,21 +40,23 @@ fi
 ## Examples
 
 ### Basic Status Check
+
 ```bash
-$ drun workstation/wsl
+$ dr workstation/wsl
 RUNNING
 ```
 
 ### Script Integration
+
 ```bash
 #!/bin/bash
-STATUS=$(drun workstation/wsl)
+STATUS=$(dr workstation/wsl)
 case "$STATUS" in
   "RUNNING")
     echo "✓ Workstation is ready for connection"
     ;;
   "STOPPED")
-    echo "○ Workstation is stopped - use 'drun wss' to start"
+    echo "○ Workstation is stopped - use 'dr wss' to start"
     ;;
   "STARTING")
     echo "⏳ Workstation is starting up..."
@@ -74,8 +76,9 @@ esac
 ## Configuration
 
 Workstation details must be configured in:
+
 ```bash
-# $DRUN_CONFIG/helpers/constants.sh
+# $DR_CONFIG/helpers/constants.sh
 WORKSTATION_NAME="your-workstation"
 WORKSTATION_CLUSTER="your-cluster"
 WORKSTATION_CONFIG="your-config"

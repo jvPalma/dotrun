@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+# DotRun Configuration
+
+export DR_CONFIG="$HOME/.config/dotrun"
+
+# Load shell completion if available
+if [ -f "$DR_CONFIG/.core/.dr_config_loader" ]; then
+  source "$DR_CONFIG/.core/.dr_config_loader"
+fi

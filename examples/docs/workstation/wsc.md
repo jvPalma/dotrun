@@ -5,7 +5,7 @@ Intelligent SSH connection to your Google Cloud Workstation with automatic start
 ## Synopsis
 
 ```bash
-drun workstation/wsc
+dr workstation/wsc
 ```
 
 ## Description
@@ -13,6 +13,7 @@ drun workstation/wsc
 Establishes an SSH connection to your configured cloud workstation, automatically handling the startup sequence if needed. The script intelligently checks workstation status and starts it if not running, ensuring seamless access to your remote development environment.
 
 Features:
+
 - **Smart Status Detection**: Checks if workstation is running before connecting
 - **Automatic Startup**: Starts workstation if currently stopped
 - **Fish Shell Default**: Connects with fish shell for enhanced experience
@@ -22,24 +23,26 @@ Features:
 
 ```bash
 # Connect to running workstation
-drun workstation/wsc
+dr workstation/wsc
 
 # If workstation is stopped, automatically starts it first
-drun workstation/wsc
+dr workstation/wsc
 ```
 
 ## Behavior
 
 ### Workstation Running
+
 ```bash
-$ drun workstation/wsc
+$ dr workstation/wsc
 SSH into workstation...
 # Direct connection established
 ```
 
 ### Workstation Stopped
+
 ```bash
-$ drun workstation/wsc
+$ dr workstation/wsc
 Workstation is not running. Starting it now...
 # Waits for startup completion
 SSH into workstation...
@@ -56,8 +59,9 @@ SSH into workstation...
 ## Configuration
 
 Workstation connection details are defined in:
+
 ```bash
-# $DRUN_CONFIG/helpers/constants.sh
+# $DR_CONFIG/helpers/constants.sh
 WORKSTATION_NAME="your-workstation"
 WORKSTATION_CLUSTER="your-cluster"
 WORKSTATION_CONFIG="your-config"

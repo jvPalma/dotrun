@@ -6,7 +6,7 @@
 # shellcheck disable=SC2034
 set -euo pipefail
 
-source "$DRUN_CONFIG/helpers/git.sh"
+source "$DR_CONFIG/helpers/git.sh"
 
 # Global variables for cleanup
 ORIGINAL_BRANCH=""

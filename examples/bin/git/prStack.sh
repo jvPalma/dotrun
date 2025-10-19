@@ -14,9 +14,9 @@
 # shellcheck disable=SC2016
 set -euo pipefail
 
-source "$DRUN_CONFIG/helpers/git.sh"
-source "$DRUN_CONFIG/helpers/pkg.sh"
-source "$DRUN_CONFIG/helpers/prStack.sh"
+source "$DR_CONFIG/helpers/git.sh"
+source "$DR_CONFIG/helpers/pkg.sh"
+source "$DR_CONFIG/helpers/prStack.sh"
 
 validatePkg git
 

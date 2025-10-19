@@ -13,7 +13,7 @@
 # shellcheck disable=SC2016
 set -euo pipefail
 
-source "$DRUN_CONFIG/helpers/git.sh"
+source "$DR_CONFIG/helpers/git.sh"
 
 # Global variables for cleanup
 ORIGINAL_BRANCH=""
@@ -46,7 +46,7 @@ git_repo_root >/dev/null || {
 }
 
 interactive_cleanup() {
-  local cleanup_script="$DRUN_CONFIG/helpers/bash-interactive-cleanup.sh"
+  local cleanup_script="$DR_CONFIG/helpers/bash-interactive-cleanup.sh"
 
   if [ ! -f "$cleanup_script" ]; then
     echo "❌ Interactive cleanup script not found: $cleanup_script"

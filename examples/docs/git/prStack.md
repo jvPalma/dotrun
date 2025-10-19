@@ -11,13 +11,16 @@ Perfect for teams that need to break down large features into reviewable chunks 
 ## Key Concepts
 
 ### PR Stack Workflow
+
 A PR stack is a series of dependent branches where:
+
 1. **Base Branch**: Each PR is based on the previous branch in the stack
 2. **Sequential Merging**: PRs are merged in order from bottom to top
 3. **Automatic Updates**: Stack automatically updates as lower PRs merge
 4. **Clean History**: Maintains linear history throughout the process
 
 ### Stack States
+
 - **Initial**: First branch created from default branch
 - **Extended**: Additional branches added to the stack
 - **Updating**: Stack being rebalanced after merges
@@ -28,17 +31,17 @@ A PR stack is a series of dependent branches where:
 ### Command Overview
 
 ```bash
-drun git/prStack <command> [args...]
+dr git/prStack <command> [args...]
 ```
 
 ### Available Commands
 
-| Command | Description | Usage |
-|---------|-------------|-------|
-| `init` | Initialize a new PR stack | `prStack init <new-branch>` |
-| `next` | Create next branch in stack | `prStack next <next-branch>` |
-| `update` | Update stack after merges | `prStack update` |
-| `final` | Finalize and clean up stack | `prStack final` |
+| Command  | Description                 | Usage                        |
+| -------- | --------------------------- | ---------------------------- |
+| `init`   | Initialize a new PR stack   | `prStack init <new-branch>`  |
+| `next`   | Create next branch in stack | `prStack next <next-branch>` |
+| `update` | Update stack after merges   | `prStack update`             |
+| `final`  | Finalize and clean up stack | `prStack final`              |
 
 ## Commands in Detail
 
@@ -48,7 +51,7 @@ Creates the first branch in a new PR stack from the default branch.
 
 ```bash
 # Start a new PR stack for a multi-part feature
-drun git/prStack init feature-part1
+dr git/prStack init feature-part1
 
 # Creates:
 # - New branch 'feature-part1' from master/main
@@ -57,6 +60,7 @@ drun git/prStack init feature-part1
 ```
 
 **What it does:**
+
 - Identifies repository default branch (master/main)
 - Creates new branch from latest default branch
 - Initializes stack tracking metadata
@@ -68,13 +72,14 @@ Adds the next branch to the existing stack, based on the current branch.
 
 ```bash
 # Continue the stack with the next logical piece
-drun git/prStack next feature-part2
+dr git/prStack next feature-part2
 
 # Creates 'feature-part2' based on current 'feature-part1'
 # Maintains dependency chain for proper PR workflow
 ```
 
 **What it does:**
+
 - Creates new branch from current branch HEAD
 - Updates stack tracking to include new branch
 - Maintains parent-child relationship
@@ -86,7 +91,7 @@ Intelligently updates the stack after PRs have been merged upstream.
 
 ```bash
 # After feature-part1 PR is merged, update the stack
-drun git/prStack update
+dr git/prStack update
 
 # Automatically:
 # - Detects merged branches
@@ -96,6 +101,7 @@ drun git/prStack update
 ```
 
 **What it does:**
+
 - Scans for merged stack branches
 - Rebases remaining branches onto updated base
 - Handles merge conflicts interactively
@@ -108,12 +114,13 @@ Completes the stack workflow and performs cleanup.
 
 ```bash
 # After all PRs are merged, clean up the stack
-drun git/prStack final
+dr git/prStack final
 
 # Removes tracking, cleans up branches, returns to default
 ```
 
 **What it does:**
+
 - Verifies all stack PRs are merged
 - Cleans up local stack branches
 - Removes stack tracking metadata
@@ -127,7 +134,7 @@ drun git/prStack final
 ```bash
 # 1. Start a new feature requiring multiple PRs
 git checkout master
-drun git/prStack init auth-system-base
+dr git/prStack init auth-system-base
 
 # Develop foundational authentication code
 git add . && git commit -m "Add base authentication framework"
@@ -135,15 +142,15 @@ git push -u origin auth-system-base
 # Create PR: auth-system-base → master
 
 # 2. Add OAuth integration on top
-drun git/prStack next auth-oauth-integration
+dr git/prStack next auth-oauth-integration
 
 # Develop OAuth functionality
 git add . && git commit -m "Implement OAuth provider integration"
-git push -u origin auth-oauth-integration  
+git push -u origin auth-oauth-integration
 # Create PR: auth-oauth-integration → auth-system-base
 
 # 3. Add UI components
-drun git/prStack next auth-ui-components
+dr git/prStack next auth-ui-components
 
 # Develop authentication UI
 git add . && git commit -m "Add login/logout UI components"
@@ -151,16 +158,16 @@ git push -u origin auth-ui-components
 # Create PR: auth-ui-components → auth-oauth-integration
 
 # 4. After auth-system-base PR is approved and merged
-drun git/prStack update
+dr git/prStack update
 # Automatically rebases auth-oauth-integration onto master
 # Updates auth-ui-components to be based on updated auth-oauth-integration
 
 # 5. Continue pattern as each PR gets merged
 # When auth-oauth-integration merges:
-drun git/prStack update
+dr git/prStack update
 
 # 6. After all PRs are merged
-drun git/prStack final
+dr git/prStack final
 # Clean up all tracking and return to master
 ```
 
@@ -168,7 +175,7 @@ drun git/prStack final
 
 ```bash
 # When multiple PRs merge simultaneously
-drun git/prStack update
+dr git/prStack update
 
 # If conflicts arise during update:
 # 1. Script pauses for manual conflict resolution
@@ -178,22 +185,25 @@ drun git/prStack update
 
 # For problematic updates:
 git rebase --abort  # If needed to cancel
-drun git/prStack update  # Try again
+dr git/prStack update  # Try again
 ```
 
 ## Advanced Features
 
 ### Intelligent Merge Detection
+
 - **Merge Commit Detection**: Recognizes when stack branches are merged
 - **Squash Merge Handling**: Handles GitHub squash-and-merge workflow
 - **Branch Cleanup**: Automatically removes merged branches from stack
 
 ### Conflict Resolution
+
 - **Interactive Rebasing**: Pauses for manual conflict resolution
 - **Progress Tracking**: Shows which branches have been updated
 - **Recovery Options**: Provides abort/retry mechanisms
 
 ### Stack Validation
+
 - **Dependency Verification**: Ensures proper branch relationships
 - **State Consistency**: Validates stack integrity before operations
 - **Error Recovery**: Handles edge cases gracefully
@@ -202,43 +212,46 @@ drun git/prStack update  # Try again
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DRUN_CONFIG` | DotRun configuration directory | `~/.config/dotrun` |
-| `GIT_DEFAULT_BRANCH` | Override default branch detection | Auto-detected |
+| Variable             | Description                       | Default            |
+| -------------------- | --------------------------------- | ------------------ |
+| `DR_CONFIG`          | DotRun configuration directory    | `~/.config/dotrun` |
+| `GIT_DEFAULT_BRANCH` | Override default branch detection | Auto-detected      |
 
 ### Stack Metadata
 
 Stack information is stored in:
+
 - `~/.prstack-state` - Current stack configuration
 - `~/.prstack-branches` - Branch dependency mapping
 
 ## Dependencies
 
 ### Required Tools
+
 - **git** (2.0+) with rebase support
 - **bash** (4.0+) for advanced scripting features
 
 ### Required Scripts
-- `$DRUN_CONFIG/helpers/git.sh` - Git utility functions
-- `$DRUN_CONFIG/helpers/pkg.sh` - Package validation
-- `$DRUN_CONFIG/helpers/prStack.sh` - Core stack logic
+
+- `$DR_CONFIG/helpers/git.sh` - Git utility functions
+- `$DR_CONFIG/helpers/pkg.sh` - Package validation
+- `$DR_CONFIG/helpers/prStack.sh` - Core stack logic
 
 ## Error Handling
 
 ### Common Scenarios
 
-| Issue | Cause | Resolution |
-|-------|-------|------------|
-| Rebase conflicts | Overlapping changes | Resolve manually, continue rebase |
-| Missing branches | Branch deleted externally | Run `update` to resync |
-| Stack corruption | Manual git operations | Use `final` to clean up and restart |
+| Issue            | Cause                     | Resolution                          |
+| ---------------- | ------------------------- | ----------------------------------- |
+| Rebase conflicts | Overlapping changes       | Resolve manually, continue rebase   |
+| Missing branches | Branch deleted externally | Run `update` to resync              |
+| Stack corruption | Manual git operations     | Use `final` to clean up and restart |
 
 ### Recovery Commands
 
 ```bash
 # Reset stack state if corrupted
-rm ~/.prstack-* && drun git/prStack final
+rm ~/.prstack-* && dr git/prStack final
 
 # Abort problematic rebase
 git rebase --abort
@@ -251,16 +264,19 @@ git branch -D feature-part1 feature-part2  # etc.
 ## Best Practices
 
 ### Stack Planning
+
 1. **Logical Separation**: Each branch should represent a complete, reviewable unit
 2. **Minimal Dependencies**: Reduce coupling between stack levels
 3. **Clear Naming**: Use consistent naming convention (feature-part1, feature-part2)
 
 ### Development Workflow
+
 1. **Commit Frequently**: Regular commits make rebasing easier
 2. **Test Each Level**: Ensure each PR in stack works independently
 3. **Update Regularly**: Run `update` after each merge to stay current
 
 ### Review Process
+
 1. **Bottom-Up Reviews**: Review and merge from base of stack upward
 2. **Clear PR Descriptions**: Explain dependencies and stack position
 3. **Coordinate Timing**: Merge stack PRs in sequence to avoid conflicts
@@ -268,14 +284,16 @@ git branch -D feature-part1 feature-part2  # etc.
 ## Integration
 
 ### GitHub Workflow
+
 ```bash
 # Create stack PRs with proper base branches
 gh pr create --base master --title "Auth: Base framework"
-gh pr create --base auth-system-base --title "Auth: OAuth integration"  
+gh pr create --base auth-system-base --title "Auth: OAuth integration"
 gh pr create --base auth-oauth-integration --title "Auth: UI components"
 ```
 
 ### CI/CD Considerations
+
 - **Test Dependencies**: Ensure CI tests understand stack dependencies
 - **Deployment Coordination**: Plan deployments around stack completion
 - **Branch Protection**: Configure rules that work with stack workflow
@@ -285,15 +303,17 @@ gh pr create --base auth-oauth-integration --title "Auth: UI components"
 ### Common Issues
 
 #### Stack Gets Out of Sync
+
 ```bash
 # Symptoms: Update fails, branches show as diverged
 # Solution: Manual intervention may be required
 git checkout master && git pull
-drun git/prStack final  # Clean up
+dr git/prStack final  # Clean up
 # Restart with fresh stack
 ```
 
 #### Rebase Conflicts During Update
+
 ```bash
 # Symptoms: Git stops with conflict messages
 # Solution: Resolve conflicts manually
@@ -305,22 +325,25 @@ git rebase --continue
 ```
 
 #### Lost Stack State
+
 ```bash
 # Symptoms: Commands fail with "no active stack"
 # Solution: Verify stack metadata files
 ls ~/.prstack-*
 # If missing, use manual cleanup:
-drun git/prStack final
+dr git/prStack final
 ```
 
 ## Performance
 
 ### Optimization Features
+
 - **Batch Operations**: Groups git commands for efficiency
 - **Smart Rebasing**: Only rebases branches that need updating
 - **Minimal Metadata**: Lightweight tracking system
 
 ### Scalability
+
 - **Large Stacks**: Handles 10+ branches efficiently
 - **Complex Repos**: Works in repositories with hundreds of branches
 - **Team Usage**: Multiple developers can manage separate stacks
@@ -334,4 +357,4 @@ drun git/prStack final
 
 ---
 
-*Stack management made simple. Build complex features with confidence.*
+_Stack management made simple. Build complex features with confidence._

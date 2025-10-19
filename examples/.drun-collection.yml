@@ -18,22 +18,22 @@ dependencies:
 
 # Optional dependencies that enhance functionality
 optional_dependencies:
-  - cloc           # For codebase structure script language analysis
-  - jq             # For JSON processing in some scripts  
-  - docker         # For workstation management scripts
-  - node           # For React development scripts
-  - npm            # For React development scripts
-  - curl           # For AI API calls
-  - gh             # GitHub CLI for PR operations
+  - cloc # For codebase structure script language analysis
+  - jq # For JSON processing in some scripts
+  - docker # For workstation management scripts
+  - node # For React development scripts
+  - npm # For React development scripts
+  - curl # For AI API calls
+  - gh # GitHub CLI for PR operations
 
 # Script categories available in this collection
 categories:
-  - ai             # AI-powered development tools (codebase analysis, commit messages, PR descriptions)
-  - code           # Code quality and analysis tools
-  - git            # Git workflow automation and collaboration
-  - react          # React development utilities
-  - workstation    # System and workstation management
-  - development    # General development tools
+  - ai # AI-powered development tools (codebase analysis, commit messages, PR descriptions)
+  - code # Code quality and analysis tools
+  - git # Git workflow automation and collaboration
+  - react # React development utilities
+  - workstation # System and workstation management
+  - development # General development tools
 
 # Minimum DotRun version required
 min_dotrun_version: "2.0.0"
@@ -60,31 +60,31 @@ features:
 # Usage instructions
 usage: |
   This collection provides practical examples of DotRun scripts across different development domains:
-  
+
   AI Tools:
-    drun examples/ai/gpt <directory>           # Generate codebase structure analysis
-    drun examples/ai/aiCommit                 # AI-generated conventional commit messages  
-    drun examples/ai/prDescription            # AI-powered PR title and body generation
-  
+    dr examples/ai/gpt <directory>           # Generate codebase structure analysis
+    dr examples/ai/aiCommit                 # AI-generated conventional commit messages  
+    dr examples/ai/prDescription            # AI-powered PR title and body generation
+
   Code Quality:
-    drun examples/code/codeCheck              # Code quality analysis and checks
-  
+    dr examples/code/codeCheck              # Code quality analysis and checks
+
   Git Utilities:
-    drun examples/git/branchCleanup           # Interactive branch cleanup
-    drun examples/git/branchSlice             # Create focused branch commits
-    drun examples/git/branchCoSliced          # Combine branch slices
-    drun examples/git/prStack                 # PR stacking and management
-    drun examples/git/prStats                 # Pull request statistics
-  
+    dr examples/git/branchCleanup           # Interactive branch cleanup
+    dr examples/git/branchSlice             # Create focused branch commits
+    dr examples/git/branchCoSliced          # Combine branch slices
+    dr examples/git/prStack                 # PR stacking and management
+    dr examples/git/prStats                 # Pull request statistics
+
   React Development:
-    drun examples/react/rnewc ComponentName   # Create new React component
-    drun examples/react/rnewh HookName        # Create custom React hook
-    drun examples/react/testAll               # Run comprehensive React tests
-  
+    dr examples/react/rnewc ComponentName   # Create new React component
+    dr examples/react/rnewh HookName        # Create custom React hook
+    dr examples/react/testAll               # Run comprehensive React tests
+
   Workstation Management:
-    drun examples/workstation/wsc             # Configure workstation
-    drun examples/workstation/wss             # Setup development environment
-    drun examples/workstation/wsl             # Linux subsystem setup
+    dr examples/workstation/wsc             # Configure workstation
+    dr examples/workstation/wss             # Setup development environment
+    dr examples/workstation/wsl             # Linux subsystem setup
 
 # Notes for users
 notes: |

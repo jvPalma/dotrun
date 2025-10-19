@@ -15,13 +15,13 @@ Writing clear commit titles every few minutes is tedious.
 
 ```bash
 # stage everything, commit & push
-drun aiCommit
+dr aiCommit
 
 # if you already staged files manually
-drun aiCommit --no-add
+dr aiCommit --no-add
 
 # commit but do not push
-drun aiCommit --no-push
+dr aiCommit --no-push
 ```
 
 During generation you’ll be asked:
@@ -60,7 +60,7 @@ Add to **\~/.gitconfig** to use `git ai` everywhere:
 
 ```ini
 [alias]
-    ai = "!drun aiCommit"
+    ai = "!dr aiCommit"
 ```
 
 Now:
@@ -74,4 +74,4 @@ git ai               # shorthand for aiCommit
 ## Dependencies
 
 - **llm** – CLI wrapper for your preferred AI backend
-- **DotRun** – script orchestration (`drun`)
+- **DotRun** – script orchestration (`dr`)

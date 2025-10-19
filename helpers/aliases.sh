@@ -10,7 +10,7 @@
 set -euo pipefail
 
 # Configuration
-ALIASES_CONFIG_DIR="$DRUN_CONFIG/aliases"
+ALIASES_CONFIG_DIR="$DR_CONFIG/aliases"
 ALIASES_FILE="$ALIASES_CONFIG_DIR/.aliases"
 ALIASES_CATEGORIES_DIR="$ALIASES_CONFIG_DIR/.aliases.d"
 SHELL_INTEGRATION_DIR="$ALIASES_CONFIG_DIR/shell"
@@ -79,7 +79,7 @@ aliases_init() {
     cat > "$ALIASES_FILE" << 'EOF'
 # DotRun Aliases
 # This file is managed by DotRun. Manual edits may be overwritten.
-# Use 'drun aliases add/edit/remove' commands to manage aliases.
+# Use 'dr aliases add/edit/remove' commands to manage aliases.
 
 # Generated aliases will appear below this line
 EOF
@@ -198,7 +198,7 @@ create_default_categories() {
       cat > "$category_file" << EOF
 # DotRun Aliases - $category Category
 # This file is managed by DotRun. Manual edits may be overwritten.
-# Use 'drun aliases add <name> <command> --category $category' to add aliases to this category.
+# Use 'dr aliases add <name> <command> --category $category' to add aliases to this category.
 
 EOF
       echo "✓ Created category file: $category.aliases"
@@ -218,7 +218,7 @@ aliases_add() {
   
   # Check if alias already exists
   if alias_exists "$name"; then
-    echo "Error: Alias '$name' already exists. Use 'drun aliases edit $name' to modify it." >&2
+    echo "Error: Alias '$name' already exists. Use 'dr aliases edit $name' to modify it." >&2
     return 1
   fi
   
@@ -231,7 +231,7 @@ aliases_add() {
       cat > "$target_file" << EOF
 # DotRun Aliases - $category Category
 # This file is managed by DotRun. Manual edits may be overwritten.
-# Use 'drun aliases add <name> <command> --category $category' to add aliases to this category.
+# Use 'dr aliases add <name> <command> --category $category' to add aliases to this category.
 
 EOF
     fi
@@ -244,7 +244,7 @@ EOF
   local category_text=""
   [[ -n "$category" ]] && category_text=" (category: $category)"
   echo "✓ Added alias: $name='$command'$category_text"
-  echo "Run 'drun aliases reload' or restart your shell to use the new alias"
+  echo "Run 'dr aliases reload' or restart your shell to use the new alias"
 }
 
 # Parse alias line to extract name and command
@@ -325,7 +325,7 @@ aliases_list() {
   
   if [[ "$found_aliases" == "false" ]]; then
     echo ""
-    echo "No aliases found. Use 'drun aliases add <name> <command>' to create your first alias."
+    echo "No aliases found. Use 'dr aliases add <name> <command>' to create your first alias."
   fi
   
   # Show categories if requested
@@ -401,7 +401,7 @@ aliases_edit() {
   
   if ! alias_exists "$name"; then
     echo "Error: Alias '$name' not found" >&2
-    echo "Use 'drun aliases list' to see available aliases" >&2
+    echo "Use 'dr aliases list' to see available aliases" >&2
     return 1
   fi
   
@@ -437,7 +437,7 @@ aliases_edit() {
   fi
   
   echo "✓ Updated alias: $name='$new_command'"
-  echo "Run 'drun aliases reload' or restart your shell to use the updated alias"
+  echo "Run 'dr aliases reload' or restart your shell to use the updated alias"
 }
 
 # Remove an alias
@@ -448,7 +448,7 @@ aliases_remove() {
   
   if ! alias_exists "$name"; then
     echo "Error: Alias '$name' not found" >&2
-    echo "Use 'drun aliases list' to see available aliases" >&2
+    echo "Use 'dr aliases list' to see available aliases" >&2
     return 1
   fi
   
@@ -499,7 +499,7 @@ aliases_reload() {
         source "$BASH_INTEGRATION"
         echo "✓ Reloaded aliases for Bash"
       else
-        echo "Error: Bash integration file not found. Run 'drun aliases init' first." >&2
+        echo "Error: Bash integration file not found. Run 'dr aliases init' first." >&2
         return 1
       fi
       ;;
@@ -509,7 +509,7 @@ aliases_reload() {
         source "$ZSH_INTEGRATION"
         echo "✓ Reloaded aliases for Zsh"
       else
-        echo "Error: Zsh integration file not found. Run 'drun aliases init' first." >&2
+        echo "Error: Zsh integration file not found. Run 'dr aliases init' first." >&2
         return 1
       fi
       ;;
@@ -518,7 +518,7 @@ aliases_reload() {
         echo "Note: Fish shell detected. Please run the following command manually:"
         echo "  source $FISH_INTEGRATION"
       else
-        echo "Error: Fish integration file not found. Run 'drun aliases init' first." >&2
+        echo "Error: Fish integration file not found. Run 'dr aliases init' first." >&2
         return 1
       fi
       ;;
@@ -529,7 +529,7 @@ aliases_reload() {
         source "$BASH_INTEGRATION"
         echo "✓ Sourced Bash integration (may not work in all shells)"
       else
-        echo "Error: Integration files not found. Run 'drun aliases init' first." >&2
+        echo "Error: Integration files not found. Run 'dr aliases init' first." >&2
         return 1
       fi
       ;;

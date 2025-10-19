@@ -8,7 +8,7 @@
 # shellcheck disable=SC2016
 set -euo pipefail
 
-# source "$DRUN_CONFIG/helper.sh"
+# source "$DR_CONFIG/helper.sh"
 
 main() {
   yarn test --silent --watchAll=false >test_output.out 2>&1

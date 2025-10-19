@@ -14,40 +14,41 @@ A comprehensive script that runs generate, lint, type-check, and format scripts 
 ## Usage
 
 ### Basic Usage
+
 ```bash
 # Run default scripts (generate, lint, type-check, format)
-drun code/codeCheck
+dr code/codeCheck
 
 # Run default scripts plus additional ones
-drun code/codeCheck build test
+dr code/codeCheck build test
 
 # Run only specified scripts
-drun code/codeCheck --only build test
+dr code/codeCheck --only build test
 ```
 
 ### Status Indicators
 
-| Icon | Meaning |
-|------|---------|
-| 🕛 | Waiting to start |
-| ⏳ | Currently running |
-| ✅ | Completed successfully |
-| ⛔ | Failed with errors |
-| 🔘 | Script not available in package.json |
+| Icon | Meaning                              |
+| ---- | ------------------------------------ |
+| 🕛   | Waiting to start                     |
+| ⏳   | Currently running                    |
+| ✅   | Completed successfully               |
+| ⛔   | Failed with errors                   |
+| 🔘   | Script not available in package.json |
 
 ### Examples
 
 ```bash
 # Standard development workflow
-drun code/codeCheck
+dr code/codeCheck
 # Runs: generate → lint → type-check → format
 
 # Pre-deployment check
-drun code/codeCheck build test
+dr code/codeCheck build test
 # Runs: generate → lint → type-check → format → build → test
 
 # Quick formatting only
-drun code/codeCheck --only format
+dr code/codeCheck --only format
 # Runs: format only
 ```
 
@@ -61,6 +62,7 @@ drun code/codeCheck --only format
 ## Script Detection
 
 The script automatically detects packages by:
+
 1. Looking for package.json in current directory (single package)
 2. Scanning subdirectories for package.json files (monorepo)
 3. Excluding node_modules directories
@@ -68,10 +70,10 @@ The script automatically detects packages by:
 ## Dependencies
 
 Expects the following scripts to be defined in package.json:
+
 - `generate` - Code generation (optional)
 - `lint` - Linting with ESLint/similar
 - `type-check` - TypeScript type checking
 - `format` - Code formatting with Prettier/similar
 - `build` - Build process (when specified)
 - `test` - Test execution (when specified)
-

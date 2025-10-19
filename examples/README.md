@@ -8,25 +8,25 @@ Import this collection to try out DotRun's features:
 
 ```bash
 # Import the examples collection
-drun import https://github.com/jvPalma/dotrun.git examples
+dr import https://github.com/jvPalma/dotrun.git examples
 
 # List available example scripts
-drun -L examples/
+dr -L examples/
 
 # Try the codebase structure analyzer
-drun examples/ai/gpt .
+dr examples/ai/gpt .
 
 # Generate AI commit messages
-drun examples/ai/aiCommit
+dr examples/ai/aiCommit
 
 # Create AI-powered PR descriptions
-drun examples/ai/prDescription
+dr examples/ai/prDescription
 
 # Try the interactive Git branch cleanup
-drun examples/git/branchCleanup
+dr examples/git/branchCleanup
 
 # Create a new React component
-drun examples/react/rnewc MyComponent
+dr examples/react/rnewc MyComponent
 ```
 
 ## Available Scripts
@@ -121,28 +121,36 @@ drun examples/react/rnewc MyComponent
 ## Features
 
 ### 🎯 **Interactive Interfaces**
+
 Most scripts include rich CLI interfaces with:
+
 - Emoji indicators for visual clarity
 - Interactive selection menus
 - Progress feedback and confirmations
 - Graceful error handling
 
 ### 🛡️ **Safety First**
+
 All scripts follow safety best practices:
+
 - Confirmation prompts for destructive operations
 - Automatic stashing of uncommitted changes
 - Graceful interruption handling (Ctrl+C)
 - Detailed operation summaries
 
 ### 📚 **Comprehensive Documentation**
+
 Each script includes:
+
 - Detailed README with examples
 - Inline help and usage instructions
 - Architecture documentation for complex scripts
 - Troubleshooting guides
 
 ### 🔧 **Extensible Design**
+
 Scripts are designed to be:
+
 - Easily customizable for your needs
 - Good templates for your own scripts
 - Modular with shared helper functions
@@ -151,10 +159,12 @@ Scripts are designed to be:
 ## Dependencies
 
 ### Required
+
 - `bash` (4.0+)
 - `git` (2.0+)
 
 ### Optional (enhances functionality)
+
 - `cloc` - For detailed language analysis (codebase scripts)
 - `jq` - For JSON processing
 - `docker` - For containerized workstation tools
@@ -166,14 +176,14 @@ Scripts are designed to be:
 
 ```bash
 # Generate comprehensive codebase analysis
-drun examples/ai/gpt /path/to/project
+dr examples/ai/gpt /path/to/project
 
 # Generate conventional commit messages
 git add .
-drun examples/ai/aiCommit
+dr examples/ai/aiCommit
 
 # Create PR descriptions
-drun examples/ai/prDescription "Adding new feature"
+dr examples/ai/prDescription "Adding new feature"
 
 # All output ready for analysis tools and GitHub
 ```
@@ -182,7 +192,7 @@ drun examples/ai/prDescription "Adding new feature"
 
 ```bash
 # Interactive branch cleanup
-drun examples/git/branchCleanup
+dr examples/git/branchCleanup
 
 # Features:
 # - Visual branch categorization
@@ -195,7 +205,7 @@ drun examples/git/branchCleanup
 
 ```bash
 # Create new component with tests
-drun examples/react/rnewc components/Header
+dr examples/react/rnewc components/Header
 
 # Creates:
 # - components/Header/Header.tsx
@@ -207,7 +217,7 @@ drun examples/react/rnewc components/Header
 
 ```bash
 # Configure development environment
-drun examples/workstation/wsc
+dr examples/workstation/wsc
 
 # Installs and configures:
 # - Essential development tools
@@ -231,10 +241,10 @@ This collection welcomes contributions! To add new examples:
 
 ```bash
 # Import from GitHub
-drun import https://github.com/jvPalma/dotrun.git examples
+dr import https://github.com/jvPalma/dotrun.git examples
 
 # Use with namespace
-drun examples/script-name
+dr examples/script-name
 ```
 
 ### Direct Clone
@@ -254,7 +264,7 @@ This collection follows DotRun's standard structure:
 
 ```
 examples/
-├── .drun-collection.yml        # Collection metadata
+├── .dr-collection.yml        # Collection metadata
 ├── README.md                   # This file
 ├── bin/                        # Executable scripts
 │   ├── ai/
@@ -283,4 +293,4 @@ MIT License - Feel free to use, modify, and share these examples.
 
 ---
 
-*This collection demonstrates the power and flexibility of DotRun for team collaboration and personal productivity. Use these scripts as inspiration for building your own development toolkit!*
+_This collection demonstrates the power and flexibility of DotRun for team collaboration and personal productivity. Use these scripts as inspiration for building your own development toolkit!_

@@ -11,87 +11,92 @@ Returns to the original branch that was saved when you used `branchSlice`. This 
 ### Use Cases
 
 #### 1. Return After Creating Clean Branch
+
 ```bash
 # Create a clean branch for PR
 git checkout feature/messy-development
-drun branchSlice feature/clean-for-review
+dr branchSlice feature/clean-for-review
 git add .
 git commit -m "Clean implementation ready for review"
 git push origin feature/clean-for-review
 
 # Return to continue messy development
-drun branchCoSliced
+dr branchCoSliced
 # Now back on feature/messy-development
 ```
 
 #### 2. Multiple Slice Operations
+
 ```bash
 # Original complex feature
 git checkout feature/large-feature
 
 # Slice first component
-drun branchSlice feature/auth-component
+dr branchSlice feature/auth-component
 git add src/auth/
 git commit -m "Authentication system"
 
 # Return to original and slice another component
-drun branchCoSliced  # Back to feature/large-feature
-drun branchSlice feature/ui-component
+dr branchCoSliced  # Back to feature/large-feature
+dr branchSlice feature/ui-component
 git add src/ui/
 git commit -m "UI components"
 
 # Return again to continue development
-drun branchCoSliced  # Back to feature/large-feature again
+dr branchCoSliced  # Back to feature/large-feature again
 ```
 
 #### 3. Emergency Context Switching
+
 ```bash
 # Working on feature development
 git checkout feature/new-dashboard
 
 # Create hotfix branch quickly
-drun branchSlice hotfix/urgent-security-fix
+dr branchSlice hotfix/urgent-security-fix
 # ... make urgent changes ...
 git add .
 git commit -m "Fix security vulnerability"
 git push origin hotfix/urgent-security-fix
 
 # Immediately return to feature work
-drun branchCoSliced
+dr branchCoSliced
 # Back to feature/new-dashboard development
 ```
 
 ### Workflow Integration
 
 #### Standard Development Cycle
+
 ```bash
 # Day 1: Start feature work
 git checkout -b feature/user-management
 # ... implement and experiment ...
 
 # Day 1 End: Create clean branch for review
-drun branchSlice feature/user-management-pr
+dr branchSlice feature/user-management-pr
 git add src/
 git commit -m "Add user management system"
 git push origin feature/user-management-pr
 
 # Day 2: Return to development work
-drun branchCoSliced
+dr branchCoSliced
 # Continue working on feature/user-management
 ```
 
 #### Code Review Response
+
 ```bash
 # You have a PR under review
 git checkout feature/clean-for-review
 # Reviewer asks for changes
 
 # Return to development branch to make changes
-drun branchCoSliced
+dr branchCoSliced
 # Make the requested changes
 
 # Create new clean version
-drun branchSlice feature/clean-for-review-v2
+dr branchSlice feature/clean-for-review-v2
 git add .
 git commit -m "Address review feedback"
 ```
@@ -99,17 +104,19 @@ git commit -m "Address review feedback"
 ### Safety and Error Handling
 
 #### Checking Saved Branch
+
 ```bash
 # See what branch is saved before switching
 cat ~/.sliced-pr
 
 # Only switch if file exists and branch is valid
 if [[ -f ~/.sliced-pr && -n "$(cat ~/.sliced-pr)" ]]; then
-  drun branchCoSliced
+  dr branchCoSliced
 fi
 ```
 
 #### Branch Validation
+
 ```bash
 # Verify the saved branch still exists
 git branch --list "$(cat ~/.sliced-pr)"
@@ -121,6 +128,7 @@ git branch -r --list "origin/$(cat ~/.sliced-pr)"
 ### Advanced Usage
 
 #### Scripted Workflows
+
 ```bash
 #!/bin/bash
 # automated_slice_and_return.sh
@@ -129,21 +137,22 @@ git branch -r --list "origin/$(cat ~/.sliced-pr)"
 CURRENT_BRANCH=$(git branch --show-current)
 
 # Create clean branch
-drun branchSlice "clean-$(date +%Y%m%d)"
+dr branchSlice "clean-$(date +%Y%m%d)"
 git add .
 git commit -m "Automated clean branch creation"
 
 # Return to original work
-drun branchCoSliced
+dr branchCoSliced
 
 echo "Created clean branch, returned to $CURRENT_BRANCH"
 ```
 
 #### Integration with Other Tools
+
 ```bash
 # Create clean branch and open PR, then return
 git checkout feature/my-work
-drun branchSlice feature/my-work-pr
+dr branchSlice feature/my-work-pr
 git add .
 git commit -m "Ready for review"
 git push origin feature/my-work-pr
@@ -152,7 +161,7 @@ git push origin feature/my-work-pr
 gh pr create --title "Add new feature" --body "Description here"
 
 # Return to development work
-drun branchCoSliced
+dr branchCoSliced
 ```
 
 ### Troubleshooting
@@ -160,6 +169,7 @@ drun branchCoSliced
 #### Common Issues
 
 **No sliced branch reference:**
+
 ```bash
 # Check if ~/.sliced-pr exists
 ls -la ~/.sliced-pr
@@ -169,6 +179,7 @@ git checkout your-branch-name
 ```
 
 **Branch doesn't exist:**
+
 ```bash
 # The saved branch might have been deleted
 SAVED_BRANCH=$(cat ~/.sliced-pr)
@@ -179,18 +190,20 @@ git checkout -b "$SAVED_BRANCH"
 ```
 
 **Uncommitted changes prevent checkout:**
+
 ```bash
 # Stash changes before switching
 git stash push -m "Temporary stash for branch switch"
-drun branchCoSliced
+dr branchCoSliced
 git stash pop  # Apply stashed changes
 ```
 
 #### Manual Recovery
+
 ```bash
 # If branchCoSliced fails, manually restore
 echo "feature/my-original-branch" > ~/.sliced-pr
-drun branchCoSliced
+dr branchCoSliced
 
 # Or directly checkout without using the command
 git checkout "$(cat ~/.sliced-pr)"
@@ -213,6 +226,7 @@ git checkout "$(cat ~/.sliced-pr)"
 ### Example Workflows
 
 #### Feature Development Pattern
+
 ```bash
 # Start feature
 git checkout -b feature/complex-feature
@@ -221,25 +235,25 @@ git checkout -b feature/complex-feature
 # ... lots of commits, experiments, WIP ...
 
 # Time for review - slice clean branch
-drun branchSlice feature/complex-feature-v1
+dr branchSlice feature/complex-feature-v1
 git add src/core-feature.js tests/
 git commit -m "Add core feature functionality"
 git push origin feature/complex-feature-v1
 
 # Back to development
-drun branchCoSliced
+dr branchCoSliced
 
 # Continue working
 # ... more experiments ...
 
 # Another review iteration
-drun branchSlice feature/complex-feature-v2
+dr branchSlice feature/complex-feature-v2
 git add .
 git commit -m "Refactor based on feedback"
 git push origin feature/complex-feature-v2
 
 # Back to development again
-drun branchCoSliced
+dr branchCoSliced
 ```
 
 ### See Also

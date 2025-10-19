@@ -4,7 +4,7 @@ description: "DotRun script management framework"
 author: "DotRun Contributors"
 version: "1.0.0"
 created: 2025-06-18T07:58:21Z
-type: "drun-collection"
+type: "dr-collection"
 
 # Scripts included in this collection
 scripts:
@@ -19,7 +19,7 @@ dependencies: []
 # Environment compatibility
 environments:
   - "dev"
-  - "staging" 
+  - "staging"
   - "prod"
 
 # Team information (optional)

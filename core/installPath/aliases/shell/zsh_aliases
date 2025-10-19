@@ -1,0 +1,16 @@
+#!/usr/bin/env zsh
+
+# DotRun Aliases - Zsh Integration
+# This file is auto-generated. Do not edit manually.
+
+# Source main aliases file
+if [[ -f "$DR_CONFIG/aliases/.aliases" ]]; then
+  source "$DR_CONFIG/aliases/.aliases"
+fi
+
+# Source category-specific aliases
+if [[ -d "$DR_CONFIG/aliases/.aliases.d" ]]; then
+  for category_file in "$DR_CONFIG/aliases/.aliases.d"/*.aliases; do
+    [[ -f "$category_file" ]] && source "$category_file"
+  done
+fi

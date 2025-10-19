@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2139
+
+# DotRun Aliases - development Category
+# This file is managed by DotRun. Manual edits may be overwritten.
+# Use 'dr aliases add <name> <command> --category development' to add aliases to this category.

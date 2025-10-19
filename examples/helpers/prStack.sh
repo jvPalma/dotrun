@@ -8,7 +8,7 @@
 # shellcheck disable=SC2016
 
 # State file locations (in script directory)
-PRSTACK_STATE_DIR="$DRUN_CONFIG/bin/git/.prstack"
+PRSTACK_STATE_DIR="$DR_CONFIG/bin/git/.prstack"
 PRSTACK_INITIAL_BRANCH_FILE="$PRSTACK_STATE_DIR/initial-branch"
 PRSTACK_STACK_FILE="$PRSTACK_STATE_DIR/stack-branches"
 

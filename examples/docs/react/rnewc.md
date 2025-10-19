@@ -22,6 +22,6 @@ Generates:
 ### Example
 
 ```bash
-$ drun rnewc Header/Nav
+$ dr rnewc Header/Nav
 Component Nav created successfully in Header/Nav
 ```

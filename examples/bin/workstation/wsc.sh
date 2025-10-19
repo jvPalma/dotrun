@@ -8,11 +8,11 @@
 # shellcheck disable=SC2016
 set -euo pipefail
 
-source "$DRUN_CONFIG/helpers/workstation.sh"
+source "$DR_CONFIG/helpers/workstation.sh"
 
 main() {
   local runningStatus
-  runningStatus="$(drun wsl)"
+  runningStatus="$(dr wsl)"
 
   if [[ "$runningStatus" == "RUNNING" ]]; then
     workstationConfigs ssh -- -t fish

@@ -5,7 +5,7 @@ Stops your Google Cloud Workstation if it's currently running, with intelligent 
 ## Synopsis
 
 ```bash
-drun workstation/wstp
+dr workstation/wstp
 ```
 
 ## Description
@@ -13,6 +13,7 @@ drun workstation/wstp
 Initiates the shutdown process for your configured cloud workstation. The script first verifies the workstation is running before attempting to stop it, ensuring clean operations and providing clear feedback.
 
 Features:
+
 - **Status validation**: Verifies workstation is running before shutdown
 - **Graceful shutdown**: Uses proper API calls for clean workstation shutdown
 - **Clear feedback**: Provides status messages for all scenarios
@@ -22,32 +23,35 @@ Features:
 
 ```bash
 # Stop running workstation
-drun workstation/wstp
+dr workstation/wstp
 
 # Use in end-of-day automation
-drun workstation/wstp
+dr workstation/wstp
 echo "Workstation stopped - have a great day!"
 ```
 
 ## Behavior
 
 ### Workstation Running
+
 ```bash
-$ drun workstation/wstp
+$ dr workstation/wstp
 Stopping workstation...
 # Waits for shutdown completion
 Workstation stopped successfully.
 ```
 
 ### Workstation Already Stopped
+
 ```bash
-$ drun workstation/wstp
+$ dr workstation/wstp
 Workstation is not running.
 ```
 
 ### Workstation Stopping
+
 ```bash
-$ drun workstation/wstp
+$ dr workstation/wstp
 Workstation is already stopping.
 ```
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Re-usable Git helpers for any drun script
+# Re-usable Git helpers for any dr script
 
 # shellcheck disable=SC2155
 # shellcheck disable=SC1091
 # shellcheck disable=SC2016
 
-source "$DRUN_CONFIG/helpers/pkg.sh"
+source "$DR_CONFIG/helpers/pkg.sh"
 
 validatePkg git
 

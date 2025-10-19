@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# helpers/lint.sh  – generic lint helpers for drun scripts
+# helpers/lint.sh  – generic lint helpers for dr scripts
 
 # shellcheck disable=SC2155
 # shellcheck disable=SC1091
@@ -13,9 +13,9 @@ run_shell_lint() {
     shellcheck -e SC1091,SC2016 "$file" || true
   else
     # pkg_install_hint comes from helpers/pkg.sh (if you added it)
-    if [[ -f "$DRUN_CONFIG/helpers/pkg.sh" ]]; then
+    if [[ -f "$DR_CONFIG/helpers/pkg.sh" ]]; then
       asdasd
-      source "$DRUN_CONFIG/helpers/pkg.sh"
+      source "$DR_CONFIG/helpers/pkg.sh"
       echo "ShellCheck not found - install with: $(pkg_install_hint shellcheck)"
     else
       echo "ShellCheck not found - install it via your package manager."

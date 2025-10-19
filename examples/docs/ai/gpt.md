@@ -9,6 +9,7 @@
 Analyzes a project directory and generates a comprehensive report containing the project structure, code statistics, and file contents. The output is optimized for feeding to AI models for code analysis, documentation generation, or architectural review.
 
 **Features:**
+
 - **Project tree visualization** with hierarchical structure
 - **Language statistics** via `cloc` (lines of code by language)
 - **Selective file inclusion** excluding large binaries and dependencies
@@ -24,16 +25,18 @@ Analyzes a project directory and generates a comprehensive report containing the
 ### Usage Examples
 
 #### Basic Analysis
+
 ```bash
 # Analyze current directory
-drun gpt .
+dr gpt .
 
 # Analyze specific project
-drun gpt ./my-react-app
-drun gpt ~/projects/backend-api
+dr gpt ./my-react-app
+dr gpt ~/projects/backend-api
 ```
 
 #### Typical Output Structure
+
 ```
 Project Analysis: ./my-react-app
 Generated on: 2024-12-19 14:30:15
@@ -62,6 +65,7 @@ CSS             8      890      720       90
 ### Output Details
 
 **File Selection Criteria:**
+
 - Includes source code files (`.js`, `.ts`, `.py`, `.java`, etc.)
 - Includes configuration files (`package.json`, `.gitignore`, etc.)
 - Excludes large binaries and media files
@@ -69,6 +73,7 @@ CSS             8      890      720       90
 - Limits file size to prevent overwhelming output
 
 **Use Cases:**
+
 - **Code Review Preparation** - Share project context with reviewers
 - **AI-Assisted Development** - Feed codebase to LLMs for analysis
 - **Documentation Generation** - Create comprehensive project overviews
@@ -84,6 +89,7 @@ CSS             8      890      720       90
 ### Output Management
 
 The generated `gpt.out` file contains:
+
 - Complete project structure visualization
 - Statistical analysis of codebase composition
 - Selective file contents for AI consumption

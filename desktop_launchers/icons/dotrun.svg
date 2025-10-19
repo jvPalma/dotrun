@@ -28,7 +28,7 @@
   
   <!-- Command Prompt -->
   <text x="120" y="220" font-family="monospace" font-size="16" fill="#50E3C2" font-weight="bold">$</text>
-  <text x="140" y="220" font-family="monospace" font-size="16" fill="#FFFFFF">drun</text>
+  <text x="140" y="220" font-family="monospace" font-size="16" fill="#FFFFFF">dr</text>
   
   <!-- Script Lines -->
   <rect x="120" y="240" width="120" height="3" rx="1" fill="url(#accentGradient)"/>

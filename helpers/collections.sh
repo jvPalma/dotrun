@@ -1,613 +1,713 @@
 #!/usr/bin/env bash
-# Collection management helpers for DotRun
-# Handles import/export of script collections from git repositories
+# Collection management helpers for DotRun - REDESIGNED
+# Simplified, interactive collections system with GitHub URL registry
 
 # shellcheck disable=SC2155
 # shellcheck disable=SC1091
 # shellcheck disable=SC2016
 
-# Ensure required variables are set (when not sourced from main drun script)
-DRUN_CONFIG="${DRUN_CONFIG:-$HOME/.config/dotrun}"
-BIN_DIR="${BIN_DIR:-$DRUN_CONFIG/bin}"
-DOC_DIR="${DOC_DIR:-$DRUN_CONFIG/docs}"
+# ──────────────────────────────────────────────────────────────
+# Configuration and Constants
+# ──────────────────────────────────────────────────────────────
 
-source "$DRUN_CONFIG/helpers/pkg.sh"
-source "$DRUN_CONFIG/helpers/git.sh"
+DR_CONFIG="${DR_CONFIG:-$HOME/.config/dotrun}"
+BIN_DIR="${BIN_DIR:-$DR_CONFIG/bin}"
+DRUN_CONF="$HOME/.dr.conf"
+CACHE_DIR="$DR_CONFIG/.cache/collections"
 
+source "$DR_CONFIG/helpers/pkg.sh"
 validatePkg git
-validatePkg curl
 
-# Collection metadata file
-COLLECTION_METADATA=".drun-collection.yml"
-COLLECTIONS_DIR="$DRUN_CONFIG/collections"
-
-# Ensure collections directory exists
-mkdir -p "$COLLECTIONS_DIR"
+# Ensure cache directory exists
+mkdir -p "$CACHE_DIR"
 
 # ──────────────────────────────────────────────────────────────
-# Collection Metadata Management
+# URL Management Functions
 # ──────────────────────────────────────────────────────────────
 
-# Create collection metadata file
-create_collection_metadata() {
-  local name="$1"
-  local description="$2"
-  local author="${3:-$(git config user.name 2>/dev/null || echo "Unknown")}"
-  local version="${4:-1.0.0}"
-  local metadata_file="$5"
+# Validate GitHub URL format
+validate_github_url() {
+  local url="$1"
 
-  cat > "$metadata_file" << EOF
-# DotRun Collection Metadata
-name: "$name"
-description: "$description"
-author: "$author"
-version: "$version"
-created: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-type: "drun-collection"
+  # Check basic format
+  if [[ ! "$url" =~ ^https://github\.com/[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+$ ]]; then
+    echo "Error: Invalid GitHub URL format" >&2
+    echo "Expected format: https://github.com/user/repo" >&2
+    return 1
+  fi
 
-# Scripts included in this collection
-scripts:
-  # Example:
-  # - name: "example-script"
-  #   path: "bin/example-script.sh"
-  #   description: "An example script"
+  # Ensure .git suffix is present
+  if [[ ! "$url" =~ \.git$ ]]; then
+    url="${url}.git"
+  fi
 
-# Dependencies (other collections this depends on)
-dependencies: []
+  echo "$url"
+  return 0
+}
 
-# Environment compatibility
-environments:
-  - "dev"
-  - "staging" 
-  - "prod"
+# Initialize .dr.conf if it doesn't exist
+init_drun_conf() {
+  if [[ ! -f "$DRUN_CONF" ]]; then
+    cat > "$DRUN_CONF" << 'EOF'
+# DotRun Collections Configuration
+# Add GitHub repository URLs for your script collections
+#
+# Format:
+# [collections]
+# https://github.com/user/repo.git
+# https://github.com/company/scripts.git
 
-# Team information (optional)
-team:
-  repo: ""
-  contact: ""
+[collections]
 EOF
+    echo "Created configuration file: $DRUN_CONF"
+  fi
 }
 
-# Parse collection metadata
-parse_collection_metadata() {
-  local metadata_file="$1"
-  local key="$2"
-  
-  if [[ ! -f "$metadata_file" ]]; then
-    echo "Error: Collection metadata not found: $metadata_file" >&2
-    return 1
-  fi
-  
-  # Simple YAML parser for basic key extraction
-  grep "^$key:" "$metadata_file" | sed 's/^[^:]*: *"\?\([^"]*\)"\?$/\1/'
-}
+# Add collection URL to config
+add_collection_url() {
+  local url="$1"
 
-# Validate collection structure
-validate_collection() {
-  local collection_dir="$1"
-  
-  # Check for required metadata file
-  if [[ ! -f "$collection_dir/$COLLECTION_METADATA" ]]; then
-    echo "Error: Collection metadata file missing: $COLLECTION_METADATA" >&2
+  if [[ -z "$url" ]]; then
+    echo "Error: GitHub URL required" >&2
+    echo "Usage: dr collections add <github-url>" >&2
     return 1
   fi
-  
-  # Check for bin directory
-  if [[ ! -d "$collection_dir/bin" ]]; then
-    echo "Error: Collection bin directory missing" >&2
-    return 1
-  fi
-  
-  # Validate metadata format
-  local name description
-  name=$(parse_collection_metadata "$collection_dir/$COLLECTION_METADATA" "name")
-  description=$(parse_collection_metadata "$collection_dir/$COLLECTION_METADATA" "description")
-  
-  if [[ -z "$name" || -z "$description" ]]; then
-    echo "Error: Collection metadata incomplete (missing name or description)" >&2
-    return 1
-  fi
-  
-  return 0
-}
 
-# ──────────────────────────────────────────────────────────────
-# Collection Import/Export
-# ──────────────────────────────────────────────────────────────
+  # Validate and normalize URL
+  local validated_url
+  if ! validated_url=$(validate_github_url "$url"); then
+    return 1
+  fi
 
-# Import collection from git URL or local path
-import_collection() {
-  local source="$1"
-  local target_name="$2"
-  local temp_dir
-  
-  if [[ -z "$source" ]]; then
-    echo "Error: Source URL or path required" >&2
-    return 1
-  fi
-  
-  # Create temporary directory for import
-  temp_dir=$(mktemp -d)
-  trap "rm -rf '$temp_dir'" EXIT
-  
-  echo "Importing collection from: $source"
-  
-  # Handle different source types
-  if [[ "$source" =~ ^https?:// ]] || [[ "$source" =~ ^git@ ]]; then
-    # Git repository URL
-    echo "Cloning repository..."
-    if ! git clone --depth 1 "$source" "$temp_dir/repo" 2>/dev/null; then
-      echo "Error: Failed to clone repository: $source" >&2
-      return 1
-    fi
-    local source_dir="$temp_dir/repo"
-  elif [[ -d "$source" ]]; then
-    # Local directory
-    local source_dir="$source"
-  else
-    echo "Error: Invalid source. Must be git URL or local directory path" >&2
-    return 1
-  fi
-  
-  # Validate collection structure
-  if ! validate_collection "$source_dir"; then
-    return 1
-  fi
-  
-  # Get collection name from metadata or use provided name
-  local collection_name
-  if [[ -n "$target_name" ]]; then
-    collection_name="$target_name"
-  else
-    collection_name=$(parse_collection_metadata "$source_dir/$COLLECTION_METADATA" "name")
-    collection_name=${collection_name// /-}  # Replace spaces with dashes
-    collection_name=${collection_name,,}     # Convert to lowercase
-  fi
-  
-  local target_dir="$COLLECTIONS_DIR/$collection_name"
-  
-  # Check if collection already exists
-  if [[ -d "$target_dir" ]]; then
-    echo "Warning: Collection '$collection_name' already exists at $target_dir"
-    read -p "Overwrite existing collection? [y/N]: " -r
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-      echo "Import cancelled"
-      return 1
-    fi
-    rm -rf "$target_dir"
-  fi
-  
-  # Copy collection
-  echo "Installing collection '$collection_name'..."
-  mkdir -p "$target_dir"
-  cp -r "$source_dir"/* "$target_dir/"
-  
-  # Install scripts to main bin directory with collection prefix
-  if [[ -d "$source_dir/bin" ]]; then
-    local scripts_installed=0
-    while IFS= read -r -d '' script_file; do
-      local script_name=$(basename "$script_file" .sh)
-      local prefixed_name="${collection_name}/${script_name}"
-      local target_script="$BIN_DIR/${collection_name}/${script_name}.sh"
-      
-      # Create collection subdirectory in bin
-      mkdir -p "$(dirname "$target_script")"
-      
-      # Copy script with executable permissions
-      cp "$script_file" "$target_script"
-      chmod +x "$target_script"
-      
-      echo "  ✓ Installed script: $prefixed_name"
-      ((scripts_installed++))
-    done < <(find "$source_dir/bin" -name "*.sh" -type f -print0)
-    
-    echo "Successfully imported collection '$collection_name' with $scripts_installed scripts"
-  fi
-  
-  # Copy documentation if it exists
-  if [[ -d "$source_dir/docs" ]]; then
-    local docs_target="$DOC_DIR/$collection_name"
-    mkdir -p "$docs_target"
-    cp -r "$source_dir/docs"/* "$docs_target/"
-    echo "  ✓ Imported documentation"
-  fi
-  
-  return 0
-}
+  # Initialize config if needed
+  init_drun_conf
 
-# Preview collection contents without importing
-preview_collection() {
-  local source="$1"
-  local temp_dir
-  
-  if [[ -z "$source" ]]; then
-    echo "Error: Source URL or path required" >&2
-    return 1
-  fi
-  
-  # Create temporary directory for preview
-  temp_dir=$(mktemp -d)
-  trap "rm -rf '$temp_dir'" EXIT
-  
-  echo "Fetching collection from: $source"
-  
-  # Handle different source types
-  if [[ "$source" =~ ^https?:// ]] || [[ "$source" =~ ^git@ ]]; then
-    # Git repository URL
-    echo "Cloning repository..."
-    if ! git clone --depth 1 "$source" "$temp_dir/repo" 2>/dev/null; then
-      echo "Error: Failed to clone repository: $source" >&2
-      return 1
-    fi
-    local source_dir="$temp_dir/repo"
-  elif [[ -d "$source" ]]; then
-    # Local directory
-    local source_dir="$source"
-  else
-    echo "Error: Invalid source. Must be git URL or local directory path" >&2
-    return 1
-  fi
-  
-  # Validate collection structure
-  if ! validate_collection "$source_dir"; then
-    return 1
-  fi
-  
-  # Get collection metadata
-  local collection_name description version
-  collection_name=$(parse_collection_metadata "$source_dir/$COLLECTION_METADATA" "name")
-  description=$(parse_collection_metadata "$source_dir/$COLLECTION_METADATA" "description")
-  version=$(parse_collection_metadata "$source_dir/$COLLECTION_METADATA" "version")
-  
-  echo
-  echo "📦 Collection: $collection_name"
-  echo "📝 Description: $description"
-  [[ -n "$version" ]] && echo "🏷️  Version: $version"
-  echo
-  echo "📂 Available Scripts:"
-  
-  # Display scripts in drun -L format
-  if [[ -d "$source_dir/bin" ]]; then
-    local script_count=0
-    find "$source_dir/bin" -name "*.sh" -type f | sort | while IFS= read -r script_file; do
-      local rel_path="${script_file#"$source_dir/bin/"}"
-      local script_name="${rel_path%.sh}"
-      local doc_file="$source_dir/docs/${script_name}.md"
-      
-      # Check for category-based docs
-      if [[ "$script_name" == */* ]]; then
-        doc_file="$source_dir/docs/${script_name}.md"
-      fi
-      
-      # Extract description from documentation
-      local desc=""
-      if [[ -f "$doc_file" ]]; then
-        # Try to get description from first paragraph after title
-        desc=$(awk '/^#/ {next} /^$/ {next} {print; exit}' "$doc_file" 2>/dev/null | head -1 | sed 's/^[[:space:]]*//')
-        [[ -z "$desc" ]] && desc=$(grep -E "^(Description|##)" "$doc_file" 2>/dev/null | head -1 | sed 's/^[#[:space:]]*//')
-      fi
-      
-      [[ -z "$desc" ]] && desc="No description available"
-      
-      # Format like drun -L
-      printf "  %-30s %s\n" "$script_name" "$desc"
-      ((script_count++))
-    done
-    
-    echo
-    echo "Total scripts: $(find "$source_dir/bin" -name "*.sh" -type f | wc -l)"
-  else
-    echo "  No scripts found"
-  fi
-  
-  echo
-  echo "To import this collection:"
-  echo "  drun import $source"
-  echo
-  echo "To import a specific script:"
-  echo "  drun import $source --pick <script-name>"
-  
-  return 0
-}
-
-# Import a single script from a collection
-import_single_script() {
-  local source="$1"
-  local script_name="$2"
-  local target_collection="${3:-imported}"
-  local temp_dir
-  
-  if [[ -z "$source" || -z "$script_name" ]]; then
-    echo "Error: Source and script name required" >&2
-    return 1
-  fi
-  
-  # Create temporary directory for import
-  temp_dir=$(mktemp -d)
-  trap "rm -rf '$temp_dir'" EXIT
-  
-  echo "Fetching collection from: $source"
-  
-  # Handle different source types
-  if [[ "$source" =~ ^https?:// ]] || [[ "$source" =~ ^git@ ]]; then
-    # Git repository URL
-    if ! git clone --depth 1 "$source" "$temp_dir/repo" 2>/dev/null; then
-      echo "Error: Failed to clone repository: $source" >&2
-      return 1
-    fi
-    local source_dir="$temp_dir/repo"
-  elif [[ -d "$source" ]]; then
-    # Local directory
-    local source_dir="$source"
-  else
-    echo "Error: Invalid source. Must be git URL or local directory path" >&2
-    return 1
-  fi
-  
-  # Validate collection structure
-  if ! validate_collection "$source_dir"; then
-    return 1
-  fi
-  
-  # Find the requested script
-  local script_file="$source_dir/bin/${script_name}.sh"
-  if [[ ! -f "$script_file" ]]; then
-    echo "Error: Script '$script_name' not found in collection" >&2
-    echo "Available scripts:"
-    find "$source_dir/bin" -name "*.sh" -type f | sed "s|$source_dir/bin/||; s|\.sh$||" | sort
-    return 1
-  fi
-  
-  # Create target directories
-  local target_script_dir="$BIN_DIR/$target_collection"
-  local target_docs_dir="$DOC_DIR/$target_collection"
-  
-  mkdir -p "$target_script_dir/$(dirname "$script_name")" 2>/dev/null || true
-  mkdir -p "$target_docs_dir/$(dirname "$script_name")" 2>/dev/null || true
-  
-  # Copy the script
-  local target_script="$target_script_dir/${script_name}.sh"
-  cp "$script_file" "$target_script"
-  chmod +x "$target_script"
-  
-  # Copy documentation if it exists
-  local doc_file="$source_dir/docs/${script_name}.md"
-  if [[ -f "$doc_file" ]]; then
-    local target_doc="$target_docs_dir/${script_name}.md"
-    cp "$doc_file" "$target_doc"
-    echo "  ✓ Imported documentation"
-  fi
-  
-  echo "✓ Successfully imported script: $target_collection/$script_name"
-  echo "Run with: drun $target_collection/$script_name"
-  
-  return 0
-}
-
-# Export collection to specified directory
-export_collection() {
-  local collection_name="$1"
-  local export_path="$2"
-  local include_git="${3:-false}"
-  
-  if [[ -z "$collection_name" || -z "$export_path" ]]; then
-    echo "Error: Collection name and export path required" >&2
-    return 1
-  fi
-  
-  # Check if collection exists in bin directory
-  local collection_bin_dir="$BIN_DIR/$collection_name"
-  if [[ ! -d "$collection_bin_dir" ]]; then
-    echo "Error: Collection '$collection_name' not found in $collection_bin_dir" >&2
-    return 1
-  fi
-  
-  echo "Exporting collection '$collection_name' to: $export_path"
-  
-  # Create export directory
-  mkdir -p "$export_path"
-  
-  # Create bin directory and copy scripts
-  local export_bin_dir="$export_path/bin"
-  mkdir -p "$export_bin_dir"
-  cp -r "$collection_bin_dir"/* "$export_bin_dir/"
-  
-  # Copy documentation if it exists
-  local collection_docs_dir="$DOC_DIR/$collection_name"
-  if [[ -d "$collection_docs_dir" ]]; then
-    local export_docs_dir="$export_path/docs"
-    mkdir -p "$export_docs_dir"
-    cp -r "$collection_docs_dir"/* "$export_docs_dir/"
-    echo "  ✓ Exported documentation"
-  fi
-  
-  # Check if collection metadata exists
-  local collection_metadata="$COLLECTIONS_DIR/$collection_name/$COLLECTION_METADATA"
-  if [[ -f "$collection_metadata" ]]; then
-    cp "$collection_metadata" "$export_path/"
-    echo "  ✓ Exported metadata"
-  else
-    # Create basic metadata
-    create_collection_metadata "$collection_name" "Exported DotRun collection" "" "1.0.0" "$export_path/$COLLECTION_METADATA"
-    echo "  ✓ Created basic metadata"
-  fi
-  
-  # Initialize git repository if requested
-  if [[ "$include_git" == "true" ]]; then
-    (
-      cd "$export_path"
-      git init
-      git add .
-      git commit -m "Initial commit: Export collection '$collection_name'"
-      echo "  ✓ Initialized git repository"
-    )
-  fi
-  
-  echo "Successfully exported collection '$collection_name'"
-  return 0
-}
-
-# List available collections
-list_collections() {
-  local show_details="${1:-false}"
-  
-  echo "Available collections:"
-  
-  if [[ ! -d "$COLLECTIONS_DIR" ]] || [[ -z "$(ls -A "$COLLECTIONS_DIR" 2>/dev/null)" ]]; then
-    echo "  No collections installed"
+  # Check if URL already exists
+  if grep -Fxq "$validated_url" "$DRUN_CONF" 2>/dev/null; then
+    echo "Collection URL already exists in config"
     return 0
   fi
-  
-  for collection_dir in "$COLLECTIONS_DIR"/*; do
-    if [[ -d "$collection_dir" ]]; then
-      local collection_name=$(basename "$collection_dir")
-      local metadata_file="$collection_dir/$COLLECTION_METADATA"
-      
-      if [[ "$show_details" == "true" && -f "$metadata_file" ]]; then
-        local description version author
-        description=$(parse_collection_metadata "$metadata_file" "description")
-        version=$(parse_collection_metadata "$metadata_file" "version")
-        author=$(parse_collection_metadata "$metadata_file" "author")
-        
-        echo "  📦 $collection_name (v$version)"
-        echo "     Description: $description"
-        echo "     Author: $author"
-        
-        # Count scripts
-        local script_count=0
-        if [[ -d "$BIN_DIR/$collection_name" ]]; then
-          script_count=$(find "$BIN_DIR/$collection_name" -name "*.sh" -type f | wc -l)
-        fi
-        echo "     Scripts: $script_count"
-        echo
-      else
-        echo "  📦 $collection_name"
-      fi
+
+  # Ensure [collections] section exists
+  if ! grep -q "^\[collections\]" "$DRUN_CONF"; then
+    echo "" >> "$DRUN_CONF"
+    echo "[collections]" >> "$DRUN_CONF"
+  fi
+
+  # Add URL after [collections] section
+  awk -v url="$validated_url" '
+    /^\[collections\]/ { in_section=1; print; next }
+    in_section && /^\[/ { print url; in_section=0 }
+    { print }
+    END { if (in_section) print url }
+  ' "$DRUN_CONF" > "$DRUN_CONF.tmp" && mv "$DRUN_CONF.tmp" "$DRUN_CONF"
+
+  echo "✓ Collection URL added to $DRUN_CONF"
+  return 0
+}
+
+# List collection URLs from config
+list_collection_urls() {
+  init_drun_conf
+
+  # Extract URLs from [collections] section
+  local urls=()
+  local in_section=0
+
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^\[collections\] ]]; then
+      in_section=1
+      continue
     fi
+
+    if [[ "$line" =~ ^\[ ]]; then
+      in_section=0
+      continue
+    fi
+
+    if [[ $in_section -eq 1 && "$line" =~ ^https:// ]]; then
+      urls+=("$line")
+    fi
+  done < "$DRUN_CONF"
+
+  if [[ ${#urls[@]} -eq 0 ]]; then
+    echo "No collections configured"
+    echo "Add collections with: dr collections add <github-url>"
+    return 0
+  fi
+
+  echo "Configured collections:"
+  local i=1
+  for url in "${urls[@]}"; do
+    # Extract repo name from URL
+    local repo_name=$(basename "$url" .git)
+    local owner=$(echo "$url" | sed 's|https://github.com/\([^/]*\)/.*|\1|')
+    echo "  $i) $owner/$repo_name"
+    echo "     $url"
+    ((i++))
+  done
+
+  return 0
+}
+
+# Remove collection URL by number
+remove_collection_url() {
+  local number="$1"
+
+  if [[ -z "$number" ]] || ! [[ "$number" =~ ^[0-9]+$ ]]; then
+    echo "Error: Valid number required" >&2
+    echo "Usage: dr collections remove <number>" >&2
+    echo "Run 'dr collections list' to see numbers" >&2
+    return 1
+  fi
+
+  init_drun_conf
+
+  # Get the URL at the specified index
+  local urls=()
+  local in_section=0
+
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^\[collections\] ]]; then
+      in_section=1
+      continue
+    fi
+
+    if [[ "$line" =~ ^\[ ]]; then
+      in_section=0
+      continue
+    fi
+
+    if [[ $in_section -eq 1 && "$line" =~ ^https:// ]]; then
+      urls+=("$line")
+    fi
+  done < "$DRUN_CONF"
+
+  if [[ $number -lt 1 || $number -gt ${#urls[@]} ]]; then
+    echo "Error: Invalid number. Must be between 1 and ${#urls[@]}" >&2
+    return 1
+  fi
+
+  local url_to_remove="${urls[$((number-1))]}"
+
+  # Show what will be removed
+  local repo_name=$(basename "$url_to_remove" .git)
+  local owner=$(echo "$url_to_remove" | sed 's|https://github.com/\([^/]*\)/.*|\1|')
+  echo "Removing: $owner/$repo_name"
+  echo "URL: $url_to_remove"
+
+  read -p "Are you sure? [y/N]: " -r
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Removal cancelled"
+    return 1
+  fi
+
+  # Remove the URL from config
+  grep -Fxv "$url_to_remove" "$DRUN_CONF" > "$DRUN_CONF.tmp" && mv "$DRUN_CONF.tmp" "$DRUN_CONF"
+
+  echo "✓ Collection URL removed"
+  return 0
+}
+
+# ──────────────────────────────────────────────────────────────
+# Cache Management
+# ──────────────────────────────────────────────────────────────
+
+# Clone repository to cache
+clone_to_cache() {
+  local url="$1"
+
+  # Generate hash for cache directory
+  local hash=$(echo -n "$url" | md5sum | cut -d' ' -f1)
+  local cache_path="$CACHE_DIR/$hash"
+
+  # Clean cache if it already exists
+  if [[ -d "$cache_path" ]]; then
+    rm -rf "$cache_path"
+  fi
+
+  echo "Fetching collection..."
+
+  # Clone repository
+  if ! git clone --depth 1 "$url" "$cache_path" 2>/dev/null; then
+    echo "Error: Failed to clone repository" >&2
+    echo "URL: $url" >&2
+    return 1
+  fi
+
+  echo "$cache_path"
+  return 0
+}
+
+# Clear all cache
+clear_cache() {
+  if [[ -d "$CACHE_DIR" ]]; then
+    rm -rf "${CACHE_DIR:?}"/*
+    echo "✓ Cache cleared"
+  fi
+  return 0
+}
+
+# ──────────────────────────────────────────────────────────────
+# Interactive Collection Flow
+# ──────────────────────────────────────────────────────────────
+
+# Main interactive menu
+interactive_collection_menu() {
+  echo "========================================"
+  echo "  DotRun Collections Manager"
+  echo "========================================"
+  echo
+
+  # Step 1: Select collection
+  local selected_url
+  if ! selected_url=$(select_collection); then
+    return 1
+  fi
+
+  # Clone to cache
+  local cache_path
+  if ! cache_path=$(clone_to_cache "$selected_url"); then
+    return 1
+  fi
+
+  echo "✓ Collection cloned to cache"
+  echo
+
+  # Step 2: Select resource type
+  local resource_type
+  if ! resource_type=$(select_resource_type "$cache_path"); then
+    clear_cache
+    return 1
+  fi
+
+  # Step 3: Select specific resources
+  select_resources "$cache_path" "$resource_type"
+  local result=$?
+
+  # Clean up cache
+  clear_cache
+
+  return $result
+}
+
+# Step 1: Select collection from saved URLs
+select_collection() {
+  local urls=()
+  local in_section=0
+
+  init_drun_conf
+
+  # Read URLs from config
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^\[collections\] ]]; then
+      in_section=1
+      continue
+    fi
+
+    if [[ "$line" =~ ^\[ ]]; then
+      in_section=0
+      continue
+    fi
+
+    if [[ $in_section -eq 1 && "$line" =~ ^https:// ]]; then
+      urls+=("$line")
+    fi
+  done < "$DRUN_CONF"
+
+  if [[ ${#urls[@]} -eq 0 ]]; then
+    echo "No collections configured" >&2
+    echo "Add collections with: dr collections add <github-url>" >&2
+    return 1
+  fi
+
+  echo "[1] Select Collection:"
+  local i=1
+  for url in "${urls[@]}"; do
+    local repo_name=$(basename "$url" .git)
+    local owner=$(echo "$url" | sed 's|https://github.com/\([^/]*\)/.*|\1|')
+    echo "  $i) $owner/$repo_name ($url)"
+    ((i++))
+  done
+  echo
+  echo "  a) Add new collection"
+  echo "  r) Remove collection"
+  echo "  q) Quit"
+  echo
+
+  while true; do
+    read -r -p "Select [1-${#urls[@]}/a/r/q]: " choice
+
+    case "$choice" in
+      q|Q)
+        echo "Cancelled"
+        return 1
+        ;;
+      a|A)
+        read -r -p "Enter GitHub URL: " new_url
+        if add_collection_url "$new_url"; then
+          echo "Collection added. Restarting menu..."
+          echo
+          select_collection
+          return $?
+        fi
+        continue
+        ;;
+      r|R)
+        list_collection_urls
+        echo
+        read -r -p "Enter number to remove: " remove_num
+        if remove_collection_url "$remove_num"; then
+          echo "Collection removed. Restarting menu..."
+          echo
+          select_collection
+          return $?
+        fi
+        continue
+        ;;
+      *)
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [[ $choice -ge 1 && $choice -le ${#urls[@]} ]]; then
+          echo "${urls[$((choice-1))]}"
+          return 0
+        fi
+        echo "Invalid selection. Please try again."
+        ;;
+    esac
   done
 }
 
-# Remove collection
-remove_collection() {
-  local collection_name="$1"
-  local force="${2:-false}"
-  
-  if [[ -z "$collection_name" ]]; then
-    echo "Error: Collection name required" >&2
+# Step 2: Select resource type
+select_resource_type() {
+  local cache_path="$1"
+
+  echo "[2] Select Resource Type:"
+
+  # Check which resource types are available
+  local available_types=()
+  [[ -d "$cache_path/bin" ]] && available_types+=("bin")
+  [[ -d "$cache_path/aliases" ]] && available_types+=("aliases")
+  [[ -d "$cache_path/helpers" ]] && available_types+=("helpers")
+  [[ -d "$cache_path/configs" ]] && available_types+=("configs")
+
+  if [[ ${#available_types[@]} -eq 0 ]]; then
+    echo "Error: No recognized resource types found in repository" >&2
+    echo "Expected directories: bin/, aliases/, helpers/, configs/" >&2
     return 1
   fi
-  
-  local collection_dir="$COLLECTIONS_DIR/$collection_name"
-  local collection_bin_dir="$BIN_DIR/$collection_name"
-  local collection_docs_dir="$DOC_DIR/$collection_name"
-  
-  # Check if collection exists
-  if [[ ! -d "$collection_dir" && ! -d "$collection_bin_dir" ]]; then
-    echo "Error: Collection '$collection_name' not found" >&2
+
+  local i=1
+  local type_map=()
+
+  for type in "${available_types[@]}"; do
+    case "$type" in
+      bin)
+        echo "  $i) Scripts (bin/)"
+        type_map+=("bin")
+        ;;
+      aliases)
+        echo "  $i) Aliases (aliases/)"
+        type_map+=("aliases")
+        ;;
+      helpers)
+        echo "  $i) Helpers (helpers/)"
+        type_map+=("helpers")
+        ;;
+      configs)
+        echo "  $i) Configs (configs/)"
+        type_map+=("configs")
+        ;;
+    esac
+    ((i++))
+  done
+
+  echo
+  echo "  b) Back"
+  echo "  q) Quit"
+  echo
+
+  while true; do
+    read -r -p "Select [1-${#type_map[@]}/b/q]: " choice
+
+    case "$choice" in
+      q|Q)
+        echo "Cancelled"
+        return 1
+        ;;
+      b|B)
+        echo "Going back..."
+        interactive_collection_menu
+        return $?
+        ;;
+      *)
+        if [[ "$choice" =~ ^[0-9]+$ ]] && [[ $choice -ge 1 && $choice -le ${#type_map[@]} ]]; then
+          echo "${type_map[$((choice-1))]}"
+          return 0
+        fi
+        echo "Invalid selection. Please try again."
+        ;;
+    esac
+  done
+}
+
+# Step 3: Select specific resources to import
+select_resources() {
+  local cache_path="$1"
+  local resource_type="$2"
+  local source_dir="$cache_path/$resource_type"
+
+  echo
+  echo "[3] Available ${resource_type^}:"
+
+  # Find all resources
+  local resources=()
+  if [[ "$resource_type" == "bin" ]]; then
+    while IFS= read -r -d '' file; do
+      local rel_path="${file#"$source_dir"/}"
+      rel_path="${rel_path%.sh}"
+      resources+=("$rel_path")
+    done < <(find "$source_dir" -name "*.sh" -type f -print0 2>/dev/null | sort -z)
+  else
+    while IFS= read -r -d '' file; do
+      local rel_path="${file#"$source_dir"/}"
+      resources+=("$rel_path")
+    done < <(find "$source_dir" -type f -print0 2>/dev/null | sort -z)
+  fi
+
+  if [[ ${#resources[@]} -eq 0 ]]; then
+    echo "  No resources found in $resource_type/"
     return 1
   fi
-  
-  if [[ "$force" != "true" ]]; then
-    echo "This will remove the collection '$collection_name' and all its scripts."
-    read -p "Are you sure? [y/N]: " -r
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-      echo "Removal cancelled"
-      return 1
-    fi
+
+  # Display resources with numbers
+  local i=1
+  for resource in "${resources[@]}"; do
+    echo "  $i) $resource"
+    ((i++))
+  done
+
+  echo
+  echo "  *) Select by number (e.g., 1,3)"
+  echo "  a) Add all"
+  echo "  b) Back"
+  echo "  q) Quit"
+  echo
+
+  while true; do
+    read -r -p "Select [numbers/a/b/q]: " choice
+
+    case "$choice" in
+      q|Q)
+        echo "Cancelled"
+        return 1
+        ;;
+      b|B)
+        select_resource_type "$cache_path"
+        return $?
+        ;;
+      a|A)
+        # Import all resources
+        local imported=0
+        for resource in "${resources[@]}"; do
+          if import_resource "$cache_path" "$resource_type" "$resource"; then
+            ((imported++))
+          fi
+        done
+        echo
+        echo "Successfully added $imported ${resource_type}!"
+        [[ "$resource_type" == "bin" ]] && echo "Run with: dr <scriptname>"
+        return 0
+        ;;
+      *)
+        # Parse comma-separated numbers
+        IFS=',' read -ra selections <<< "$choice"
+        local imported=0
+        local valid=1
+
+        for sel in "${selections[@]}"; do
+          sel=$(echo "$sel" | tr -d ' ') # Trim whitespace
+          if [[ ! "$sel" =~ ^[0-9]+$ ]] || [[ $sel -lt 1 || $sel -gt ${#resources[@]} ]]; then
+            echo "Invalid selection: $sel"
+            valid=0
+            break
+          fi
+        done
+
+        if [[ $valid -eq 1 ]]; then
+          for sel in "${selections[@]}"; do
+            sel=$(echo "$sel" | tr -d ' ')
+            local resource="${resources[$((sel-1))]}"
+            if import_resource "$cache_path" "$resource_type" "$resource"; then
+              ((imported++))
+            fi
+          done
+          echo
+          echo "Successfully added $imported ${resource_type}!"
+          [[ "$resource_type" == "bin" ]] && echo "Run with: dr <scriptname>"
+          return 0
+        fi
+        ;;
+    esac
+  done
+}
+
+# Import a single resource to local DotRun
+import_resource() {
+  local cache_path="$1"
+  local resource_type="$2"
+  local resource_name="$3"
+
+  local source_file
+  case "$resource_type" in
+    bin)
+      source_file="$cache_path/bin/${resource_name}.sh"
+      local target_file="$BIN_DIR/${resource_name}.sh"
+      ;;
+    aliases)
+      source_file="$cache_path/aliases/${resource_name}"
+      local target_file="$DR_CONFIG/aliases/${resource_name}"
+      ;;
+    helpers)
+      source_file="$cache_path/helpers/${resource_name}"
+      local target_file="$DR_CONFIG/helpers/${resource_name}"
+      ;;
+    configs)
+      source_file="$cache_path/configs/${resource_name}"
+      local target_file="$DR_CONFIG/configs/${resource_name}"
+      ;;
+  esac
+
+  if [[ ! -f "$source_file" ]]; then
+    echo "Error: Resource not found: $source_file" >&2
+    return 1
   fi
-  
-  # Remove collection files
-  [[ -d "$collection_dir" ]] && rm -rf "$collection_dir"
-  [[ -d "$collection_bin_dir" ]] && rm -rf "$collection_bin_dir"
-  [[ -d "$collection_docs_dir" ]] && rm -rf "$collection_docs_dir"
-  
-  echo "Successfully removed collection '$collection_name'"
+
+  echo "Adding $resource_name..."
+
+  # Check if target exists
+  if [[ -f "$target_file" ]]; then
+    echo "  Warning: $resource_name already exists"
+    read -p "  [O]verwrite, [R]ename, [S]kip? " -r
+    case "${REPLY,,}" in
+      o)
+        # Overwrite
+        ;;
+      r)
+        # Find available renamed version
+        local i=1
+        local base_name=$(basename "$target_file")
+        local dir_name=$(dirname "$target_file")
+        local ext="${base_name##*.}"
+        local name="${base_name%.*}"
+
+        while [[ -f "$dir_name/${name}-${i}.$ext" ]]; do
+          ((i++))
+        done
+        target_file="$dir_name/${name}-${i}.$ext"
+        resource_name="${name}-${i}"
+        echo "  Renaming to: $resource_name"
+        ;;
+      *)
+        echo "  Skipped"
+        return 0
+        ;;
+    esac
+  fi
+
+  # Create target directory
+  mkdir -p "$(dirname "$target_file")"
+
+  # Copy file
+  cp "$source_file" "$target_file"
+
+  # Make executable if it's a script
+  if [[ "$resource_type" == "bin" ]]; then
+    chmod +x "$target_file"
+  fi
+
+  echo "  ✓ Copied to $(dirname "$target_file")/${resource_name}${resource_type == "bin" && echo ".sh" || echo ""}"
+  [[ "$resource_type" == "bin" ]] && echo "  ✓ Made executable"
+
   return 0
 }
 
 # ──────────────────────────────────────────────────────────────
-# YADM Integration
+# YADM Integration (kept from original)
 # ──────────────────────────────────────────────────────────────
 
 # Initialize DotRun to work with existing yadm setup
 yadm_init() {
   local yadm_repo_root
-  
+
   # Check if yadm is available and configured
   if ! command -v yadm >/dev/null 2>&1; then
     echo "Error: yadm not found. Please install yadm first." >&2
     return 1
   fi
-  
+
   # Get yadm repository root
   if ! yadm_repo_root=$(yadm rev-parse --show-toplevel 2>/dev/null); then
     echo "Error: Not in a yadm-managed directory. Run 'yadm init' first." >&2
     return 1
   fi
-  
+
   echo "Setting up DotRun to work with yadm repository..."
   echo "YADM repo root: $yadm_repo_root"
-  
+
   # Create DotRun directory structure within yadm repo
   local yadm_drun_dir="$yadm_repo_root/.config/dotrun"
-  
+
   if [[ -d "$yadm_drun_dir" ]]; then
     echo "DotRun directory already exists in yadm repo: $yadm_drun_dir"
   else
     echo "Creating DotRun directory in yadm repo..."
-    mkdir -p "$yadm_drun_dir"/{bin,docs,helpers,collections}
-    
+    mkdir -p "$yadm_drun_dir"/{bin,helpers,aliases,configs}
+
     # Create symlink from current config to yadm-managed location
-    if [[ -d "$DRUN_CONFIG" && "$DRUN_CONFIG" != "$yadm_drun_dir" ]]; then
+    if [[ -d "$DR_CONFIG" && "$DR_CONFIG" != "$yadm_drun_dir" ]]; then
       echo "Migrating existing DotRun config to yadm..."
-      
+
       # Copy existing content
-      if [[ -d "$DRUN_CONFIG/bin" ]]; then
-        cp -r "$DRUN_CONFIG/bin"/* "$yadm_drun_dir/bin/" 2>/dev/null || true
-      fi
-      if [[ -d "$DRUN_CONFIG/docs" ]]; then
-        cp -r "$DRUN_CONFIG/docs"/* "$yadm_drun_dir/docs/" 2>/dev/null || true
-      fi
-      if [[ -d "$DRUN_CONFIG/helpers" ]]; then
-        cp -r "$DRUN_CONFIG/helpers"/* "$yadm_drun_dir/helpers/" 2>/dev/null || true
-      fi
-      
+      [[ -d "$DR_CONFIG/bin" ]] && cp -r "$DR_CONFIG/bin"/* "$yadm_drun_dir/bin/" 2>/dev/null || true
+      [[ -d "$DR_CONFIG/helpers" ]] && cp -r "$DR_CONFIG/helpers"/* "$yadm_drun_dir/helpers/" 2>/dev/null || true
+      [[ -d "$DR_CONFIG/aliases" ]] && cp -r "$DR_CONFIG/aliases"/* "$yadm_drun_dir/aliases/" 2>/dev/null || true
+      [[ -d "$DR_CONFIG/configs" ]] && cp -r "$DR_CONFIG/configs"/* "$yadm_drun_dir/configs/" 2>/dev/null || true
+
       # Backup old config
-      mv "$DRUN_CONFIG" "$DRUN_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
+      mv "$DR_CONFIG" "$DR_CONFIG.backup.$(date +%Y%m%d_%H%M%S)"
       echo "  ✓ Backed up existing config"
     fi
-    
+
     # Create symlink
-    ln -sf "$yadm_drun_dir" "$DRUN_CONFIG"
-    echo "  ✓ Created symlink: $DRUN_CONFIG -> $yadm_drun_dir"
+    ln -sf "$yadm_drun_dir" "$DR_CONFIG"
+    echo "  ✓ Created symlink: $DR_CONFIG -> $yadm_drun_dir"
   fi
-  
-  # Create .gitignore for collections (they should be managed separately)
+
+  # Create .gitignore for cache
   local gitignore_file="$yadm_drun_dir/.gitignore"
   if [[ ! -f "$gitignore_file" ]]; then
     cat > "$gitignore_file" << 'EOF'
 # DotRun .gitignore
-# Collections are managed separately and should not be committed to personal dotfiles
-collections/
+# Cache should not be committed
+.cache/
 *.tmp
 *.bak
 EOF
-    echo "  ✓ Created .gitignore for collections"
+    echo "  ✓ Created .gitignore for cache"
   fi
-  
+
   # Add to yadm
   yadm add "$yadm_drun_dir"
   echo "  ✓ Added DotRun directory to yadm"
-  
+
   echo
   echo "DotRun is now integrated with yadm!"
   echo "Your personal scripts will be version controlled with your dotfiles."
-  echo "Collections can be imported separately and are excluded from your personal repo."
   echo
   echo "Next steps:"
-  echo "  1. Add your scripts: drun add myscript"
-  echo "  2. Import team collections: drun import <team-repo-url>"
-  echo "  3. Commit changes: yadm commit -m 'Add DotRun setup'"
-  
+  echo "  1. Add your scripts: dr add myscript"
+  echo "  2. Add collections: dr collections add <github-url>"
+  echo "  3. Import resources: dr collections"
+  echo "  4. Commit changes: yadm commit -m 'Add DotRun setup'"
+
   return 0
 }

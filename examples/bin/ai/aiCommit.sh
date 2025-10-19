@@ -77,7 +77,7 @@ while :; do
     printf '%s\n' "$commit_msg" >"$HISTORY_DIR/$(date +%s).txt"
     ls -1tr "$HISTORY_DIR" | head -n -10 | xargs -r -I{} rm "$HISTORY_DIR/{}"
     echo -e "${green}✅  Commit created.${reset}"
-    echo -e "${green}\t\t drun prDescription \"${commit_msg}\"${reset}"
+    echo -e "${green}\t\t dr prDescription \"${commit_msg}\"${reset}"
     echo ""
     break
     ;;

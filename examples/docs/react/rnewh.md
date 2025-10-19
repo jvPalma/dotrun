@@ -15,6 +15,6 @@ Creates folder `<HookName>/` containing:
 ### Example
 
 ```bash
-$ drun rnewh Theme
+$ dr rnewh Theme
 Hook useTheme created successfully.
 ```

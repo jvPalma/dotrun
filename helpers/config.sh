@@ -10,7 +10,7 @@
 set -euo pipefail
 
 # Configuration directories
-CONFIG_DIR="$DRUN_CONFIG/config"
+CONFIG_DIR="$DR_CONFIG/config"
 CONFIG_FILE="$CONFIG_DIR/.dotrun_config"
 CONFIG_CATEGORIES_DIR="$CONFIG_DIR/.dotrun_config.d"
 SHELL_INTEGRATION_DIR="$CONFIG_DIR/shell"
@@ -129,7 +129,7 @@ config_init() {
     cat > "$CONFIG_FILE" << 'EOF'
 # DotRun Global Configuration
 # This file is managed by DotRun. Manual edits may be overwritten.
-# Use 'drun config set/unset' commands to manage configuration.
+# Use 'dr config set/unset' commands to manage configuration.
 
 # Generated configuration will appear below this line
 EOF
@@ -252,7 +252,7 @@ create_default_categories() {
       cat > "$category_file" << EOF
 # DotRun Configuration - $category Category
 # This file is managed by DotRun. Manual edits may be overwritten.
-# Use 'drun config set <key> <value> --category $category' to add config to this category.
+# Use 'dr config set <key> <value> --category $category' to add config to this category.
 
 EOF
       echo "✓ Created category file: $category.config"
@@ -318,7 +318,7 @@ config_set() {
       cat > "$target_file" << EOF
 # DotRun Configuration - $category Category
 # This file is managed by DotRun. Manual edits may be overwritten.
-# Use 'drun config set <key> <value> --category $category' to add config to this category.
+# Use 'dr config set <key> <value> --category $category' to add config to this category.
 
 EOF
     fi
@@ -345,7 +345,7 @@ EOF
   else
     echo "✓ Set config: $key=$value$category_text$secure_text"
   fi
-  echo "Run 'drun config reload' or restart your shell to use the new config"
+  echo "Run 'dr config reload' or restart your shell to use the new config"
 }
 
 # Get a configuration value
@@ -357,7 +357,7 @@ config_get() {
   
   if ! config_key_exists "$key"; then
     echo "Error: Config key '$key' not found" >&2
-    echo "Use 'drun config list' to see available keys" >&2
+    echo "Use 'dr config list' to see available keys" >&2
     return 1
   fi
   
@@ -460,7 +460,7 @@ config_list() {
   
   if [[ "$found_config" == "false" ]]; then
     echo ""
-    echo "No configuration found. Use 'drun config set <key> <value>' to create your first config."
+    echo "No configuration found. Use 'dr config set <key> <value>' to create your first config."
   fi
   
   # Show categories if requested
@@ -490,7 +490,7 @@ config_edit() {
   
   if ! config_key_exists "$key"; then
     echo "Error: Config key '$key' not found" >&2
-    echo "Use 'drun config list' to see available keys" >&2
+    echo "Use 'dr config list' to see available keys" >&2
     return 1
   fi
   
@@ -536,7 +536,7 @@ config_unset() {
   
   if ! config_key_exists "$key"; then
     echo "Error: Config key '$key' not found" >&2
-    echo "Use 'drun config list' to see available keys" >&2
+    echo "Use 'dr config list' to see available keys" >&2
     return 1
   fi
   
@@ -590,7 +590,7 @@ config_reload() {
         source "$BASH_CONFIG_INTEGRATION"
         echo "✓ Reloaded configuration for Bash"
       else
-        echo "Error: Bash integration file not found. Run 'drun config init' first." >&2
+        echo "Error: Bash integration file not found. Run 'dr config init' first." >&2
         return 1
       fi
       ;;
@@ -600,7 +600,7 @@ config_reload() {
         source "$ZSH_CONFIG_INTEGRATION"
         echo "✓ Reloaded configuration for Zsh"
       else
-        echo "Error: Zsh integration file not found. Run 'drun config init' first." >&2
+        echo "Error: Zsh integration file not found. Run 'dr config init' first." >&2
         return 1
       fi
       ;;
@@ -609,7 +609,7 @@ config_reload() {
         echo "Note: Fish shell detected. Please run the following command manually:"
         echo "  source $FISH_CONFIG_INTEGRATION"
       else
-        echo "Error: Fish integration file not found. Run 'drun config init' first." >&2
+        echo "Error: Fish integration file not found. Run 'dr config init' first." >&2
         return 1
       fi
       ;;
@@ -620,7 +620,7 @@ config_reload() {
         source "$BASH_CONFIG_INTEGRATION"
         echo "✓ Sourced Bash integration (may not work in all shells)"
       else
-        echo "Error: Integration files not found. Run 'drun config init' first." >&2
+        echo "Error: Integration files not found. Run 'dr config init' first." >&2
         return 1
       fi
       ;;

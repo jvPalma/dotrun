@@ -15,13 +15,13 @@ Writing meaningful PR descriptions is repetitive and time-consuming.
 
 ```bash
 # basic
-drun prDescription
+dr prDescription
 
 # add extra context (e.g. Jira ticket, manual notes)
-drun prDescription "AN-1234 fix vault creation edge cases"
+dr prDescription "AN-1234 fix vault creation edge cases"
 
 # skip saving to history
-drun prDescription --no-save
+dr prDescription --no-save
 ```
 
 | Flag           | Description                                          |
@@ -75,5 +75,5 @@ The helper keeps only the **six** most recent entries.
 ## See also
 
 - [DotRun](https://github.com/jvPalma/dotrun) – script orchestration & docs template
-- `drun edit prDescription` – tweak the binary
-- `drun edit:docs prDescription` – tweak these docs
+- `dr edit prDescription` – tweak the binary
+- `dr edit:docs prDescription` – tweak these docs

@@ -5,7 +5,7 @@ Starts your Google Cloud Workstation if it's currently stopped, with intelligent
 ## Synopsis
 
 ```bash
-drun workstation/wss
+dr workstation/wss
 ```
 
 ## Description
@@ -13,6 +13,7 @@ drun workstation/wss
 Initiates the startup process for your configured cloud workstation. The script first checks the current status and only starts the workstation if it's currently stopped, preventing unnecessary restart operations.
 
 Features:
+
 - **Status validation**: Checks current state before attempting startup
 - **Idempotent operation**: Safe to run multiple times
 - **Clear feedback**: Provides status messages for all scenarios
@@ -22,33 +23,36 @@ Features:
 
 ```bash
 # Start workstation if stopped
-drun workstation/wss
+dr workstation/wss
 
 # Use in automation scripts
-if [[ "$(drun workstation/wsl)" != "RUNNING" ]]; then
-  drun workstation/wss
+if [[ "$(dr workstation/wsl)" != "RUNNING" ]]; then
+  dr workstation/wss
 fi
 ```
 
 ## Behavior
 
 ### Workstation Already Running
+
 ```bash
-$ drun workstation/wss
+$ dr workstation/wss
 Workstation is already running.
 ```
 
 ### Workstation Starting
+
 ```bash
-$ drun workstation/wss
+$ dr workstation/wss
 Starting workstation...
 # Waits for startup completion
 Workstation started successfully.
 ```
 
 ### Workstation Stopped
+
 ```bash
-$ drun workstation/wss
+$ dr workstation/wss
 Workstation is stopped. Starting now...
 # Initiates startup process
 ```

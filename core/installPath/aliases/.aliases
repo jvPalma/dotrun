@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+# shellcheck disable=SC2139
+
+# DotRun Aliases
+# This file is managed by DotRun. Manual edits may be overwritten.
+# Use 'dr aliases add/edit/remove' commands to manage aliases.
+

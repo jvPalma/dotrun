@@ -5,7 +5,7 @@ Executes the complete Jest test suite and automatically captures failing test fi
 ## Synopsis
 
 ```bash
-drun react/testAll
+dr react/testAll
 ```
 
 ## Description
@@ -26,7 +26,9 @@ Runs the full Jest test suite using `yarn test --watchAll=false`, captures all o
 ## Output Files
 
 ### test_output.out
+
 Contains the complete Jest test execution output, including:
+
 - Test suite summaries
 - Individual test results
 - Coverage information (if enabled)
@@ -34,6 +36,7 @@ Contains the complete Jest test execution output, including:
 - Performance metrics
 
 ### files_with_error.out
+
 Contains a clean list of failing test files with `FAIL` replaced by `clear; yarn test` for easy copy-paste execution:
 
 ```bash
@@ -45,9 +48,10 @@ clear; yarn test src/services/api.test.js
 ## Usage Examples
 
 ### Basic Test Run
+
 ```bash
 # Run all tests and capture failures
-drun react/testAll
+dr react/testAll
 
 # Check results
 cat test_output.out     # Full test log
@@ -55,9 +59,10 @@ cat files_with_error.out   # Failed tests only
 ```
 
 ### Re-running Failed Tests
+
 ```bash
 # Run testAll first
-drun react/testAll
+dr react/testAll
 
 # Re-run only the failed tests
 bash files_with_error.out
@@ -67,9 +72,10 @@ clear; yarn test src/components/Button.test.js
 ```
 
 ### CI/CD Integration
+
 ```bash
 # In CI pipeline
-drun react/testAll
+dr react/testAll
 
 # Check if any tests failed
 if [[ -s files_with_error.out ]]; then
@@ -79,9 +85,10 @@ fi
 ```
 
 ### Development Workflow
+
 ```bash
 # After making changes, run full test suite
-drun react/testAll
+dr react/testAll
 
 # If failures exist, work on them iteratively
 while [[ -s files_with_error.out ]]; do
@@ -89,7 +96,7 @@ while [[ -s files_with_error.out ]]; do
   # Re-run specific tests
   clear; yarn test $(head -1 files_with_error.out | awk '{print $NF}')
   # Re-run full suite
-  drun react/testAll
+  dr react/testAll
 done
 ```
 
@@ -109,21 +116,23 @@ done
 ## Integration
 
 ### Package.json Scripts
+
 ```json
 {
   "scripts": {
     "test": "jest",
-    "test:all": "drun react/testAll",
+    "test:all": "dr react/testAll",
     "test:failed": "bash files_with_error.out"
   }
 }
 ```
 
 ### Git Hooks
+
 ```bash
 # Pre-commit hook
 #!/bin/bash
-drun react/testAll
+dr react/testAll
 if [[ -s files_with_error.out ]]; then
   echo "Cannot commit: tests are failing"
   exit 1
@@ -135,7 +144,7 @@ fi
 - **yarn test** - Interactive Jest test runner
 - **yarn test --watch** - Watch mode for development
 - **jest --coverage** - Test coverage analysis
-- **drun react/rnewc** - Create new components with tests
+- **dr react/rnewc** - Create new components with tests
 
 ## See Also
 

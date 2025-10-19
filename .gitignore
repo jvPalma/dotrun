@@ -1,6 +1,8 @@
 ./bin/
 ./docs/
 ./helpers/
+.claude
+.local
 
 **.out
 .out
