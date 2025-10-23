@@ -86,6 +86,10 @@ dr deploy staging # Run with confidence
 - **⚙️ File-Based Config** - Manage aliases and environment variables in organized files
 - **🔄 Smart Updates** - Collection system tracks modifications and handles conflicts
 
+## Quick Preview:
+
+<img width="704" height="690" alt="dotrun" src="https://github.com/user-attachments/assets/b8c668f0-70c0-49c3-b086-89de8fbc2319" />
+
 ## Installation
 
 ```bash
