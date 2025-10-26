@@ -150,16 +150,25 @@ main() {
     success "Fish integration files updated"
   fi
 
-  # Step 4: Copy Core helpers files
-  info "Step 4/5: Updating core helpers files..."
+  # Step 4: Copy Core and Helpers files
+  info "Step 4/5: Updating core and helper files..."
 
-  # Create Core helpers directory structure
+  # Create Core directory structure
   mkdir -p "$TOOL_DIR/core"
 
-  # Copy Core helpers files
+  # Copy Core files
   if [[ -d "$SCRIPT_DIR/core/shared/dotrun/core" ]]; then
     cp -r "$SCRIPT_DIR/core/shared/dotrun/core"/* "$TOOL_DIR/core/"
     success "Core files updated"
+  fi
+
+  # Create Helpers directory structure
+  mkdir -p "$TOOL_DIR/helpers"
+
+  # Copy Helpers files
+  if [[ -d "$SCRIPT_DIR/core/shared/dotrun/helpers" ]]; then
+    cp -r "$SCRIPT_DIR/core/shared/dotrun/helpers"/* "$TOOL_DIR/helpers/"
+    success "Helper files updated"
   fi
 
   # Step 5: Create/update symlink
@@ -217,8 +226,8 @@ show_migration_instructions() {
   local needs_migration=false
 
   # Check if any old structure exists
-  if [[ -d "$CONFIG_DIR/bin" ]] || [[ -d "$CONFIG_DIR/aliases/.d.aliases" ]] || \
-     [[ -d "$CONFIG_DIR/config" ]] || [[ -f "$CONFIG_DIR/.drun_config_loader" ]]; then
+  if [[ -d "$CONFIG_DIR/bin" ]] || [[ -d "$CONFIG_DIR/aliases/.d.aliases" ]] \
+    || [[ -d "$CONFIG_DIR/config" ]] || [[ -f "$CONFIG_DIR/.drun_config_loader" ]]; then
     needs_migration=true
   fi
 
@@ -248,7 +257,7 @@ show_migration_instructions() {
   # Aliases migration
   if [[ -d "$CONFIG_DIR/aliases/.d.aliases" ]] || [[ -f "$CONFIG_DIR/aliases/.aliases" ]] || [[ -d "$CONFIG_DIR/aliases/shell" ]]; then
     echo -e "${BLUE}📝 Aliases Files:${NC}"
-    
+
     if [[ -d "$CONFIG_DIR/aliases/.d.aliases" ]]; then
       echo -e "  ${YELLOW}OLD:${NC} ~/.config/dotrun/aliases/.d.aliases/*"
       echo -e "  ${GREEN}NEW:${NC} ~/.config/dotrun/aliases/*.aliases"
@@ -256,14 +265,14 @@ show_migration_instructions() {
       echo -e "  ${BLUE}Action:${NC} rmdir ~/.config/dotrun/aliases/.d.aliases"
       echo ""
     fi
-    
+
     if [[ -f "$CONFIG_DIR/aliases/.aliases" ]]; then
       echo -e "  ${YELLOW}OLD:${NC} ~/.config/dotrun/aliases/.aliases"
       echo -e "  ${GREEN}NEW:${NC} ~/.config/dotrun/aliases/10.main.aliases ${BLUE}(recommended)${NC}"
       echo -e "  ${BLUE}Action:${NC} mv ~/.config/dotrun/aliases/.aliases ~/.config/dotrun/aliases/10.main.aliases"
       echo ""
     fi
-    
+
     if [[ -d "$CONFIG_DIR/aliases/shell" ]]; then
       echo -e "  ${RED}REMOVE:${NC} ~/.config/dotrun/aliases/shell/ ${RED}(deprecated)${NC}"
       echo -e "  ${BLUE}Action:${NC} rm -rf ~/.config/dotrun/aliases/shell"
@@ -278,28 +287,28 @@ show_migration_instructions() {
     echo -e "  ${GREEN}NEW:${NC} ~/.config/dotrun/configs/"
     echo -e "  ${BLUE}Action:${NC} mv ~/.config/dotrun/config ~/.config/dotrun/configs"
     echo ""
-    
+
     if [[ -d "$CONFIG_DIR/config/.dotrun_config.d" ]]; then
       echo -e "  ${YELLOW}OLD:${NC} ~/.config/dotrun/config/.dotrun_config.d/*"
       echo -e "  ${GREEN}NEW:${NC} ~/.config/dotrun/configs/*.config"
       echo -e "  ${BLUE}Action:${NC} Move files from .dotrun_config.d/ to configs/ and add .config extension"
       echo ""
     fi
-    
+
     if [[ -f "$CONFIG_DIR/config/.dotrun_config" ]]; then
       echo -e "  ${YELLOW}OLD:${NC} ~/.config/dotrun/config/.dotrun_config"
       echo -e "  ${GREEN}NEW:${NC} ~/.config/dotrun/configs/10.main.config ${BLUE}(recommended)${NC}"
       echo -e "  ${BLUE}Action:${NC} mv ~/.config/dotrun/config/.dotrun_config ~/.config/dotrun/configs/10.main.config"
       echo ""
     fi
-    
+
     if [[ -f "$CONFIG_DIR/config/.dotrun_config.secure" ]]; then
       echo -e "  ${YELLOW}OLD:${NC} ~/.config/dotrun/config/.dotrun_config.secure"
       echo -e "  ${GREEN}NEW:${NC} ~/.config/dotrun/configs/20.secure.config ${BLUE}(recommended)${NC}"
       echo -e "  ${BLUE}Action:${NC} mv ~/.config/dotrun/config/.dotrun_config.secure ~/.config/dotrun/configs/20.secure.config"
       echo ""
     fi
-    
+
     if [[ -d "$CONFIG_DIR/config/shell" ]]; then
       echo -e "  ${RED}REMOVE:${NC} ~/.config/dotrun/config/shell/ ${RED}(deprecated)${NC}"
       echo -e "  ${BLUE}Action:${NC} rm -rf ~/.config/dotrun/config/shell"
