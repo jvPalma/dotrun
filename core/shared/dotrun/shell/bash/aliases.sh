@@ -3,6 +3,9 @@
 # DotRun Aliases - Bash Integration
 # This file is auto-generated. Do not edit manually.
 
+# Enable alias expansion in bash (required for aliases to work in non-interactive shells/scripts)
+shopt -s expand_aliases 2>/dev/null || true
+
 # Source user aliases from ~/.config/dotrun/aliases/
 # Supports both flat structure (NN-category.aliases) and nested (NN-category/NN-name.aliases)
 # Files are loaded in alphabetical order (sorted by full path)
