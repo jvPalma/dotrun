@@ -7,6 +7,7 @@
 set -euo pipefail
 
 INSTALL_CFG_PATH=${XDG_CONFIG_HOME:-$HOME/.config}
+INSTALL_HOME="$HOME"
 
 # ------------------------------------------------------------------
 # Utility Functions
@@ -27,19 +28,6 @@ log_error() {
 
 log_success() {
   printf "\033[1;32m[SUCCESS]\033[0m %s\n" "$*"
-}
-
-get_message() {
-  [[ "$2" -gt 0 ]] && indent_str="   " || indent_str=" "
-
-  case "$1" in
-    "overwritten") echo "\033[1;34m[INFO]\033[0m$indent_str\033[1;33m✓\033[0m %s \033[0;37m(overwritten)\033[0m\n" ;;
-    "unchanged") echo "\033[1;34m[INFO]\033[0m$indent_str\033[1;32m✓\033[0m %s \033[0;37m(unchanged)\033[0m\n" ;;
-    "new file") echo "\033[1;34m[INFO]\033[0m$indent_str\033[1;32m+\033[0m %s \033[0;37m(new file)\033[0m\n" ;;
-    "file differs") echo "\033[1;34m[INFO]\033[0m$indent_str\033[1;33m⚠\033[0m %s \033[0;37m(File differs from source)\033[0m\n" ;;
-    "skipped") echo "\033[1;34m[INFO]\033[0m$indent_str\033[1;90m-\033[0m %s \033[0;37m(skipped)\033[0m\n" ;;
-    *) echo "unknown" ;;
-  esac
 }
 
 # Detect operating system
@@ -115,248 +103,6 @@ detect_shell() {
     *bash*) echo "bash" ;;
     *) echo "bash" ;; # Ultimate fallback
   esac
-}
-
-# Cross-platform file copying with intelligent file management
-copy_files() {
-  local src="$1"
-  local dst="$2"
-  local force_override="${3:-false}"
-  local modified_files_detected=false
-  
-  # Arrays to track modified files (declared as global so main can access them)
-  modified_files=()
-  modified_src_files=()
-
-  log_info "Setting up DotRun directories and files"
-
-  # Define target directories
-  local target_dirs=("bin" "helpers" "collections")
-
-  # Create target directories if they don't exist
-  for dir in "${target_dirs[@]}"; do
-    local target_dir="$dst/$dir"
-    if [ ! -d "$target_dir" ]; then
-      log_info "Creating directory: $target_dir"
-      mkdir -p "$target_dir"
-    fi
-  done
-
-  # Files to exclude from copying (installation/project files)
-  local exclude_patterns=(
-    "install.sh"
-    ".gitignore"
-    ".git"
-    "*.out"
-    "*.md"
-    ".github"
-    "LICENSE"
-    "CHANGELOG.md"
-    "test_shell_detect.sh"
-  )
-
-  # Hello example files (only copied on clean installs)
-  local hello_files=(
-    "bin/hello.sh"
-  )
-
-  # Files to include at root level (only these specific files)
-  local root_files=(
-    "dr_completion.bash"
-    "dr_completion.zsh"
-    "dr_completion.fish"
-    "README.md"
-  )
-
-  # Function to check if this is a clean install
-  is_clean_install() {
-    local config_dir="$1"
-
-    # Check if config directory doesn't exist or is empty
-    if [ ! -d "$config_dir" ]; then
-      return 0 # Clean install
-    fi
-
-    # Check if bin/ directory exists and has any non-hello scripts
-    local bin_dir="$config_dir/bin"
-    if [ -d "$bin_dir" ]; then
-      # Count files that are not hello examples
-      local non_hello_count
-      non_hello_count=$(find "$bin_dir" -type f -name "*.sh" ! -name "hello.sh" | wc -l)
-      if [ "$non_hello_count" -gt 0 ]; then
-        return 1 # Not clean, user has other scripts
-      fi
-    fi
-
-    return 0 # Clean install
-  }
-
-  # Function to check if file is a hello example
-  is_hello_file() {
-    local file_path="$1"
-    for hello_file in "${hello_files[@]}"; do
-      if [[ "$file_path" == *"$hello_file" ]]; then
-        return 0
-      fi
-    done
-    return 1
-  }
-
-  # Function to check if file should be excluded
-  should_exclude() {
-    local file="$1"
-    local basename_file
-    basename_file="$(basename "$file")"
-
-    for pattern in "${exclude_patterns[@]}"; do
-      case "$basename_file" in
-        "$pattern") return 0 ;;
-      esac
-    done
-    return 1
-  }
-
-  # Function to calculate file checksum (cross-platform)
-  get_checksum() {
-    local file="$1"
-    if command -v sha256sum >/dev/null 2>&1; then
-      sha256sum "$file" | cut -d' ' -f1
-    elif command -v shasum >/dev/null 2>&1; then
-      shasum -a 256 "$file" | cut -d' ' -f1
-    elif command -v openssl >/dev/null 2>&1; then
-      openssl dgst -sha256 "$file" | cut -d' ' -f2
-    else
-      # Fallback to basic file comparison
-      wc -c <"$file"
-    fi
-  }
-
-  # Detect if this is a clean install
-  local clean_install
-  if is_clean_install "$dst"; then
-    clean_install=true
-    log_info "Clean install detected - will include hello examples"
-  else
-    clean_install=false
-    log_info "Existing installation detected - skipping hello examples"
-  fi
-
-  # Process each target directory
-  for dir in "${target_dirs[@]}"; do
-    local src_dir="$src/$dir"
-    local dst_dir="$dst/$dir"
-
-    if [ ! -d "$src_dir" ]; then
-      log_warn "Source directory $src_dir not found, skipping"
-      continue
-    fi
-
-    log_info "📂 $dir/"
-
-    # Find all files in source directory
-    while IFS= read -r -d '' src_file; do
-      # Skip if file should be excluded
-      if should_exclude "$src_file"; then
-        continue
-      fi
-
-      # Calculate relative path from src_dir
-      local rel_path="${src_file#$src_dir/}"
-      local full_rel_path="$dir/$rel_path"
-      local dst_file="$dst_dir/$rel_path"
-
-      # Skip hello files unless it's a clean install or force override
-      if is_hello_file "$full_rel_path"; then
-        if [ "$clean_install" = "false" ] && [ "$force_override" = "false" ]; then
-          printf "$(get_message "skipped" 1)" "$rel_path (example file, use --force to copy)"
-          continue
-        fi
-      fi
-
-      # Create directory structure if needed
-      mkdir -p "$(dirname "$dst_file")"
-
-      if [ -f "$dst_file" ]; then
-        # File exists, check if content is different
-        local src_checksum dst_checksum
-        src_checksum="$(get_checksum "$src_file")"
-        dst_checksum="$(get_checksum "$dst_file")"
-
-        if [ "$src_checksum" != "$dst_checksum" ]; then
-          modified_files_detected=true
-          if [ "$force_override" = "true" ]; then
-            printf "$(get_message "overwritten" 1)" "$rel_path"
-            cp "$src_file" "$dst_file"
-            # Preserve executable permissions
-            if [ -x "$src_file" ]; then
-              chmod +x "$dst_file"
-            fi
-          else
-            printf "$(get_message "file differs" 1)" "$rel_path"
-            # Track modified files for later reporting
-            modified_files+=("$dst_file")
-            modified_src_files+=("$src_file")
-          fi
-        else
-          printf "$(get_message "unchanged" 1)" "$rel_path"
-        fi
-      else
-        # File doesn't exist, copy it
-        printf "$(get_message "new file" 1)" "$rel_path"
-        cp "$src_file" "$dst_file"
-
-        # Preserve executable permissions
-        if [ -x "$src_file" ]; then
-          chmod +x "$dst_file"
-        fi
-      fi
-    done < <(find "$src_dir" -type f -print0)
-  done
-
-  # Copy specific root-level files
-  for file in "${root_files[@]}"; do
-    local src_file="$src/$file"
-    local dst_file="$dst/$file"
-
-    if [ -f "$src_file" ]; then
-      if [ -f "$dst_file" ]; then
-        # File exists, check if content is different
-        local src_checksum dst_checksum
-        src_checksum="$(get_checksum "$src_file")"
-        dst_checksum="$(get_checksum "$dst_file")"
-
-        if [ "$src_checksum" != "$dst_checksum" ]; then
-          modified_files_detected=true
-          if [ "$force_override" = "true" ]; then
-            printf "$(get_message "overwritten" 0)" "$file"
-            cp "$src_file" "$dst_file"
-          else
-            printf "$(get_message "file differs" 0)" "$file"
-            # Track modified files for later reporting
-            modified_files+=("$dst_file")
-            modified_src_files+=("$src_file")
-          fi
-        else
-          printf "$(get_message "unchanged" 0)" "$file"
-        fi
-      else
-        # File doesn't exist, copy it
-        printf "$(get_message "new file" 0)" "$file"
-        cp "$src_file" "$dst_file"
-      fi
-    fi
-  done
-
-  # Note: Fish completion is now handled via the .core folder
-  # The copy_core_files_recursively function above will copy it to ~/.config/dotrun/.core/
-  # Fish shell users should source it from there or it will be symlinked during shell integration
-
-  # Return status indicating if modifications were detected
-  if [ "$modified_files_detected" = "true" ] && [ "$force_override" = "false" ]; then
-    return 1 # Indicate modifications were detected but not overridden
-  else
-    return 0 # All good
-  fi
 }
 
 # Check if directory is writable
@@ -608,6 +354,36 @@ main() {
   fi
 
   # ------------------------------------------------------------------
+  # V3.0 Structure Validation
+  # ------------------------------------------------------------------
+
+  # Verify critical v3.0 files exist
+  local dr_config_loader="$shared_dir/.dr_config_loader"
+  if [ ! -f "$dr_config_loader" ]; then
+    log_error "Critical v3.0 file missing: .dr_config_loader"
+    log_error "Expected at: $dr_config_loader"
+    exit 1
+  fi
+
+  # Verify dr binary exists
+  local dr_binary="$shared_dir/dr"
+  if [ ! -f "$dr_binary" ]; then
+    log_error "Critical v3.0 file missing: dr binary"
+    log_error "Expected at: $dr_binary"
+    exit 1
+  fi
+
+  # Verify helpers directory exists with loadHelpers.sh
+  local helpers_loader="$shared_dir/helpers/loadHelpers.sh"
+  if [ ! -f "$helpers_loader" ]; then
+    log_error "Critical v3.0 file missing: helpers/loadHelpers.sh"
+    log_error "Expected at: $helpers_loader"
+    exit 1
+  fi
+
+  log_success "✓ V3.0 structure validated"
+
+  # ------------------------------------------------------------------
   # 3. Install binary via symlink
   # ------------------------------------------------------------------
 
@@ -625,13 +401,6 @@ main() {
   # Check if we can write to bin directory
   if ! is_writable "$bin_dir" 2>/dev/null; then
     log_error "Cannot write to $bin_dir - installation failed"
-    exit 1
-  fi
-
-  # Verify source binary exists in shared directory
-  if [ ! -f "$dr_source" ]; then
-    log_error "Source binary not found at $dr_source"
-    log_error "Expected to find it in ~/.local/share/dotrun/ after tool files setup"
     exit 1
   fi
 
@@ -668,29 +437,13 @@ main() {
     if [ -f "$drrc_source" ]; then
       log_info "Copying .drrc from core/home/"
       cp "$drrc_source" "$drrc_file"
-
-      # Update .drrc to point to new loader location
-      # The .dr_config_loader should be in ~/.local/share/dotrun/
-      sed -i.bak "s|\.config/dotrun/\.core/\.dr_config_loader|.local/share/dotrun/.dr_config_loader|g" "$drrc_file" 2>/dev/null \
-        || sed -i '' "s|\.config/dotrun/\.core/\.dr_config_loader|.local/share/dotrun/.dr_config_loader|g" "$drrc_file" 2>/dev/null
-      rm -f "$drrc_file.bak"
-
-      log_success "Created $drrc_file with updated paths"
+      log_success "Created $drrc_file"
     else
       log_error "Source file not found: $drrc_source"
       exit 1
     fi
   else
     log_info "$drrc_file already exists"
-
-    # Check if it needs to be updated to new paths
-    if grep -q "\.config/dotrun/\.core/\.dr_config_loader" "$drrc_file" 2>/dev/null; then
-      log_info "Updating $drrc_file to use new directory structure"
-      sed -i.bak "s|\.config/dotrun/\.core/\.dr_config_loader|.local/share/dotrun/.dr_config_loader|g" "$drrc_file" 2>/dev/null \
-        || sed -i '' "s|\.config/dotrun/\.core/\.dr_config_loader|.local/share/dotrun/.dr_config_loader|g" "$drrc_file" 2>/dev/null
-      rm -f "$drrc_file.bak"
-      log_success "Updated $drrc_file paths"
-    fi
   fi
 
   # Special handling for Fish completion - copy to fish completions directory
@@ -698,11 +451,6 @@ main() {
     local fish_completion_src="$shared_dir/shell/fish/dr_completion.fish"
     local fish_completion_dir="$INSTALL_CFG_PATH/fish/completions"
     local fish_completion_dst="$fish_completion_dir/dr.fish"
-
-    # Fallback to legacy path if new structure doesn't exist
-    if [ ! -f "$fish_completion_src" ]; then
-      fish_completion_src="$shared_dir/dr_completion.fish"
-    fi
 
     if [ -f "$fish_completion_src" ]; then
       if [ ! -d "$fish_completion_dir" ]; then
@@ -724,70 +472,6 @@ main() {
     else
       log_warn "Fish completion source not found at $fish_completion_src"
     fi
-  fi
-
-  # Create .drun_config_loader if it doesn't exist
-  local config_loader_file="$cfg_dir/.drun_config_loader"
-  if [ ! -f "$config_loader_file" ]; then
-    log_info "Creating $config_loader_file"
-
-    cat >"$config_loader_file" <<'EOF'
-#!/usr/bin/env bash
-
-source "$DRUN_CONFIG/helpers/pkg.sh"
-
-# DotRun Configuration
-# This file is managed by DotRun. Manual edits may be overwritten.
-# Use 'drun config set/get/unset' commands to manage configuration.
-
-#* =================== SHELL CONFIGURATIONS ====== *#
-export CURRENT_SHELL=$(detect_shell)
-
-# Add drun binary to PATH if not already present
-case ":$PATH:" in
-    *":$HOME/.local/bin:"*) ;;
-    *) export PATH="$HOME/.local/bin:$PATH" ;;
-esac
-
-SHELL_COMPLETION="$DRUN_CONFIG/drun_completion"
-SHELL_CONFIGS="$DRUN_CONFIG/config/shell"
-SHELL_ALIASES="$DRUN_CONFIG/aliases/shell"
-
-[[ $CURRENT_SHELL == "bash" ]] && {
-  SHELL_COMPLETION="$SHELL_COMPLETION.bash"
-  SHELL_CONFIGS="$SHELL_CONFIGS/bash_config"
-  SHELL_ALIASES="$SHELL_ALIASES/bash_aliases"
-}
-
-[[ $CURRENT_SHELL == "zsh" ]] && {
-  SHELL_COMPLETION="$SHELL_COMPLETION.zsh"
-  SHELL_CONFIGS="$SHELL_CONFIGS/zsh_config"
-  SHELL_ALIASES="$SHELL_ALIASES/zsh_aliases"
-}
-
-[[ $CURRENT_SHELL == "fish" ]] && {
-  SHELL_COMPLETION="$SHELL_COMPLETION.fish"
-  SHELL_CONFIGS="$SHELL_CONFIGS/fish_config"
-  SHELL_ALIASES="$SHELL_ALIASES/fish_aliases"
-}
-
-if [ -f "$SHELL_COMPLETION" ]; then
-  source "$SHELL_COMPLETION"
-fi
-
-if [ -f "$SHELL_ALIASES" ]; then
-  source "$SHELL_ALIASES"
-fi
-
-if [ -f "$SHELL_CONFIGS" ]; then
-  source "$SHELL_CONFIGS"
-fi
-
-EOF
-    chmod +x "$config_loader_file"
-    log_success "Created $config_loader_file"
-  else
-    log_info "$config_loader_file already exists, skipping creation"
   fi
 
   # ------------------------------------------------------------------
@@ -828,9 +512,6 @@ EOF
   printf "  🐚 Detected shell:   %s\n" "$shell_type"
   printf "  💻 Operating system: %s\n" "$os_type"
   echo
-
-
-
 
   if [ "$already_integrated" = "true" ]; then
     log_info "Shell integration already configured"
@@ -878,38 +559,6 @@ EOF
     echo
   fi
 
-  # If there were files with differences, show override commands
-  if [ "$binary_differs" = "true" ] || [ ${#modified_files[@]} -gt 0 ]; then
-    echo
-    log_warn "Some files were not updated due to existing modifications"
-    log_info "To selectively override files, use these commands:"
-    echo
-    
-    # Show binary override commands if needed
-    if [ "$binary_differs" = "true" ] && [ ${#override_files[@]} -gt 0 ]; then
-      for file in "${override_files[@]}"; do
-        local display_M_dst=$(echo "$file" | sed "s|^$HOME|~|")
-        local display_M_src=$(echo "$drun_source" | sed "s|^$HOME|~|")
-        printf "  \033[1;36mcp %s %s\033[0m\n" "$display_M_src" "$display_M_dst"
-      done
-    fi
-    
-    # Show other file override commands from the copy process
-    if [ ${#modified_files[@]} -gt 0 ]; then
-      for i in "${!modified_files[@]}"; do
-        local src_file="${modified_src_files[$i]}"
-        local dst_file="${modified_files[$i]}"
-        local display_M_dst=$(echo "$dst_file" | sed "s|^$HOME|~|")
-        local display_M_src=$(echo "$src_file" | sed "s|^$HOME|~|")
-        printf "  \033[1;36mcp %s %s\033[0m\n" "$display_M_src" "$display_M_dst"
-      done
-    fi
-    
-    echo
-    log_info "Or to override all modified files at once:"
-    printf "  \033[1;36m./install.sh --force\033[0m\n"
-    echo
-  fi
 }
 
 # ------------------------------------------------------------------
