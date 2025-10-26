@@ -5,6 +5,79 @@ All notable changes to DotRun will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2025-10-26
+
+### ✨ Added
+
+#### Enhanced Documentation System
+
+- **Three-Tier Documentation Structure**: Scripts now support three `### DOC` blocks for progressive documentation depth
+  - **Block 1→2**: One-line summary (shown in `dr -L` tree listing)
+  - **Block 2→3**: Extended documentation with usage examples, required tools, and detailed descriptions
+  - Enables both quick reference and comprehensive help in the same script
+
+- **New `dr docs` Command**: Display extended documentation from scripts
+  - **`dr docs <scriptname>`**: Shows content between **2nd and 3rd `### DOC` blocks** (extended documentation)
+  - Includes usage examples, required tools, and detailed descriptions
+  - Automatic fallback to basic docs (1st→2nd block) if script doesn't have 3rd DOC block
+  - Complements existing `dr help` command for comprehensive documentation access
+
+#### Enhanced List Commands (`dr -l` / `dr -L`)
+
+- **Intelligent Sorting**: Both `dr -l` and `dr -L` now display results in organized hierarchy
+  - **Folders first** (alphabetically sorted)
+  - **Scripts second** (alphabetically sorted)
+  - Applied recursively at all directory levels for consistent navigation
+
+- **Tree-Style Output Format**: Beautiful tree CLI-style visualization
+  - Unicode box-drawing characters: `├──`, `└──`, `│` for clear hierarchy
+  - Proper last-item detection for clean visual structure (`└──` for final items)
+  - Indentation preserved for documentation snippets
+
+- **Colorized Folder Depth**: Visual depth indicators with automatic color cycling
+  - 6-color palette cycles every 6 folder levels: Bright Blue → Bright Cyan → Bright Magenta → Orange → Yellow → Green
+  - Color applies to all tree symbols (branches, connectors, and continuation lines)
+  - Makes nested folder structures easy to visually parse
+
+- **Documentation Display Behavior**:
+  - **`dr -L`**: Now shows only content between **1st and 2nd `### DOC` blocks** (one-line summary)
+  - Previous behavior showed all documentation between first and last DOC markers
+  - Enables concise tree listing with brief descriptions
+
+#### Externalized Script Templates
+
+- **Template File System**: Script templates moved from inline code to external files
+  - Template location: `~/.local/share/dotrun/core/templates/script.sh`
+  - Source template: `core/shared/dotrun/core/templates/script.sh`
+  - Enables easier template customization and maintenance
+  - Templates automatically deployed during installation and upgrades
+
+- **Updated Script Creation**: `dr set <name>` uses external template
+  - Template includes new 3-block `### DOC` structure
+  - Placeholder system: `{{SCRIPT_NAME}}` replaced during creation
+  - Error handling for missing template files with actionable guidance
+
+- **User-Customizable Templates**: Personalize script creation to match your workflow
+  - Template file located at: `~/.local/share/dotrun/core/templates/script.sh`
+  - **Users can manually edit this file** to create custom script templates
+  - Modifications persist across script creations (will be overwritten on system upgrades)
+  - Use `{{SCRIPT_NAME}}` placeholder for automatic script name substitution
+  - Ideal for: adding custom headers, modifying default structure, including organization-specific conventions
+
+### 🔧 Changed
+
+- **Installation Scripts**: Both `install.sh` and `upgrade-v1-or-v2--to--v3.sh` now recursively copy core template files
+- **Helpers Directory Deployment**: Both installation scripts now properly copy the `helpers/` directory including `loadHelpers.sh` to `~/.local/share/dotrun/helpers/`
+  - `install.sh`: Added validation to ensure `helpers/loadHelpers.sh` is present after installation
+  - `upgrade-v1-or-v2--to--v3.sh`: Added explicit step to copy helpers directory during upgrade process
+- **Default Script Template**: Updated to support new documentation structure with three-tier DOC blocks
+
+### 📖 Documentation
+
+- Script template structure documented inline with examples
+- Extended help documentation accessible via new `dr docs` command
+- Tree listing improvements enhance discoverability of script organization
+
 ## [3.0.0] - 2025-10-23
 
 **MAJOR RELEASE**: Unified resource workflows and complete collections system redesign with breaking changes. This release introduces a consistent file-based workflow across all resource types (scripts, aliases, configs) and fundamentally reimagines how DotRun handles script collections.
@@ -19,11 +92,11 @@ The aliases and config management systems have been redesigned to use a **file-b
 
 ```bash
 # Old (v2.x) - NO LONGER WORKS
-dr aliases add myalias 'git status'   # ❌ Single alias per command
-dr aliases edit myalias               # ❌ Command-line editing
+dr aliases add myalias 'git status' # ❌ Single alias per command
+dr aliases edit myalias             # ❌ Command-line editing
 
 # New (v3.0.0) - File-based, multi-resource
-dr aliases set 01-git                 # Opens editor with multi-alias file
+dr aliases set 01-git # Opens editor with multi-alias file
 # File contains:
 #   alias gs='git status'
 #   alias gc='git commit'
@@ -34,11 +107,11 @@ dr aliases set 01-git                 # Opens editor with multi-alias file
 
 ```bash
 # Old (v2.x) - NO LONGER WORKS
-dr config set API_KEY "value"         # ❌ Single config per command
-dr config set SECRET "val" --secure   # ❌ Flag-based security
+dr config set API_KEY "value"       # ❌ Single config per command
+dr config set SECRET "val" --secure # ❌ Flag-based security
 
 # New (v3.0.0) - File-based, multi-resource
-dr config set api/keys                # Opens editor with multi-config file
+dr config set api/keys # Opens editor with multi-config file
 # File contains:
 #   export API_KEY="value"
 #   export API_SECRET="another-value"
@@ -47,6 +120,7 @@ dr config set api/keys                # Opens editor with multi-config file
 ```
 
 **Why This Is Better**:
+
 - ✅ Matches established numbered file convention (01-git.aliases, api/keys.config)
 - ✅ Reduces file clutter (10 aliases in 1 file vs 10 separate files)
 - ✅ Better organization by category/topic with numbered load order
@@ -132,6 +206,7 @@ dr -col init                     # Initialize new collection (authors)
 #### Unified Resource Workflows Features (NEW)
 
 **File-Based Aliases Management**:
+
 - `dr aliases set <filename>` - Idempotent command (create or edit) opens editor with file skeleton
 - Multi-alias-per-file architecture: `01-git.aliases` contains multiple git aliases
 - Category folder support: `dr aliases set git/shortcuts` → `~/.config/dotrun/aliases/git/shortcuts.aliases`
@@ -146,6 +221,7 @@ dr -col init                     # Initialize new collection (authors)
 - Empty directory auto-cleanup after removal
 
 **File-Based Config Management**:
+
 - `dr config set <filename>` - Idempotent command (create or edit) opens editor with file skeleton
 - Multi-export-per-file architecture: `api/keys.config` contains multiple API exports
 - Category folder support: `dr config set api/keys` → `~/.config/dotrun/configs/api/keys.config`
@@ -159,12 +235,14 @@ dr -col init                     # Initialize new collection (authors)
 - Empty directory auto-cleanup after removal
 
 **Shell Integration**:
+
 - Shell-specific loaders for aliases and configs (bash, zsh, fish)
 - Automatic sourcing during shell initialization via `~/.drrc`
 - Category-based organization with folder support
 - Load order control via numbered file prefixes
 
 **Improvements Over 2.x**:
+
 - Reduced file clutter: 10 aliases in 1 file instead of 10 files
 - Better organization: Group related items by category
 - Easier editing: Multi-resource files are simpler to maintain
@@ -172,6 +250,7 @@ dr -col init                     # Initialize new collection (authors)
 - Version control friendly: Standard text files with clear structure
 
 **Planned for 3.1.0**:
+
 - `# SECURE` marker system for masking sensitive config values
 - `dr config reload` command (aliases already has reload)
 - Tab completion updates for new commands
@@ -397,6 +476,7 @@ Existing imported collections will continue to work as individual scripts, but y
 ### 📊 Release Statistics
 
 **Implementation Status**: 77% complete (37/48 tasks)
+
 - ✅ Phase 1: Aliases Workflow (12/12 = 100%)
 - ✅ Phase 2: Config Workflow (12/14 = 86%)
 - ✅ Phase 3: Command Routing (6/6 = 100%)
@@ -406,6 +486,7 @@ Existing imported collections will continue to work as individual scripts, but y
 - ✅ Phase 7: Edge Cases (5/6 = 83%)
 
 **Production Readiness**: 95%
+
 - Core functionality: 100% complete and tested
 - Documentation: 100% complete and accurate
 - Missing features: Tab completions, # SECURE markers (enhancements for 3.1.0)
@@ -420,12 +501,14 @@ Existing imported collections will continue to work as individual scripts, but y
 ### 🚀 What's Next
 
 **v3.1.0 Enhancements** (Planned):
+
 - # SECURE marker system for config value masking
 - Tab completion updates for new aliases/config commands
 - Config reload command (dr config reload)
 - Automated test suite
 
 **v3.2.0 Quality** (Future):
+
 - CI/CD integration
 - Performance benchmarks
 - Shell compatibility matrix
@@ -514,7 +597,7 @@ Existing imported collections will continue to work as individual scripts, but y
 
 #### Core Script Management
 
-- **Script Creation**: `dr add <name>` - Create new scripts with automatic skeleton generation
+- **Script Creation**: `dr set <name>` - Create new scripts with automatic skeleton generation
 - **Script Editing**: `dr edit <name>` - Edit scripts in preferred editor with VS Code/nano detection
 - **Script Execution**: `dr <scriptname>` - Execute scripts from anywhere with nested folder support
 - **Script Discovery**:
