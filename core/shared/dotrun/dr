@@ -28,6 +28,7 @@ fi
 DR_CONFIG="${DR_CONFIG:-$HOME/.config/dotrun}"
 BIN_DIR="$DR_CONFIG/scripts"
 DOC_TOKEN="### DOC"
+TEMPLATE_FILE="${HOME}/.local/share/dotrun/core/templates/script.sh"
 _default_editor="$(command -v code >/dev/null && echo "code" || echo "nano")"
 EDITOR="${EDITOR:-$_default_editor}"
 
@@ -110,41 +111,137 @@ list_scripts() {
     echo "Warning: Broken symlinks found in $start_dir" >&2
   fi
 
-  declare -A printed_folders=()
-
-  _print_folder_chain() {
-    local path="$1" indent=""
-    [[ "$path" == "." || -z "$path" ]] && return
-    local current=""
-    IFS='/' read -ra parts <<<"$path"
-    for part in "${parts[@]}"; do
-      current="${current:+$current/}$part"
-      if [[ -z "${printed_folders[$current]+x}" ]]; then
-        echo -e "${indent}\033[1;33m📂 $part${color_reset}"
-        printed_folders["$current"]=1
-      fi
-      indent+="  "
-    done
-  }
-
+  # Build tree structure: collect all directories and files
+  declare -A tree_dirs=()
+  declare -A tree_files=()
+  
   while IFS= read -r -d '' file; do
-    # shellcheck disable=SC2295
     rel_path="${file#"$BIN_DIR"/}"
     script_name="$(basename "$rel_path" .sh)"
-    folder_path="$(dirname "$rel_path")"
-
-    _print_folder_chain "$folder_path"
-
-    # indent scripts one level deeper than their folder depth
-    local depth=0 indent=""
-    [[ "$folder_path" != "." ]] && depth=$(awk -F'/' '{print NF}' <<<"$folder_path")
-    for ((i = 0; i < depth; i++)); do indent+="  "; done
-
-    echo -e "${indent}${color_script}${script_name}${color_reset}"
-    if ((show_docs)); then
-      awk "/^$DOC_TOKEN/ { p = !p; next } p { print \"${indent}  ${color_doc}\" \$0 \"$color_reset\" }" "$file"
+    dir_path="$(dirname "$rel_path")"
+    
+    # Mark this directory as having content
+    tree_dirs["$dir_path"]=1
+    
+    # Add file to this directory's file list
+    if [[ -z "${tree_files[$dir_path]+x}" ]]; then
+      tree_files["$dir_path"]="$script_name"
+    else
+      tree_files["$dir_path"]="${tree_files[$dir_path]}|$script_name"
     fi
-  done < <(find "$start_dir" -type f -name "*.sh" -print0 | sort -z)
+    
+    # Mark all parent directories
+    local parent="$dir_path"
+    while [[ "$parent" != "." ]]; do
+      parent="$(dirname "$parent")"
+      tree_dirs["$parent"]=1
+    done
+  done < <(find "$start_dir" -type f -name "*.sh" -print0)
+  
+  # Recursively print directory tree: folders first, then scripts
+  _print_tree() {
+    local current_dir="$1"
+    local prefix="$2"
+    local depth="${3:-0}"
+    
+    # Get color for tree symbols based on depth
+    local tree_color
+    case $((depth % 6)) in
+      0) tree_color="[38;5;33m" ;;   # Bright Blue
+      1) tree_color="[38;5;35m" ;;   # Bright Cyan
+      2) tree_color="[38;5;141m" ;;  # Bright Magenta
+      3) tree_color="[38;5;214m" ;;  # Orange
+      4) tree_color="[38;5;228m" ;;  # Yellow
+      5) tree_color="[38;5;121m" ;;  # Green
+    esac
+    
+    # Get all immediate subdirectories
+    local -a subdirs=()
+    for dir in "${!tree_dirs[@]}"; do
+      local parent="$(dirname "$dir")"
+      if [[ "$parent" == "$current_dir" && "$dir" != "$current_dir" ]]; then
+        subdirs+=("$(basename "$dir")")
+      fi
+    done
+    
+    # Sort subdirectories alphabetically
+    IFS=$'
+' subdirs=($(sort <<<"${subdirs[*]}"))
+    unset IFS
+    
+    # Get scripts in this directory (sorted alphabetically)
+    local -a scripts=()
+    if [[ -n "${tree_files[$current_dir]+x}" ]]; then
+      IFS='|' read -ra scripts <<< "${tree_files[$current_dir]}"
+      IFS=$'
+' scripts=($(sort <<<"${scripts[*]}"))
+      unset IFS
+    fi
+    
+    # Calculate total items (subdirs + scripts)
+    local total_items=$((${#subdirs[@]} + ${#scripts[@]}))
+    local item_index=0
+    
+    # Print subdirectories first
+    for subdir in "${subdirs[@]}"; do
+      [[ -z "$subdir" ]] && continue
+      item_index=$((item_index + 1))
+      
+      local is_last=false
+      [[ $item_index -eq $total_items ]] && is_last=true
+      
+      # Choose the branch character
+      local branch="${tree_color}├──${color_reset} "
+      local extension="${tree_color}│${color_reset}   "
+      if $is_last; then
+        branch="${tree_color}└──${color_reset} "
+        extension="    "
+      fi
+      
+      echo -e "${prefix}${branch}[1;33m📂 ${subdir}${color_reset}"
+      
+      local full_path="$current_dir/$subdir"
+      [[ "$current_dir" == "." ]] && full_path="$subdir"
+      
+      _print_tree "$full_path" "${prefix}${extension}" $((depth + 1))
+    done
+    
+    # Then print scripts in this directory
+    for script in "${scripts[@]}"; do
+      [[ -z "$script" ]] && continue
+      item_index=$((item_index + 1))
+      
+      local is_last=false
+      [[ $item_index -eq $total_items ]] && is_last=true
+      
+      # Choose the branch character with color
+      local branch="${tree_color}├──${color_reset} "
+      if $is_last; then
+        branch="${tree_color}└──${color_reset} "
+      fi
+      
+      echo -e "${prefix}${branch}${color_script}${script}${color_reset}"
+      
+      if ((show_docs)); then
+        # Find the actual file path
+        local file_path="$BIN_DIR/$current_dir/$script.sh"
+        [[ "$current_dir" == "." ]] && file_path="$BIN_DIR/$script.sh"
+        
+        # Choose doc prefix based on whether this is last item
+        local doc_prefix="${prefix}"
+        if $is_last; then
+          doc_prefix="${prefix}    "
+        else
+          doc_prefix="${prefix}${tree_color}│${color_reset}   "
+        fi
+        
+        # Extract ONLY content between first and second ### DOC markers
+        awk '/^'"$DOC_TOKEN"'/ { count++; if (count == 2) exit; next } count == 1 { print "'"${doc_prefix}${color_doc}"'" $0 "'"$color_reset"'" }' "$file_path"
+      fi
+    done
+  }
+  
+  _print_tree "." "" 0
 }
 
 # Create script skeleton
@@ -153,28 +250,18 @@ create_script_skeleton() {
   local file="$BIN_DIR/$name.sh"
   mkdir -p "$(dirname "$file")"
 
-  # Create script file with skeleton
+  # Create script file from template
   local script_basename="$(basename "$name")"
-  cat >"$file" <<EOF
-#!/usr/bin/env bash
-$DOC_TOKEN
-# $script_basename - describe what this script does
-$DOC_TOKEN
-
-set -euo pipefail
-
-# Load loadHelpers function for dual-mode execution
-[[ -n "\${DR_LOAD_HELPERS:-}" ]] && source "\$DR_LOAD_HELPERS"
-
-# Load required helper
-loadHelpers global/colors
-
-main() {
-  echo "Running $script_basename..."
-}
-
-main "\$@"
-EOF
+  
+  # Check if template file exists
+  if [[ ! -f "$TEMPLATE_FILE" ]]; then
+    echo "Error: Template file not found at $TEMPLATE_FILE" >&2
+    echo "Please run the installer to set up DotRun properly." >&2
+    return 1
+  fi
+  
+  # Copy template and replace placeholder
+  sed "s/{{SCRIPT_NAME}}/$script_basename/g" "$TEMPLATE_FILE" > "$file"
   chmod +x "$file"
 }
 
@@ -296,7 +383,18 @@ show_help() {
     echo "Error: Script '$1' not found" >&2
     exit 1
   fi
-  awk "/^$DOC_TOKEN/ { p = !p; next } p" "$file"
+  
+  # Try to extract content between SECOND and THIRD ### DOC markers
+  # If no third marker exists, fallback to content between FIRST and SECOND
+  local doc_content
+  doc_content=$(awk '/^'"$DOC_TOKEN"'/ { count++; if (count == 3) exit; next } count == 2 { print }' "$file")
+  
+  # If no content found (no third marker), fallback to first-to-second
+  if [[ -z "$doc_content" ]]; then
+    awk '/^'"$DOC_TOKEN"'/ { count++; if (count == 2) exit; next } count == 1 { print }' "$file"
+  else
+    echo "$doc_content"
+  fi
 }
 
 # Move/rename a script
@@ -515,6 +613,13 @@ move | rename | mv)
 help)
   [[ -z "${2:-}" ]] && {
     echo "Usage: dr help <name>"
+    exit 1
+  }
+  show_help "$2"
+  ;;
+docs)
+  [[ -z "${2:-}" ]] && {
+    echo "Usage: dr docs <name>"
     exit 1
   }
   show_help "$2"

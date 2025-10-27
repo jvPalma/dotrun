@@ -113,12 +113,12 @@ dr hello # Run from any directory
 
 ```bash
 # Script management
-dr -s set deploy          # Create script (or: dr scripts set deploy)
-dr -s list git/           # Browse by folder
+dr -s set deploy # Create script (or: dr scripts set deploy)
+dr -s list git/  # Browse by folder
 
 # Alias management (file-based, multiple aliases per file)
-dr -a set 01-git          # Opens editor: ~/.config/dotrun/aliases/01-git.aliases
-dr -a list                # View all alias files
+dr -a set 01-git # Opens editor: ~/.config/dotrun/aliases/01-git.aliases
+dr -a list       # View all alias files
 
 # Config management (file-based, multiple exports per file)
 dr -c set api/keys        # Opens editor: ~/.config/dotrun/configs/api/keys.config
@@ -133,12 +133,12 @@ dr -col add https://github.com/jvPalma/dotrun.git
 # Select which scripts/aliases/helpers to import
 
 # Browse and run
-dr -L                     # List all scripts
-dr git/cleanup            # Run imported script
+dr -L          # List all scripts
+dr git/cleanup # Run imported script
 
 # Keep collections updated
-dr -col sync              # Check for updates
-dr -col update dotrun     # Update with conflict resolution
+dr -col sync          # Check for updates
+dr -col update dotrun # Update with conflict resolution
 ```
 
 ### Explore with Tab Completion
@@ -192,17 +192,20 @@ dr -col update my-collection
 **📚 [Complete Documentation](https://github.com/jvPalma/dotrun/wiki)**
 
 ### Getting Started
+
 - [Quick Start Tutorial](https://github.com/jvPalma/dotrun/wiki/Quick-Start-Tutorial) - Your first 5 minutes
 - [Installation Guide](https://github.com/jvPalma/dotrun/wiki/Installation-Guide) - Detailed setup
 - [Migration from v2.x](https://github.com/jvPalma/dotrun/wiki/Migration-v3.0) - Upgrading guide
 
 ### Core Features
+
 - [Script Management](https://github.com/jvPalma/dotrun/wiki/Script-Management) - Creating and organizing scripts
 - [Alias Management](https://github.com/jvPalma/dotrun/wiki/Alias-Management) - File-based aliases with v3.0.0 workflow
 - [Configuration Management](https://github.com/jvPalma/dotrun/wiki/Configuration-Management) - Environment variables and configs
 - [Collection Management](https://github.com/jvPalma/dotrun/wiki/Collection-Management-Advanced) - Import and share script libraries
 
 ### Advanced Topics
+
 - [Helper System](https://github.com/jvPalma/dotrun/wiki/Helper-System) - Shared code across scripts
 - [Developer Experience](https://github.com/jvPalma/dotrun/wiki/Developer-Experience) - Editor integration, completion
 - [Architecture Overview](https://github.com/jvPalma/dotrun/wiki/Architecture-Overview) - How DotRun works
@@ -210,6 +213,7 @@ dr -col update my-collection
 - [FAQ](https://github.com/jvPalma/dotrun/wiki/FAQ) - Common questions and answers
 
 ### Team Workflows
+
 - [Team Collaboration Best Practices](https://github.com/jvPalma/dotrun/wiki/Team-Collaboration-Best-Practices)
 - [DevOps Pipeline Workflow](https://github.com/jvPalma/dotrun/wiki/workflows/DevOps-Pipeline)
 - [More workflows...](https://github.com/jvPalma/dotrun/wiki)
