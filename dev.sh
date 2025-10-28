@@ -73,27 +73,70 @@ main() {
     success "Created $TOOL_DIR"
   fi
 
-  # Step 1: Copy dr binary and VERSION file
-  info "Step 1/5: Updating dr binary and version file..."
+  # Step 1: Copy dr binary
+  info "Step 1/7: Updating dr binary..."
   ln -sf "$SCRIPT_DIR/core/shared/dotrun/dr" "$TOOL_DIR/dr"
   chmod +x "$TOOL_DIR/dr"
-
-  # Copy VERSION file if it exists
-  if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
-    ln -sf "$SCRIPT_DIR/VERSION" "$TOOL_DIR/VERSION"
-    success "Binary and VERSION file updated: $TOOL_DIR/dr"
-  else
-    warning "VERSION file not found in project root"
-    success "Binary updated: $TOOL_DIR/dr"
-  fi
+  success "Binary updated: $TOOL_DIR/dr"
 
   # Step 2: Copy .dr_config_loader
-  info "Step 2/5: Updating config loader..."
+  info "Step 2/7: Updating config loader..."
   ln -sf "$SCRIPT_DIR/core/shared/dotrun/.dr_config_loader" "$TOOL_DIR/.dr_config_loader"
   success "Config loader updated: $TOOL_DIR/.dr_config_loader"
 
-  # Step 3: Copy shell integration files
-  info "Step 3/5: Updating shell integration files..."
+  # Step 3: Copy core directory
+  info "Step 3/7: Updating core files..."
+
+  # Create core directory structure
+  mkdir -p "$TOOL_DIR/core/templates"
+
+  # Symlink core files
+  if [[ -d "$SCRIPT_DIR/core/shared/dotrun/core" ]]; then
+    for file in "$SCRIPT_DIR/core/shared/dotrun/core"/*.sh; do
+      [[ -f "$file" ]] || continue
+      filename=$(basename "$file")
+      ln -sf "$file" "$TOOL_DIR/core/$filename"
+    done
+
+    # Symlink template files if they exist
+    if [[ -d "$SCRIPT_DIR/core/shared/dotrun/core/templates" ]]; then
+      for file in "$SCRIPT_DIR/core/shared/dotrun/core/templates"/*; do
+        [[ -f "$file" ]] || continue
+        filename=$(basename "$file")
+        ln -sf "$file" "$TOOL_DIR/core/templates/$filename"
+      done
+    fi
+
+    success "Core files updated"
+  fi
+
+  # Step 4: Copy helpers directory
+  info "Step 4/7: Updating helper files..."
+
+  # Create helpers directory
+  mkdir -p "$TOOL_DIR/helpers"
+
+  # Symlink helper files
+  if [[ -d "$SCRIPT_DIR/core/shared/dotrun/helpers" ]]; then
+    for file in "$SCRIPT_DIR/core/shared/dotrun/helpers"/*; do
+      [[ -f "$file" ]] || continue
+      filename=$(basename "$file")
+      ln -sf "$file" "$TOOL_DIR/helpers/$filename"
+    done
+    success "Helper files updated"
+  fi
+
+  # Step 5: Copy VERSION file from correct location
+  info "Step 5/7: Updating VERSION file..."
+  if [[ -f "$SCRIPT_DIR/core/shared/dotrun/VERSION" ]]; then
+    ln -sf "$SCRIPT_DIR/core/shared/dotrun/VERSION" "$TOOL_DIR/VERSION"
+    success "VERSION file updated: $TOOL_DIR/VERSION"
+  else
+    warning "VERSION file not found at core/shared/dotrun/VERSION"
+  fi
+
+  # Step 6: Copy shell integration files
+  info "Step 6/7: Updating shell integration files..."
 
   # Create shell directory structure
   mkdir -p "$TOOL_DIR/shell/bash"
@@ -130,8 +173,8 @@ main() {
     success "Fish integration files updated ($(ls -1 "$SCRIPT_DIR/core/shared/dotrun/shell/fish" | wc -l) files)"
   fi
 
-  # Step 4: Create/update symlink
-  info "Step 4/5: Updating binary symlink..."
+  # Step 7: Create/update symlink
+  info "Step 7/7: Updating binary symlink..."
 
   mkdir -p "$BIN_LINK_DIR"
 
