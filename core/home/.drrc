@@ -6,9 +6,9 @@ export DR_CONFIG="$HOME/.config/dotrun"
 export DR_LOAD_HELPERS="$HOME/.local/share/dotrun/helpers/loadHelpers.sh"
 
 # Load loadHelpers function
-[[ -f "$DR_LOAD_HELPERS" ]] && source "$DR_LOAD_HELPERS"
+[[ -f "$DR_LOAD_HELPERS" ]] && source "$DR_LOAD_HELPERS" 2>/dev/null
 
 # Load shell completion if available
 if [ -f "$HOME/.local/share/dotrun/.dr_config_loader" ]; then
-  source "$HOME/.local/share/dotrun/.dr_config_loader"
+  source "$HOME/.local/share/dotrun/.dr_config_loader" 2>/dev/null
 fi
