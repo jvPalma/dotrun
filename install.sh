@@ -381,7 +381,44 @@ main() {
     exit 1
   fi
 
-  log_success "✓ V3.0 structure validated"
+  # Verify core directory files exist
+  local core_aliases="$shared_dir/core/aliases.sh"
+  if [ ! -f "$core_aliases" ]; then
+    log_error "Critical v3.0 file missing: core/aliases.sh"
+    log_error "Expected at: $core_aliases"
+    exit 1
+  fi
+
+  local core_collections="$shared_dir/core/collections.sh"
+  if [ ! -f "$core_collections" ]; then
+    log_error "Critical v3.0 file missing: core/collections.sh"
+    log_error "Expected at: $core_collections"
+    exit 1
+  fi
+
+  local core_config="$shared_dir/core/config.sh"
+  if [ ! -f "$core_config" ]; then
+    log_error "Critical v3.0 file missing: core/config.sh"
+    log_error "Expected at: $core_config"
+    exit 1
+  fi
+
+  local core_template="$shared_dir/core/templates/script.sh"
+  if [ ! -f "$core_template" ]; then
+    log_error "Critical v3.0 file missing: core/templates/script.sh"
+    log_error "Expected at: $core_template"
+    exit 1
+  fi
+
+  # Verify VERSION file exists
+  local version_file="$shared_dir/VERSION"
+  if [ ! -f "$version_file" ]; then
+    log_error "Critical v3.0 file missing: VERSION"
+    log_error "Expected at: $version_file"
+    exit 1
+  fi
+
+  log_success "✓ V3.0 structure validated (all critical files present)"
 
   # ------------------------------------------------------------------
   # 3. Install binary via symlink
