@@ -12,6 +12,14 @@ zstyle ':completion:*:*:dr:*' list-rows-first true
 zstyle ':completion:*:*:dr:*' format ''
 zstyle ':completion:*:*:dr:*' group-order hints folders scripts aliases configs script-commands aliases-commands config-commands collections-commands
 
+# Force menu completion even with 1 match, always show list
+zstyle ':completion:*:*:dr:*' menu yes=long select=long
+zstyle ':completion:*:*:dr:*' list-prompt ''
+
+# Prevent auto-insertion of ambiguous matches
+zstyle ':completion:*:*:dr:*' insert-tab false
+zstyle ':completion:*:*:dr:*' insert-unambiguous false
+
 # Configure colors for completion groups
 # Colors: 33=yellow, 36=cyan, 90=dark gray, 32=green, 35=purple, 31=red
 zstyle ':completion:*:*:dr:*:hints' list-colors '=(#b)(*)=90'              # Dark gray for hints
@@ -26,6 +34,15 @@ zstyle ':completion:*:*:dr:*:collections-commands' list-colors '=(#b)(*)=34'  # 
 
 # Main completion function
 _dr() {
+  # DEBUG: Log every function call
+  {
+    echo "========================================"
+    echo "_dr() called at $(date +%H:%M:%S)"
+    echo "CURRENT=$CURRENT"
+    echo "words=(${words[@]})"
+    echo "========================================"
+  } >> /tmp/dr_completion_debug.log
+
   local -a special_commands script_commands aliases_commands config_commands collections_commands
   # Get aliases and config directories
   local BIN_DIR="${DR_CONFIG:-$HOME/.config/dotrun}/scripts"
@@ -160,8 +177,8 @@ _dr() {
     done
 
     # Emit with tags so group-order (folders → scripts) applies; keep -S '' for folders
-    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folder_matches
-    (( ${#script_matches[@]} )) && _wanted scripts  expl 'scripts'  compadd -Q      -d script_displays -a -- script_matches
+    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
+    (( ${#script_matches[@]} )) && _wanted scripts  expl 'scripts'  compadd      -d script_displays -a -- script_matches
   }
 
   # Helper function: Add folders with emoji display using compadd
@@ -171,7 +188,7 @@ _dr() {
       [[ -n "$folder" ]] && folders+=("$folder") && displays+=("📁 $folder")
     done
 
-    (( ${#folders[@]} )) && compadd -U -S '' -Q -d displays -a folders
+    (( ${#folders[@]} )) && compadd -U -S '' -d displays -a folders
   }
 
   # Helper function: Get scripts in context (strip .sh extension)
@@ -226,6 +243,139 @@ _dr() {
     for item in "${result[@]}"; do
       echo "$item"
     done
+  }
+
+  # Helper function: Search all scripts AND folders recursively by pattern
+  # Supports case-insensitive substring matching with priority sorting:
+  #   Priority 1: Prefix match (highest)
+  #   Priority 2: Substring match
+  # Returns: "type:fullpath" where type is 'f' (file) or 'd' (directory)
+  _dr_search_recursive() {
+    local pattern="$1"
+    if [[ ! -d "$BIN_DIR" ]]; then
+      return
+    fi
+
+    # Convert pattern to lowercase for case-insensitive matching
+    local pattern_lower="${(L)pattern}"
+    local -a results
+
+    # Search for matching scripts
+    while IFS= read -r -d '' file; do
+      local fullpath="${file#${BIN_DIR}/}"
+      fullpath="${fullpath%.sh}"
+
+      local basename="${fullpath##*/}"
+      local basename_lower="${(L)basename}"
+
+      local priority depth
+      # Count depth (number of slashes)
+      depth="${fullpath//[^\/]}"
+      depth="${#depth}"
+
+      # Determine match priority
+      if [[ "$basename_lower" == "$pattern_lower"* ]]; then
+        priority=1  # Prefix match (best)
+      elif [[ "$basename_lower" == *"$pattern_lower"* ]]; then
+        priority=2  # Substring match
+      else
+        continue  # No match, skip
+      fi
+
+      # Store as "priority:depth:type:fullpath" for sorting
+      results+=("$priority:$depth:f:$fullpath")
+    done < <(find "$BIN_DIR" -type f -name "*.sh" -print0 2>/dev/null)
+
+    # Search for matching folders
+    while IFS= read -r -d '' dir; do
+      local fullpath="${dir#${BIN_DIR}/}"
+      fullpath="${fullpath%/}"  # Remove trailing slash
+
+      local basename="${fullpath##*/}"
+      local basename_lower="${(L)basename}"
+
+      local priority depth
+      depth="${fullpath//[^\/]}"
+      depth="${#depth}"
+
+      # Match on folder basename
+      if [[ "$basename_lower" == "$pattern_lower"* ]]; then
+        priority=1  # Prefix match
+      elif [[ "$basename_lower" == *"$pattern_lower"* ]]; then
+        priority=2  # Substring match
+      else
+        continue
+      fi
+
+      # Add trailing slash for folders
+      results+=("$priority:$depth:d:$fullpath/")
+    done < <(find "$BIN_DIR" -type d ! -name '.*' -print0 2>/dev/null)
+
+    # Sort by: priority (lower first), depth (shallower first), name (alphabetically)
+    # Output format: "type:fullpath"
+    printf '%s\n' "${results[@]}" | sort -t: -k1,1n -k2,2n -k4 | while IFS=: read -r priority depth type fullpath; do
+      echo "$type:$fullpath"
+    done
+  }
+
+  # Helper: Emit recursive search results with colored path display
+  # Handles both files (scripts) and directories
+  _dr_emit_recursive_search() {
+    local pattern="$1"
+    local -a matches displays
+    local type fullpath
+
+    echo ">>> _dr_emit_recursive_search called with pattern='$pattern'" >> /tmp/dr_completion_debug.log
+
+    while IFS=: read -r type fullpath; do
+      [[ -z "$type" || -z "$fullpath" ]] && continue
+
+      matches+=("$fullpath")
+
+      # Build display string with ANSI color codes and emoji
+      if [[ "$type" == "d" ]]; then
+        # Directory - show with folder emoji (yellow folder icon)
+        if [[ "$fullpath" == */* ]]; then
+          local parent="${fullpath%/*}/"
+          local dirname="${fullpath##*/}"
+          # Yellow for parent path, yellow for folder name with 📁
+          displays+=($'\e[33m'"${parent}"$'\e[33m'"📁 ${dirname}"$'\e[0m')
+        else
+          # Root level folder - yellow with emoji
+          displays+=($'\e[33m'"📁 ${fullpath}"$'\e[0m')
+        fi
+      else
+        # File (script) - show with rocket emoji (green script icon)
+        if [[ "$fullpath" == */* ]]; then
+          local folder="${fullpath%/*}/"
+          local scriptname="${fullpath##*/}"
+          # Yellow for folder path, green for script name with 🚀
+          displays+=($'\e[33m'"${folder}"$'\e[32m'"🚀 ${scriptname}"$'\e[0m')
+        else
+          # Root level script - green with emoji
+          displays+=($'\e[32m'"🚀 ${fullpath}"$'\e[0m')
+        fi
+      fi
+    done < <(_dr_search_recursive "$pattern")
+
+    echo ">>> Found ${#matches[@]} matches" >> /tmp/dr_completion_debug.log
+    printf '>>> Match: %s\n' "${matches[@]}" >> /tmp/dr_completion_debug.log
+
+    if (( ${#matches[@]} )); then
+      echo ">>> Adding ${#matches[@]} completions..." >> /tmp/dr_completion_debug.log
+
+      # Add completions with different handling for folders
+      # -M: matcher spec for basename matching
+      # -d: display strings with colors and emojis
+      # -S '': no space suffix for folders
+      compadd -M 'r:|[/]=* r:|=*' -d displays -a -- matches
+
+      echo ">>> Done adding completions with compadd" >> /tmp/dr_completion_debug.log
+      return 0
+    else
+      echo ">>> NO MATCHES - returning 1" >> /tmp/dr_completion_debug.log
+      return 1
+    fi
   }
 
 
@@ -299,8 +449,8 @@ _dr() {
     done
 
     # Emit with tags so group-order (folders → alias files) applies; keep -S '' for folders
-    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folder_matches
-    (( ${#alias_matches[@]} )) && _wanted aliases  expl 'aliases'  compadd -Q      -d alias_displays -a -- alias_matches
+    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
+    (( ${#alias_matches[@]} )) && _wanted aliases  expl 'aliases'  compadd      -d alias_displays -a -- alias_matches
   }
 
   # Helper function: Get config folders in context
@@ -373,8 +523,8 @@ _dr() {
     done
 
     # Emit with tags so group-order (folders → config files) applies; keep -S '' for folders
-    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folder_matches
-    (( ${#config_matches[@]} )) && _wanted configs  expl 'configs'  compadd -Q      -d config_displays -a -- config_matches
+    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
+    (( ${#config_matches[@]} )) && _wanted configs  expl 'configs'  compadd      -d config_displays -a -- config_matches
   }
 
   # Get config keys (recursive search)
@@ -416,8 +566,18 @@ _dr() {
       # Namespace flags/subcommands are NOT shown in tab completion - user must type them
       local current_word="${words[2]}"
 
+      # DEBUG
+      {
+        echo "=== POSITION 2 DEBUG ==="
+        echo "current_word='$current_word'"
+        echo "is slash? $([[ "$current_word" == */* ]] && echo YES || echo NO)"
+        echo "is empty? $([[ -z "$current_word" ]] && echo YES || echo NO)"
+        echo "starts with dash? $([[ "$current_word" == -* ]] && echo YES || echo NO)"
+      } >> /tmp/dr_completion_debug.log
+
       # Check for folder context
       if [[ "$current_word" == */* ]]; then
+        echo "BRANCH: folder context" >> /tmp/dr_completion_debug.log
         # In folder context - show folder contents only (no commands, no hint)
         local context_path=$(_dr_get_context_path "$current_word")
 
@@ -426,25 +586,62 @@ _dr() {
 
         return 0
       else
-        # Root context - show ONLY hint, folders, and scripts (NO special commands)
-        # Do NOT show namespace flags (-s, -a, -c, -col) or subcommands (scripts, aliases, config, collections)
+        # Root context - check if user has typed a search pattern
+        if [[ -n "$current_word" && "$current_word" != -* ]]; then
+          echo "BRANCH: recursive search for pattern='$current_word'" >> /tmp/dr_completion_debug.log
+          # User has typed a pattern (like "pr") - do recursive search ONLY
+          # COMPLETELY BLOCK default context - do NOT call _dr_emit_context
+          _dr_emit_recursive_search "$current_word"
+          # Return immediately - no other completions allowed
+          echo "RETURNED from recursive search" >> /tmp/dr_completion_debug.log
+          return
+        else
+          echo "BRANCH: default context (hint + folders + scripts)" >> /tmp/dr_completion_debug.log
+          # Empty or starts with dash - show ONLY hint, folders, and scripts (NO special commands)
+          # Do NOT show namespace flags (-s, -a, -c, -col) or subcommands (scripts, aliases, config, collections)
 
-        # Show hint as non-selectable message
-        _message -r $'\e[90m(hint: -s/scripts, -a/aliases, -c/config, -col/collections)\e[0m'
+          # Show hint as non-selectable message
+          _message -r $'\e[90m(hint: -s/scripts, -a/aliases, -c/config, -col/collections)\e[0m'
 
-        # Hint + collect + emit via helpers
-        _dr_show_hint
-        _dr_emit_context "" ""
+          # Hint + collect + emit via helpers
+          _dr_show_hint
+          _dr_emit_context "" ""
 
-        return 0
+          return 0
+        fi
       fi
       ;;
     3)
       # Second argument - context depends on first argument
       case "${words[2]}" in
         -s|scripts)
-          # Script management context - show subcommands with proper tag
-          _dr_add_commands_with_tag 'script-commands' "${script_commands[@]}"
+          # Script management context
+          local current_word="${words[3]}"
+
+          # DEBUG
+          {
+            echo "=== POSITION 3 (-s/scripts) DEBUG ==="
+            echo "words[2]='${words[2]}'"
+            echo "words[3]='${words[3]}'"
+            echo "current_word='$current_word'"
+            echo "is empty? $([[ -z "$current_word" ]] && echo YES || echo NO)"
+            echo "starts with dash? $([[ "$current_word" == -* ]] && echo YES || echo NO)"
+          } >> /tmp/dr_completion_debug.log
+
+          # If user has typed a pattern (not a flag), show matching scripts recursively
+          if [[ -n "$current_word" && "$current_word" != -* ]]; then
+            echo "Pattern detected - calling recursive search" >> /tmp/dr_completion_debug.log
+            # Show recursive search results for scripts matching the pattern
+            _dr_emit_recursive_search "$current_word"
+          fi
+
+          # Always show subcommands for discoverability (unless searching)
+          # This allows users to see both search results AND available commands
+          if [[ -z "$current_word" || "$current_word" == -* ]]; then
+            echo "Showing subcommands" >> /tmp/dr_completion_debug.log
+            _dr_add_commands_with_tag 'script-commands' "${script_commands[@]}"
+          fi
+
           return 0
           ;;
         -a|aliases)
@@ -533,7 +730,7 @@ _dr() {
             while IFS= read -r folder; do
               [[ -n "$folder" ]] && folders+=("$folder") && folder_displays+=("📁 $folder")
             done < <(_dr_get_folders "")
-            (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folders
+            (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folders
           fi
           ;;
         -s|scripts)
@@ -589,7 +786,7 @@ _dr() {
                 while IFS= read -r folder; do
                   [[ -n "$folder" ]] && folders+=("$folder") && folder_displays+=("📁 $folder")
                 done < <(_dr_get_folders "")
-                (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folders
+                (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folders
               fi
               ;;
           esac
@@ -689,7 +886,7 @@ _dr() {
                 while IFS= read -r folder; do
                   [[ -n "$folder" ]] && folders+=("$folder") && folder_displays+=("📁 $folder")
                 done < <(_dr_get_folders "")
-                (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folders
+                (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folders
               fi
               ;;
           esac
