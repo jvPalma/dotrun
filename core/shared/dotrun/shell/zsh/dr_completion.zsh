@@ -42,6 +42,71 @@ SCRIPT_ICON='🚀'
 ALIAS_ICON='🎭'
 CONFIG_ICON='⚙'
 
+# ============================================
+# LAZY-LOADING STATE AND FUNCTIONS
+# ============================================
+# These variables are reset at the start of each _dr() invocation
+# and populated on-demand only when needed
+
+typeset -g _DR_CONFIG_KEYS_LOADED=false
+typeset -ga _DR_CONFIG_KEYS=()
+
+typeset -g _DR_ALIAS_CATEGORIES_LOADED=false
+typeset -ga _DR_ALIAS_CATEGORIES=()
+
+typeset -g _DR_CONFIG_CATEGORIES_LOADED=false
+typeset -ga _DR_CONFIG_CATEGORIES=()
+
+# Lazy-load config keys (export variable names from .config files)
+_dr_ensure_config_keys_loaded() {
+  [[ "$_DR_CONFIG_KEYS_LOADED" == "true" ]] && return 0
+
+  local config_dir="${DR_CONFIG:-$HOME/.config/dotrun}/configs"
+  _DR_CONFIG_KEYS=()
+  if [[ -d "$config_dir" ]]; then
+    while IFS= read -r config_file; do
+      [[ -f "$config_file" ]] && _DR_CONFIG_KEYS+=(${(f)"$(grep -E "^export " "$config_file" 2>/dev/null | sed 's/^export \([^=]*\)=.*/\1/' | sort)"})
+    done < <(find "$config_dir" -name "*.config" -type f 2>/dev/null)
+  fi
+  _DR_CONFIG_KEYS_LOADED=true
+}
+
+# Lazy-load alias categories (relative paths of .aliases files)
+_dr_ensure_alias_categories_loaded() {
+  [[ "$_DR_ALIAS_CATEGORIES_LOADED" == "true" ]] && return 0
+
+  local aliases_dir="${DR_CONFIG:-$HOME/.config/dotrun}/aliases"
+  _DR_ALIAS_CATEGORIES=()
+  if [[ -d "$aliases_dir" ]]; then
+    while IFS= read -r alias_file; do
+      if [[ -f "$alias_file" ]]; then
+        local rel_path="${alias_file#$aliases_dir/}"
+        local category="${rel_path%.aliases}"
+        _DR_ALIAS_CATEGORIES+=("$category")
+      fi
+    done < <(find "$aliases_dir" -name "*.aliases" -type f 2>/dev/null)
+  fi
+  _DR_ALIAS_CATEGORIES_LOADED=true
+}
+
+# Lazy-load config categories (relative paths of .config files)
+_dr_ensure_config_categories_loaded() {
+  [[ "$_DR_CONFIG_CATEGORIES_LOADED" == "true" ]] && return 0
+
+  local config_dir="${DR_CONFIG:-$HOME/.config/dotrun}/configs"
+  _DR_CONFIG_CATEGORIES=()
+  if [[ -d "$config_dir" ]]; then
+    while IFS= read -r config_file; do
+      if [[ -f "$config_file" ]]; then
+        local rel_path="${config_file#$config_dir/}"
+        local category="${rel_path%.config}"
+        _DR_CONFIG_CATEGORIES+=("$category")
+      fi
+    done < <(find "$config_dir" -name "*.config" -type f 2>/dev/null)
+  fi
+  _DR_CONFIG_CATEGORIES_LOADED=true
+}
+
 # Main completion function
 _dr() {
   # DEBUG: Log every function call
@@ -52,6 +117,11 @@ _dr() {
     echo "words=(${words[@]})"
     echo "========================================"
   } >> /tmp/dr_completion_debug.log
+
+  # Reset lazy-load state for this completion invocation
+  _DR_CONFIG_KEYS_LOADED=false
+  _DR_ALIAS_CATEGORIES_LOADED=false
+  _DR_CONFIG_CATEGORIES_LOADED=false
 
   local -a special_commands script_commands aliases_commands config_commands collections_commands
 
@@ -636,38 +706,6 @@ _dr() {
 
 
 
-  # Get config keys (recursive search)
-  local -a config_keys
-  if [[ -d "$CONFIG_DIR" ]]; then
-    while IFS= read -r config_file; do
-      [[ -f "$config_file" ]] && config_keys+=(${(f)"$(grep -E "^export " "$config_file" 2>/dev/null | sed 's/^export \([^=]*\)=.*/\1/' | sort)"})
-    done < <(find "$CONFIG_DIR" -name "*.config" -type f 2>/dev/null)
-  fi
-
-  # Get alias categories
-  local -a alias_categories
-  if [[ -d "$ALIASES_DIR" ]]; then
-    while IFS= read -r alias_file; do
-      if [[ -f "$alias_file" ]]; then
-        local rel_path="${alias_file#$ALIASES_DIR/}"
-        local category="${rel_path%.aliases}"
-        alias_categories+=("$category")
-      fi
-    done < <(find "$ALIASES_DIR" -name "*.aliases" -type f 2>/dev/null)
-  fi
-
-  # Get config categories
-  local -a config_categories
-  if [[ -d "$CONFIG_DIR" ]]; then
-    while IFS= read -r config_file; do
-      if [[ -f "$config_file" ]]; then
-        local rel_path="${config_file#$CONFIG_DIR/}"
-        local category="${rel_path%.config}"
-        config_categories+=("$category")
-      fi
-    done < <(find "$CONFIG_DIR" -name "*.config" -type f 2>/dev/null)
-  fi
-
   # Main completion logic by argument position
   case $CURRENT in
     2)
@@ -965,7 +1003,8 @@ _dr() {
               ;;
             get|unset)
               # Complete with config keys
-              _describe -t config-keys 'config keys' config_keys
+              _dr_ensure_config_keys_loaded
+              _describe -t config-keys 'config keys' _DR_CONFIG_KEYS
               ;;
             list)
               compadd -- --categories --category --keys-only
@@ -1007,7 +1046,8 @@ _dr() {
           case "${words[3]}" in
             list)
               if [[ "${words[4]}" == "--category" ]]; then
-                _describe -t alias-categories 'alias categories' alias_categories
+                _dr_ensure_alias_categories_loaded
+                _describe -t alias-categories 'alias categories' _DR_ALIAS_CATEGORIES
               fi
               ;;
           esac
@@ -1015,18 +1055,21 @@ _dr() {
         -c|config)
           case "${words[3]}" in
             get)
-              if [[ "${words[4]}" == "${config_keys[(r)${words[4]}]}" ]]; then
+              _dr_ensure_config_keys_loaded
+              if [[ "${words[4]}" == "${_DR_CONFIG_KEYS[(r)${words[4]}]}" ]]; then
                 compadd -- --show-value
               fi
               ;;
             list)
               if [[ "${words[4]}" == "--category" ]]; then
-                _describe -t config-categories 'config categories' config_categories
+                _dr_ensure_config_categories_loaded
+                _describe -t config-categories 'config categories' _DR_CONFIG_CATEGORIES
               fi
               ;;
             set)
               if [[ "${words[4]}" == "--category" ]]; then
-                _describe -t config-categories 'config categories' config_categories
+                _dr_ensure_config_categories_loaded
+                _describe -t config-categories 'config categories' _DR_CONFIG_CATEGORIES
               fi
               ;;
           esac
