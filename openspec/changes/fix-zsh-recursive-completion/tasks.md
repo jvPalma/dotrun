@@ -149,14 +149,14 @@ Tasks are organized into phases. Each task is designed to be small, verifiable, 
 
 ### 2.1 Delete Dead Code
 
-- [ ] 2.1.1 Delete `_dr_add_scripts` function (lines ~358-373)
+- [x] 2.1.1 Delete `_dr_add_scripts` function (lines ~358-373)
   - Helper function that is never called anywhere
   - Comment at line ~335 references it but function unused
-- [ ] 2.1.2 Delete `_dr_get_all_scripts` function (lines ~376-394)
+- [x] 2.1.2 Delete `_dr_get_all_scripts` function (lines ~376-394)
   - Recursively gets all scripts but never called
   - Superseded by `_dr_search_recursive`
-- [ ] 2.1.3 Delete orphaned comment referencing `_dr_add_scripts`
-- [ ] 2.1.4 Verify syntax: `zsh -n dr_completion.zsh`
+- [x] 2.1.3 Delete orphaned comment referencing `_dr_add_scripts`
+- [x] 2.1.4 Verify syntax: `zsh -n dr_completion.zsh`
 
 **Validation:** No dead code functions remain, syntax check passes ✅
 
