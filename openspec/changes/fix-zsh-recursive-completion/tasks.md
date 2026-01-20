@@ -303,7 +303,7 @@ Create a single parameterized function to replace all filesystem getters:
 
 ### 2.4 Replace File Getter Functions
 
-- [ ] 2.4.1 Update all `_dr_get_scripts` call sites:
+- [x] 2.4.1 Update all `_dr_get_scripts` call sites:
 
   ```zsh
   # Before: _dr_get_scripts "$context"
@@ -312,7 +312,7 @@ Create a single parameterized function to replace all filesystem getters:
 
   - Line ~320 in `_dr_emit_context`
 
-- [ ] 2.4.2 Update all `_dr_get_alias_files` call sites:
+- [x] 2.4.2 Update all `_dr_get_alias_files` call sites:
 
   ```zsh
   # Before: _dr_get_alias_files "$context"
@@ -321,7 +321,7 @@ Create a single parameterized function to replace all filesystem getters:
 
   - Line ~613 in `_dr_emit_aliases_context`
 
-- [ ] 2.4.3 Update all `_dr_get_config_files` call sites:
+- [x] 2.4.3 Update all `_dr_get_config_files` call sites:
 
   ```zsh
   # Before: _dr_get_config_files "$context"
@@ -330,12 +330,12 @@ Create a single parameterized function to replace all filesystem getters:
 
   - Line ~683 in `_dr_emit_configs_context`
 
-- [ ] 2.4.4 Delete old functions:
+- [x] 2.4.4 Delete old functions:
   - `_dr_get_scripts` (lines ~336-355)
   - `_dr_get_alias_files` (lines ~582-601)
   - `_dr_get_config_files` (lines ~652-671)
 
-- [ ] 2.4.5 Verify syntax: `zsh -n dr_completion.zsh`
+- [x] 2.4.5 Verify syntax: `zsh -n dr_completion.zsh`
 
 **Validation:** All file getters replaced, old functions deleted ✅
 
