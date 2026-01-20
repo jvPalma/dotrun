@@ -378,32 +378,6 @@ _dr() {
       compadd -U -S '' -d folder_displays -a folder_matches
     fi
   }
-  
-  # Helper function: Get folders in context
-  # Outputs folders (one per line) without emoji - use dr_add_folders to display with emoji
-  _dr_get_folders() {
-    local context="$1"
-    local search_dir="$BIN_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$BIN_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate subdirectories only, add trailing /, ascending sort
-    # Exclude hidden folders (starting with .)
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' dir; do
-      local dirname="${dir#${strip_prefix}}"
-      dirname="${dirname%/}"
-      # Skip hidden folders (starting with .)
-      [[ "$dirname" == .* ]] && continue
-      [[ -n "$dirname" ]] && echo "${dirname}/"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print0 2>/dev/null | sort -z)
-  }
 
   # Helper: Collect and emit candidates for a context.
   # Arg1: context (e.g., "ai/tools/" or ""), Arg2: prefix to insert (usually same as context)
@@ -414,7 +388,7 @@ _dr() {
     local item
 
     # Collect raw folder/script names
-    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_get_folders "$context")
+    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_global_filesystem_find scripts directory single "$context")
     while IFS= read -r item; do [[ -n "$item" ]] && scripts+=("$item");  done < <(_dr_get_scripts  "$context")
 
     # Decorate folders using centralized function (simple mode)
@@ -611,32 +585,6 @@ _dr() {
     (( has_matches )) && return 0 || return 1
   }
 
-
-  # Helper function: Get alias folders in context
-  _dr_get_alias_folders() {
-    local context="$1"
-    local search_dir="$ALIASES_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$ALIASES_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate subdirectories only, add trailing /, ascending sort
-    # Exclude hidden folders (starting with .)
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' dir; do
-      local dirname="${dir#${strip_prefix}}"
-      dirname="${dirname%/}"
-      # Skip hidden folders (starting with .)
-      [[ "$dirname" == .* ]] && continue
-      [[ -n "$dirname" ]] && echo "${dirname}/"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print0 2>/dev/null | sort -z)
-  }
-
   # Helper function: Get alias files in context (strip .aliases extension)
   _dr_get_alias_files() {
     local context="$1"
@@ -668,7 +616,7 @@ _dr() {
     local item
 
     # Collect raw folder/file names
-    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_get_alias_folders "$context")
+    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_global_filesystem_find aliases directory single "$context")
     while IFS= read -r item; do [[ -n "$item" ]] && alias_files+=("$item");  done < <(_dr_get_alias_files  "$context")
 
     # Decorate folders using centralized function (simple mode)
@@ -680,31 +628,6 @@ _dr() {
     # Emit with tags so group-order (folders → alias files) applies; keep -S '' for folders
     (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
     (( ${#alias_matches[@]} )) && _wanted aliases  expl 'aliases'  compadd      -d alias_displays -a -- alias_matches
-  }
-
-  # Helper function: Get config folders in context
-  _dr_get_config_folders() {
-    local context="$1"
-    local search_dir="$CONFIG_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$CONFIG_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate subdirectories only, add trailing /, ascending sort
-    # Exclude hidden folders (starting with .)
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' dir; do
-      local dirname="${dir#${strip_prefix}}"
-      dirname="${dirname%/}"
-      # Skip hidden folders (starting with .)
-      [[ "$dirname" == .* ]] && continue
-      [[ -n "$dirname" ]] && echo "${dirname}/"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print0 2>/dev/null | sort -z)
   }
 
   # Helper function: Get config files in context (strip .config extension)
@@ -738,7 +661,7 @@ _dr() {
     local item
 
     # Collect raw folder/file names
-    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_get_config_folders "$context")
+    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_global_filesystem_find configs directory single "$context")
     while IFS= read -r item; do [[ -n "$item" ]] && config_files+=("$item");  done < <(_dr_get_config_files  "$context")
 
     # Decorate folders using centralized function (simple mode)
@@ -934,7 +857,7 @@ _dr() {
           ;;
         -l|-L)
           # Optional folder filter for list commands
-          _dr_get_folders "" | _dr_add_folders
+          _dr_global_filesystem_find scripts directory single | _dr_add_folders
           ;;
       esac
       ;;
@@ -954,7 +877,7 @@ _dr() {
             local -a folders folder_matches folder_displays
             while IFS= read -r folder; do
               [[ -n "$folder" ]] && folders+=("$folder")
-            done < <(_dr_get_folders "")
+            done < <(_dr_global_filesystem_find scripts directory single)
             _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
             (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
           fi
@@ -1011,7 +934,7 @@ _dr() {
                 local -a folders folder_matches folder_displays
                 while IFS= read -r folder; do
                   [[ -n "$folder" ]] && folders+=("$folder")
-                done < <(_dr_get_folders "")
+                done < <(_dr_global_filesystem_find scripts directory single)
                 _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
                 (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
               fi
@@ -1112,7 +1035,7 @@ _dr() {
                 local -a folders folder_matches folder_displays
                 while IFS= read -r folder; do
                   [[ -n "$folder" ]] && folders+=("$folder")
-                done < <(_dr_get_folders "")
+                done < <(_dr_global_filesystem_find scripts directory single)
                 _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
                 (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
               fi
