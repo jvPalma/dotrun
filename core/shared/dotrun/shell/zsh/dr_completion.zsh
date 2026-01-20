@@ -354,6 +354,99 @@ _dr() {
     )
   }
 
+  # ============================================
+  # GET + DISPLAY PATTERN FUNCTIONS
+  # ============================================
+  # These functions split data retrieval from display, enabling piped composition.
+  #
+  # Usage pattern:
+  #   _dr_get_feature_context scripts "ai/tools/" | _dr_display_feature_context scripts "ai/tools/"
+  #
+  # With filter:
+  #   _dr_get_feature_context scripts "" single "status" | _dr_display_feature_context scripts ""
+  #
+  # Recursive search:
+  #   _dr_get_feature_context scripts "" all "pattern" | _dr_display_feature_context scripts ""
+
+  # _dr_get_feature_context <feature> <subcontext> [depth] [filter]
+  #
+  # Gets folders and files for a feature context, outputting in TYPE:NAME format.
+  #
+  # Args:
+  #   $1 (feature):    'scripts' | 'aliases' | 'configs'
+  #   $2 (subcontext): Relative path context (e.g., "ai/tools/" or "")
+  #   $3 (depth):      'single' | 'all' (default: 'single')
+  #   $4 (filter):     Optional pattern filter for matching
+  #
+  # Output format (stdout, one per line):
+  #   TYPE:NAME
+  #   - "folder:dirname/"   for directories
+  #   - "file:filename"     for files (extension stripped)
+  #
+  # Example output:
+  #   folder:ai/
+  #   folder:git/
+  #   file:status
+  #   file:deploy
+  #
+  _dr_get_feature_context() {
+    local feature="$1" subcontext="$2" depth="${3:-single}" filter="${4:-}"
+
+    # Get folders
+    while IFS= read -r folder; do
+      [[ -n "$folder" ]] && echo "folder:$folder"
+    done < <(_dr_global_filesystem_find "$feature" directory "$depth" "$subcontext" true "$filter")
+
+    # Get files
+    while IFS= read -r file; do
+      [[ -n "$file" ]] && echo "file:$file"
+    done < <(_dr_global_filesystem_find "$feature" file "$depth" "$subcontext" true "$filter")
+  }
+
+  # _dr_display_feature_context <feature> <prefix>
+  #
+  # Reads piped data from _dr_get_feature_context, decorates and displays using compadd.
+  #
+  # Args:
+  #   $1 (feature): 'scripts' | 'aliases' | 'configs' (determines icons)
+  #   $2 (prefix):  Prefix to prepend to matches (e.g., "ai/tools/")
+  #
+  # Input format (stdin):
+  #   folder:dirname/
+  #   file:filename
+  #
+  _dr_display_feature_context() {
+    local feature="$1" prefix="$2"
+    local -a folders files folder_matches folder_displays file_matches file_displays
+    local line type name
+
+    # Parse input
+    while IFS= read -r line; do
+      type="${line%%:*}"
+      name="${line#*:}"
+      case "$type" in
+        folder) folders+=("$name") ;;
+        file)   files+=("$name") ;;
+      esac
+    done
+
+    # Decorate folders
+    _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
+
+    # Decorate files (using feature to determine icon type)
+    local file_type
+    case "$feature" in
+      scripts) file_type="SCRIPTS" ;;
+      aliases) file_type="ALIASES" ;;
+      configs) file_type="CONFIGS" ;;
+    esac
+    _dr_decorate_files "$file_type" file_matches file_displays "$prefix" simple "${files[@]}"
+
+    # Emit with _wanted tags
+    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
+    (( ${#file_matches[@]} )) && _wanted "$feature" expl "$feature" compadd -d file_displays -a -- file_matches
+  }
+
   # Helper function: Add folders with emoji display using compadd
   _dr_add_folders() {
     local -a folders folder_matches folder_displays
