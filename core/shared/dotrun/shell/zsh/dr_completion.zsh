@@ -256,6 +256,104 @@ _dr() {
     done
   }
 
+  # ============================================
+  # UNIFIED FILESYSTEM FINDER (SINGLE SOURCE OF TRUTH)
+  # ============================================
+  # Replaces: _dr_get_folders, _dr_get_scripts, _dr_get_alias_folders,
+  #           _dr_get_alias_files, _dr_get_config_folders, _dr_get_config_files
+  #
+  # _dr_global_filesystem_find <context> <type> <depth> [subcontext] [sortAz] [pattern]
+  #
+  # Args:
+  #   $1 (context):    'scripts' | 'aliases' | 'configs' | 'collections'
+  #                    Maps to: $BIN_DIR, $ALIASES_DIR, $CONFIG_DIR, $COLLECTIONS_DIR
+  #   $2 (type):       'file' | 'directory' | 'both'
+  #   $3 (depth):      'single' | 'all'
+  #   $4 (subcontext): Optional relative path within context (e.g., "ai/tools/")
+  #   $5 (sortAz):     Optional, default 'true' - alphabetical sort
+  #   $6 (pattern):    Optional filter pattern for -ipath matching
+  #
+  # Returns: One result per line (stdout)
+  #   - Directories: "dirname/" (with trailing slash)
+  #   - Files: "filename" (extension stripped based on context)
+  #
+  # Examples:
+  #   _dr_global_filesystem_find scripts directory single        # Script folders at root
+  #   _dr_global_filesystem_find scripts file single "ai/tools"  # Scripts in ai/tools/
+  #   _dr_global_filesystem_find aliases file all "" true "git"  # All alias files matching "git"
+  #
+  _dr_global_filesystem_find() {
+    local context="$1" type="$2" depth="$3"
+    local subcontext="${4:-}" sortAz="${5:-true}" pattern="${6:-}"
+
+    # Map context to base directory and file extension
+    local base_dir ext
+    case "$context" in
+      scripts)     base_dir="$BIN_DIR";        ext=".sh" ;;
+      aliases)     base_dir="$ALIASES_DIR";    ext=".aliases" ;;
+      configs)     base_dir="$CONFIG_DIR";     ext=".config" ;;
+      collections) base_dir="$COLLECTIONS_DIR"; ext="" ;;
+      *) return 1 ;;  # Invalid context
+    esac
+
+    # Build search directory (base + optional subcontext)
+    local search_dir="$base_dir"
+    if [[ -n "$subcontext" ]]; then
+      search_dir="$base_dir/${subcontext%/}"
+    fi
+
+    # Early return if directory doesn't exist
+    [[ ! -d "$search_dir" ]] && return 0
+
+    # Build find command arguments
+    local -a find_args=("$search_dir" -mindepth 1)
+
+    # Depth option
+    [[ "$depth" == "single" ]] && find_args+=(-maxdepth 1)
+
+    # Type option
+    case "$type" in
+      file)      find_args+=(-type f) ;;
+      directory) find_args+=(-type d) ;;
+      # 'both' - no type filter
+    esac
+
+    # File name filter (only for files with extension)
+    if [[ "$type" == "file" && -n "$ext" ]]; then
+      find_args+=(-name "*${ext}")
+    fi
+
+    # Pattern filter (optional)
+    [[ -n "$pattern" ]] && find_args+=(-ipath "*${pattern}*")
+
+    # Exclude hidden files/folders
+    find_args+=(! -name '.*' -print0)
+
+    # Process results
+    local strip_prefix="${search_dir%/}/"
+    local item rel_path
+
+    while IFS= read -r -d '' item; do
+      # Strip prefix to get relative path
+      rel_path="${item#${strip_prefix}}"
+      [[ -z "$rel_path" ]] && continue
+
+      # Format output based on actual type
+      if [[ -d "$item" ]]; then
+        echo "${rel_path%/}/"
+      else
+        [[ -n "$ext" ]] && rel_path="${rel_path%${ext}}"
+        echo "$rel_path"
+      fi
+    done < <(
+      if [[ "$sortAz" == "true" ]]; then
+        find "${find_args[@]}" 2>/dev/null | sort -z
+      else
+        find "${find_args[@]}" 2>/dev/null
+      fi
+    )
+  }
+
   # Helper function: Add folders with emoji display using compadd
   _dr_add_folders() {
     local -a folders folder_matches folder_displays

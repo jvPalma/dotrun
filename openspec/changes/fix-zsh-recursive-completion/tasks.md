@@ -166,7 +166,7 @@ Tasks are organized into phases. Each task is designed to be small, verifiable, 
 
 Create a single parameterized function to replace all filesystem getters:
 
-- [ ] 2.2.1 Define function signature:
+- [x] 2.2.1 Define function signature:
 
   ```zsh
   # _dr_global_filesystem_find <context> <type> <depth> [subcontext] [sortAz] [pattern]
@@ -185,7 +185,7 @@ Create a single parameterized function to replace all filesystem getters:
   #   - Files: "filename" (extension stripped based on context)
   ```
 
-- [ ] 2.2.2 Implement context → base_dir mapping:
+- [x] 2.2.2 Implement context → base_dir mapping:
 
   ```zsh
   case "$context" in
@@ -196,7 +196,7 @@ Create a single parameterized function to replace all filesystem getters:
   esac
   ```
 
-- [ ] 2.2.3 Implement type → find options:
+- [x] 2.2.3 Implement type → find options:
 
   ```zsh
   case "$type" in
@@ -206,7 +206,7 @@ Create a single parameterized function to replace all filesystem getters:
   esac
   ```
 
-- [ ] 2.2.4 Implement depth → maxdepth:
+- [x] 2.2.4 Implement depth → maxdepth:
 
   ```zsh
   case "$depth" in
@@ -215,7 +215,7 @@ Create a single parameterized function to replace all filesystem getters:
   esac
   ```
 
-- [ ] 2.2.5 Implement pattern filtering (optional):
+- [x] 2.2.5 Implement pattern filtering (optional):
 
   ```zsh
   if [[ -n "$pattern" ]]; then
@@ -223,13 +223,13 @@ Create a single parameterized function to replace all filesystem getters:
   fi
   ```
 
-- [ ] 2.2.6 Implement output post-processing:
+- [x] 2.2.6 Implement output post-processing:
   - Strip base_dir prefix
   - Strip file extension based on context
   - Add trailing `/` for directories
   - Exclude hidden files/folders (`.*`)
 
-- [ ] 2.2.7 Add sorting (if sortAz=true):
+- [x] 2.2.7 Add sorting (if sortAz=true):
 
   ```zsh
   if [[ "$sortAz" == "true" ]]; then
@@ -237,7 +237,7 @@ Create a single parameterized function to replace all filesystem getters:
   fi
   ```
 
-- [ ] 2.2.8 Verify function with test cases:
+- [x] 2.2.8 Verify function with test cases:
 
   ```zsh
   # Test: Get immediate script folders
