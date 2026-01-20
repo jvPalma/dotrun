@@ -332,7 +332,7 @@ _dr() {
 
 
   # Helper function: Get scripts in context (strip .sh extension)
-  # Outputs scripts (one per line) without emoji - use _dr_add_scripts to display with emoji
+  # Outputs scripts (one per line) without emoji
   _dr_get_scripts() {
     local context="$1"
     local search_dir="$BIN_DIR"
@@ -352,45 +352,6 @@ _dr() {
       filename="${filename%.sh}"
       [[ -n "$filename" ]] && echo "${filename}"
     done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type f -name "*.sh" -print0 2>/dev/null | sort -z)
-  }
-
-  # Helper function: Add scripts with emoji display using compadd
-  _dr_add_scripts() {
-    local -a scripts script_matches script_displays
-    while IFS= read -r script; do
-      [[ -n "$script" ]] && scripts+=("$script")
-    done
-
-    # Use centralized decoration function (simple mode - just basename with emoji)
-    _dr_decorate_files SCRIPTS script_matches script_displays "" simple "${scripts[@]}"
-
-    # Only call compset -P '*' if we have scripts to add
-    # This prevents PREFIX consumption when no completions exist (which causes word deletion)
-    if (( ${#script_matches[@]} )); then
-      compset -P '*'
-      compadd -U -d script_displays -a script_matches
-    fi
-  }
-
-  # Helper function: Get all scripts recursively (for edit/help/move)
-  _dr_get_all_scripts() {
-    if [[ ! -d "$BIN_DIR" ]]; then
-      return
-    fi
-
-    local -a result
-    while IFS= read -r -d '' file; do
-      local relpath="${file#${BIN_DIR}/}"  # Strip directory path with trailing slash
-      # Skip scripts in hidden folders (check relative path only)
-      [[ "$relpath" == .* ]] || [[ "$relpath" == */.* ]] && continue
-      relpath="${relpath%.sh}"  # Strip .sh extension
-      result+=("${relpath}")
-    done < <(find "$BIN_DIR" -type f -name "*.sh" -print0 2>/dev/null | sort -z)
-
-    # Use echo instead of print -l for proper subshell capture
-    for item in "${result[@]}"; do
-      echo "$item"
-    done
   }
 
   # Helper function: Search all scripts AND folders recursively by pattern
