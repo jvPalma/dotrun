@@ -259,7 +259,7 @@ Create a single parameterized function to replace all filesystem getters:
 
 ### 2.3 Replace Folder Getter Functions
 
-- [ ] 2.3.1 Update all `_dr_get_folders` call sites:
+- [x] 2.3.1 Update all `_dr_get_folders` call sites:
 
   ```zsh
   # Before: _dr_get_folders "$context"
@@ -272,7 +272,7 @@ Create a single parameterized function to replace all filesystem getters:
   - Line ~955 in `-s list` subcommand
   - Line ~1056 in `-s move/rename` destination
 
-- [ ] 2.3.2 Update all `_dr_get_alias_folders` call sites:
+- [x] 2.3.2 Update all `_dr_get_alias_folders` call sites:
 
   ```zsh
   # Before: _dr_get_alias_folders "$context"
@@ -281,7 +281,7 @@ Create a single parameterized function to replace all filesystem getters:
 
   - Line ~612 in `_dr_emit_aliases_context`
 
-- [ ] 2.3.3 Update all `_dr_get_config_folders` call sites:
+- [x] 2.3.3 Update all `_dr_get_config_folders` call sites:
 
   ```zsh
   # Before: _dr_get_config_folders "$context"
@@ -290,12 +290,12 @@ Create a single parameterized function to replace all filesystem getters:
 
   - Line ~682 in `_dr_emit_configs_context`
 
-- [ ] 2.3.4 Delete old functions:
+- [x] 2.3.4 Delete old functions:
   - `_dr_get_folders` (lines ~286-308)
   - `_dr_get_alias_folders` (lines ~557-579)
   - `_dr_get_config_folders` (lines ~627-649)
 
-- [ ] 2.3.5 Verify syntax: `zsh -n dr_completion.zsh`
+- [x] 2.3.5 Verify syntax: `zsh -n dr_completion.zsh`
 
 **Validation:** All folder getters replaced, old functions deleted ✅
 
