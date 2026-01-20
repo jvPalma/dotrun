@@ -345,15 +345,16 @@ Create a single parameterized function to replace all filesystem getters:
 
 #### 2.5.1 Create `_dr_get_feature_context` Function
 
-- [ ] 2.5.1.1 Define function signature:
+- [x] 2.5.1.1 Define function signature:
 
   ```zsh
-  # _dr_get_feature_context <feature> <subcontext> [filter]
+  # _dr_get_feature_context <feature> <subcontext> [depth] [filter]
   #
   # Args:
   #   $1 (feature):    'scripts' | 'aliases' | 'configs'
   #   $2 (subcontext): Relative path context (e.g., "ai/tools/" or "")
-  #   $3 (filter):     Optional pattern filter for matching
+  #   $3 (depth):      'single' | 'all' (default: 'single')
+  #   $4 (filter):     Optional pattern filter for matching
   #
   # Output format (stdout, one per line):
   #   TYPE:NAME
@@ -367,29 +368,29 @@ Create a single parameterized function to replace all filesystem getters:
   #   file:deploy
   ```
 
-- [ ] 2.5.1.2 Implement function:
+- [x] 2.5.1.2 Implement function:
 
   ```zsh
   _dr_get_feature_context() {
-    local feature="$1" subcontext="$2" filter="${3:-}"
+    local feature="$1" subcontext="$2" depth="${3:-single}" filter="${4:-}"
 
     # Get folders
     while IFS= read -r folder; do
       [[ -n "$folder" ]] && echo "folder:$folder"
-    done < <(_dr_global_filesystem_find "$feature" directory single "$subcontext" true "$filter")
+    done < <(_dr_global_filesystem_find "$feature" directory "$depth" "$subcontext" true "$filter")
 
     # Get files
     while IFS= read -r file; do
       [[ -n "$file" ]] && echo "file:$file"
-    done < <(_dr_global_filesystem_find "$feature" file single "$subcontext" true "$filter")
+    done < <(_dr_global_filesystem_find "$feature" file "$depth" "$subcontext" true "$filter")
   }
   ```
 
-- [ ] 2.5.1.3 Verify function outputs correctly
+- [x] 2.5.1.3 Verify function outputs correctly
 
 #### 2.5.2 Create `_dr_display_feature_context` Function
 
-- [ ] 2.5.2.1 Define function signature:
+- [x] 2.5.2.1 Define function signature:
 
   ```zsh
   # _dr_display_feature_context <feature> <prefix>
@@ -406,7 +407,7 @@ Create a single parameterized function to replace all filesystem getters:
   #   file:filename
   ```
 
-- [ ] 2.5.2.2 Implement function:
+- [x] 2.5.2.2 Implement function:
 
   ```zsh
   _dr_display_feature_context() {
@@ -442,11 +443,11 @@ Create a single parameterized function to replace all filesystem getters:
   }
   ```
 
-- [ ] 2.5.2.3 Verify decoration and display work correctly
+- [x] 2.5.2.3 Verify decoration and display work correctly
 
 #### 2.5.3 Create Piped Usage Pattern
 
-- [ ] 2.5.3.1 Verify piping works:
+- [x] 2.5.3.1 Verify piping works:
 
   ```zsh
   # Usage pattern:
