@@ -389,7 +389,7 @@ _dr() {
 
     # Collect raw folder/script names
     while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_global_filesystem_find scripts directory single "$context")
-    while IFS= read -r item; do [[ -n "$item" ]] && scripts+=("$item");  done < <(_dr_get_scripts  "$context")
+    while IFS= read -r item; do [[ -n "$item" ]] && scripts+=("$item");  done < <(_dr_global_filesystem_find scripts file single "$context")
 
     # Decorate folders using centralized function (simple mode)
     _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
@@ -402,29 +402,6 @@ _dr() {
     (( ${#script_matches[@]} )) && _wanted scripts  expl 'scripts'  compadd      -d script_displays -a -- script_matches
   }
 
-
-  # Helper function: Get scripts in context (strip .sh extension)
-  # Outputs scripts (one per line) without emoji
-  _dr_get_scripts() {
-    local context="$1"
-    local search_dir="$BIN_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$BIN_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate .sh files only, strip extension, ascending sort
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' file; do
-      local filename="${file#${strip_prefix}}"
-      filename="${filename%.sh}"
-      [[ -n "$filename" ]] && echo "${filename}"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type f -name "*.sh" -print0 2>/dev/null | sort -z)
-  }
 
   # Helper function: Search all scripts AND folders recursively by pattern
   # Supports case-insensitive substring matching with priority sorting:
@@ -585,28 +562,6 @@ _dr() {
     (( has_matches )) && return 0 || return 1
   }
 
-  # Helper function: Get alias files in context (strip .aliases extension)
-  _dr_get_alias_files() {
-    local context="$1"
-    local search_dir="$ALIASES_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$ALIASES_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate .aliases files only, strip extension, ascending sort
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' file; do
-      local filename="${file#${strip_prefix}}"
-      filename="${filename%.aliases}"
-      [[ -n "$filename" ]] && echo "${filename}"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type f -name "*.aliases" -print0 2>/dev/null | sort -z)
-  }
-
   # Helper: Collect and emit candidates for alias context
   # Arg1: context (e.g., "cd/" or ""), Arg2: prefix to insert (usually same as context)
   _dr_emit_aliases_context() {
@@ -617,7 +572,7 @@ _dr() {
 
     # Collect raw folder/file names
     while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_global_filesystem_find aliases directory single "$context")
-    while IFS= read -r item; do [[ -n "$item" ]] && alias_files+=("$item");  done < <(_dr_get_alias_files  "$context")
+    while IFS= read -r item; do [[ -n "$item" ]] && alias_files+=("$item");  done < <(_dr_global_filesystem_find aliases file single "$context")
 
     # Decorate folders using centralized function (simple mode)
     _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
@@ -630,28 +585,6 @@ _dr() {
     (( ${#alias_matches[@]} )) && _wanted aliases  expl 'aliases'  compadd      -d alias_displays -a -- alias_matches
   }
 
-  # Helper function: Get config files in context (strip .config extension)
-  _dr_get_config_files() {
-    local context="$1"
-    local search_dir="$CONFIG_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$CONFIG_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate .config files only, strip extension, ascending sort
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' file; do
-      local filename="${file#${strip_prefix}}"
-      filename="${filename%.config}"
-      [[ -n "$filename" ]] && echo "${filename}"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type f -name "*.config" -print0 2>/dev/null | sort -z)
-  }
-
   # Helper: Collect and emit candidates for config context
   # Arg1: context (e.g., "api/" or ""), Arg2: prefix to insert (usually same as context)
   _dr_emit_configs_context() {
@@ -662,7 +595,7 @@ _dr() {
 
     # Collect raw folder/file names
     while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_global_filesystem_find configs directory single "$context")
-    while IFS= read -r item; do [[ -n "$item" ]] && config_files+=("$item");  done < <(_dr_get_config_files  "$context")
+    while IFS= read -r item; do [[ -n "$item" ]] && config_files+=("$item");  done < <(_dr_global_filesystem_find configs file single "$context")
 
     # Decorate folders using centralized function (simple mode)
     _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
