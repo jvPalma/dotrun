@@ -320,62 +320,55 @@ _dr() {
 
   # Helper: Emit recursive search results with colored path display
   # Handles both files (scripts) and directories
+  # Uses _wanted for proper tag registration (enables zstyle menu/colors)
   _dr_emit_recursive_search() {
     local pattern="$1"
-    local -a matches displays
+    local -a folder_matches folder_displays script_matches script_displays
     local type fullpath
-
-    echo ">>> _dr_emit_recursive_search called with pattern='$pattern'" >> /tmp/dr_completion_debug.log
 
     while IFS=: read -r type fullpath; do
       [[ -z "$type" || -z "$fullpath" ]] && continue
 
-      matches+=("$fullpath")
-
       # Build display string with ANSI color codes and emoji
+      # Separate folders and scripts for proper _wanted tag registration
       if [[ "$type" == "d" ]]; then
-        # Directory - show with folder emoji (yellow folder icon)
+        # Directory - add trailing slash for completion, show with folder emoji
+        folder_matches+=("${fullpath}/")
         if [[ "$fullpath" == */* ]]; then
           local parent="${fullpath%/*}/"
           local dirname="${fullpath##*/}"
-          # Yellow for parent path, yellow for folder name with 📁
-          displays+=($'\e[33m'"${parent}"$'\e[33m'"📁 ${dirname}"$'\e[0m')
+          folder_displays+=($'\e[33m'"${parent}"$'\e[33m'"📁 ${dirname}/"$'\e[0m')
         else
-          # Root level folder - yellow with emoji
-          displays+=($'\e[33m'"📁 ${fullpath}"$'\e[0m')
+          folder_displays+=($'\e[33m'"📁 ${fullpath}/"$'\e[0m')
         fi
       else
-        # File (script) - show with rocket emoji (green script icon)
+        # File (script) - show with rocket emoji
+        script_matches+=("$fullpath")
         if [[ "$fullpath" == */* ]]; then
           local folder="${fullpath%/*}/"
           local scriptname="${fullpath##*/}"
-          # Yellow for folder path, green for script name with 🚀
-          displays+=($'\e[33m'"${folder}"$'\e[32m'"🚀 ${scriptname}"$'\e[0m')
+          script_displays+=($'\e[33m'"${folder}"$'\e[32m'"🚀 ${scriptname}"$'\e[0m')
         else
-          # Root level script - green with emoji
-          displays+=($'\e[32m'"🚀 ${fullpath}"$'\e[0m')
+          script_displays+=($'\e[32m'"🚀 ${fullpath}"$'\e[0m')
         fi
       fi
     done < <(_dr_search_recursive "$pattern")
 
-    echo ">>> Found ${#matches[@]} matches" >> /tmp/dr_completion_debug.log
-    printf '>>> Match: %s\n' "${matches[@]}" >> /tmp/dr_completion_debug.log
+    local has_matches=0
 
-    if (( ${#matches[@]} )); then
-      echo ">>> Adding ${#matches[@]} completions..." >> /tmp/dr_completion_debug.log
-
-      # Add completions with different handling for folders
-      # -M: matcher spec for basename matching
-      # -d: display strings with colors and emojis
-      # -S '': no space suffix for folders
-      compadd -M 'r:|[/]=* r:|=*' -d displays -a -- matches
-
-      echo ">>> Done adding completions with compadd" >> /tmp/dr_completion_debug.log
-      return 0
-    else
-      echo ">>> NO MATCHES - returning 1" >> /tmp/dr_completion_debug.log
-      return 1
+    # Emit with _wanted for proper tag registration (enables zstyle menu/colors)
+    # -U: add unconditionally (we already did matching in _dr_search_recursive)
+    # -S '': no suffix for folders (they already have trailing slash)
+    if (( ${#folder_matches[@]} )); then
+      _wanted folders expl 'folders' compadd -U -S '' -d folder_displays -a -- folder_matches
+      has_matches=1
     fi
+    if (( ${#script_matches[@]} )); then
+      _wanted scripts expl 'scripts' compadd -U -d script_displays -a -- script_matches
+      has_matches=1
+    fi
+
+    (( has_matches )) && return 0 || return 1
   }
 
 

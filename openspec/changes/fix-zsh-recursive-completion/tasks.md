@@ -11,21 +11,17 @@ Tasks are organized into phases. Each task is designed to be small, verifiable, 
 
 ## Phase 1: Core Bug Fix
 
-### 1.1 Add `-U` Flag to Recursive Search Emit
+### 1.1 Add `-U` Flag and `_wanted` Tags to Recursive Search Emit
 
-- [ ] 1.1.1 Open `core/shared/dotrun/shell/zsh/dr_completion.zsh`
-- [ ] 1.1.2 Navigate to `_dr_emit_recursive_search()` function (around line 323)
-- [ ] 1.1.3 Find the `compadd` call at line 371:
-  ```zsh
-  compadd -M 'r:|[/]=* r:|=*' -d displays -a -- matches
-  ```
-- [ ] 1.1.4 Add `-U` flag to bypass zsh's prefix matching:
-  ```zsh
-  compadd -U -M 'r:|[/]=* r:|=*' -d displays -a -- matches
-  ```
-- [ ] 1.1.5 Save file
+- [x] 1.1.1 Open `core/shared/dotrun/shell/zsh/dr_completion.zsh`
+- [x] 1.1.2 Navigate to `_dr_emit_recursive_search()` function (around line 323)
+- [x] 1.1.3 Refactored to separate folders and scripts into separate arrays
+- [x] 1.1.4 Added `_wanted folders` and `_wanted scripts` for proper tag registration
+- [x] 1.1.5 Added `-U` flag to bypass zsh's prefix matching
+- [x] 1.1.6 Removed debug logging from this function (6 statements)
+- [x] 1.1.7 Added trailing slash to folder matches for proper completion
 
-**Validation:** Core fix in place, ready for testing
+**Validation:** Core fix in place with `_wanted` for zstyle menu support ✅
 
 ---
 
