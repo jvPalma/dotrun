@@ -472,28 +472,7 @@ _dr() {
     fi
   }
 
-  # Helper: Collect and emit candidates for a context.
-  # Arg1: context (e.g., "ai/tools/" or ""), Arg2: prefix to insert (usually same as context)
-  _dr_emit_context() {
-    local context="$1"
-    local prefix="$2"
-    local -a folders scripts folder_matches folder_displays script_matches script_displays
-    local item
 
-    # Collect raw folder/script names
-    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_global_filesystem_find scripts directory single "$context")
-    while IFS= read -r item; do [[ -n "$item" ]] && scripts+=("$item");  done < <(_dr_global_filesystem_find scripts file single "$context")
-
-    # Decorate folders using centralized function (simple mode)
-    _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
-
-    # Decorate scripts using centralized function (simple mode)
-    _dr_decorate_files SCRIPTS script_matches script_displays "$prefix" simple "${scripts[@]}"
-
-    # Emit with tags so group-order (folders → scripts) applies; keep -S '' for folders
-    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
-    (( ${#script_matches[@]} )) && _wanted scripts  expl 'scripts'  compadd      -d script_displays -a -- script_matches
-  }
 
 
   # Helper function: Search all scripts AND folders recursively by pattern
@@ -655,51 +634,7 @@ _dr() {
     (( has_matches )) && return 0 || return 1
   }
 
-  # Helper: Collect and emit candidates for alias context
-  # Arg1: context (e.g., "cd/" or ""), Arg2: prefix to insert (usually same as context)
-  _dr_emit_aliases_context() {
-    local context="$1"
-    local prefix="$2"
-    local -a folders alias_files folder_matches folder_displays alias_matches alias_displays
-    local item
 
-    # Collect raw folder/file names
-    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_global_filesystem_find aliases directory single "$context")
-    while IFS= read -r item; do [[ -n "$item" ]] && alias_files+=("$item");  done < <(_dr_global_filesystem_find aliases file single "$context")
-
-    # Decorate folders using centralized function (simple mode)
-    _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
-
-    # Decorate alias files using centralized function
-    _dr_decorate_files ALIASES alias_matches alias_displays "$prefix" simple "${alias_files[@]}"
-
-    # Emit with tags so group-order (folders → alias files) applies; keep -S '' for folders
-    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
-    (( ${#alias_matches[@]} )) && _wanted aliases  expl 'aliases'  compadd      -d alias_displays -a -- alias_matches
-  }
-
-  # Helper: Collect and emit candidates for config context
-  # Arg1: context (e.g., "api/" or ""), Arg2: prefix to insert (usually same as context)
-  _dr_emit_configs_context() {
-    local context="$1"
-    local prefix="$2"
-    local -a folders config_files folder_matches folder_displays config_matches config_displays
-    local item
-
-    # Collect raw folder/file names
-    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_global_filesystem_find configs directory single "$context")
-    while IFS= read -r item; do [[ -n "$item" ]] && config_files+=("$item");  done < <(_dr_global_filesystem_find configs file single "$context")
-
-    # Decorate folders using centralized function (simple mode)
-    _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
-
-    # Decorate config files using centralized function
-    _dr_decorate_files CONFIGS config_matches config_displays "$prefix" simple "${config_files[@]}"
-
-    # Emit with tags so group-order (folders → config files) applies; keep -S '' for folders
-    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
-    (( ${#config_matches[@]} )) && _wanted configs  expl 'configs'  compadd      -d config_displays -a -- config_matches
-  }
 
   # Get config keys (recursive search)
   local -a config_keys
@@ -756,7 +691,7 @@ _dr() {
         local context_path=$(_dr_get_context_path "$current_word")
 
         # Collect and emit in one go (prefix equals the context)
-        _dr_emit_context "$context_path" "$context_path"
+        _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
 
         return 0
       else
@@ -764,7 +699,7 @@ _dr() {
         if [[ -n "$current_word" && "$current_word" != -* ]]; then
           echo "BRANCH: recursive search for pattern='$current_word'" >> /tmp/dr_completion_debug.log
           # User has typed a pattern (like "pr") - do recursive search ONLY
-          # COMPLETELY BLOCK default context - do NOT call _dr_emit_context
+          # COMPLETELY BLOCK default context - recursive search only
           _dr_emit_recursive_search "$current_word"
           # Return immediately - no other completions allowed
           echo "RETURNED from recursive search" >> /tmp/dr_completion_debug.log
@@ -779,7 +714,7 @@ _dr() {
 
           # Hint + collect + emit via helpers
           _dr_show_hint
-          _dr_emit_context "" ""
+          _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
 
           return 0
         fi
@@ -837,48 +772,48 @@ _dr() {
           # Support folder navigation for implicit set: dr set git/<tab>
           local current_word="${words[3]}"
           if [[ "$current_word" == */* ]]; then
-            # In folder context - use _dr_emit_context to preserve path prefix
+            # In folder context - use piped feature context to preserve path prefix
             local context_path=$(_dr_get_context_path "$current_word")
-            _dr_emit_context "$context_path" "$context_path"
+            _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
           else
             # Root context - show folders and scripts
-            _dr_emit_context "" ""
+            _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
           fi
           ;;
         edit|help)
           # Support hierarchical navigation for edit/help commands
           local current_word="${words[3]}"
           if [[ "$current_word" == */* ]]; then
-            # In folder context - use _dr_emit_context to preserve path prefix
+            # In folder context - use piped feature context to preserve path prefix
             local context_path=$(_dr_get_context_path "$current_word")
-            _dr_emit_context "$context_path" "$context_path"
+            _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
           else
             # Root context - show folders and scripts with colors/emojis
-            _dr_emit_context "" ""
+            _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
           fi
           ;;
         move|rename|mv)
           # Support hierarchical navigation for move/rename source argument
           local current_word="${words[3]}"
           if [[ "$current_word" == */* ]]; then
-            # In folder context - use _dr_emit_context to preserve path prefix
+            # In folder context - use piped feature context to preserve path prefix
             local context_path=$(_dr_get_context_path "$current_word")
-            _dr_emit_context "$context_path" "$context_path"
+            _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
           else
             # Root context - show folders and scripts with colors/emojis
-            _dr_emit_context "" ""
+            _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
           fi
           ;;
         remove)
           # Support hierarchical navigation for removal
           local current_word="${words[3]}"
           if [[ "$current_word" == */* ]]; then
-            # In folder context - use _dr_emit_context to preserve path prefix
+            # In folder context - use piped feature context to preserve path prefix
             local context_path=$(_dr_get_context_path "$current_word")
-            _dr_emit_context "$context_path" "$context_path"
+            _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
           else
             # Root context - show folders and scripts with colors/emojis
-            _dr_emit_context "" ""
+            _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
           fi
           ;;
         -l|-L)
@@ -895,9 +830,9 @@ _dr() {
           # Support folder navigation: dr move old git/new
           local current_word="${words[4]}"
           if [[ "$current_word" == */* ]]; then
-            # In folder context - use _dr_emit_context to preserve path prefix
+            # In folder context - use piped feature context to preserve path prefix
             local context_path=$(_dr_get_context_path "$current_word")
-            _dr_emit_context "$context_path" "$context_path"
+            _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
           else
             # Root context - show folders for organization
             local -a folders folder_matches folder_displays
@@ -916,36 +851,36 @@ _dr() {
               # Support folder navigation: dr -s set git/<tab>
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_context "$context_path" "$context_path"
+                _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
               else
                 # Root context - show folders and scripts
-                _dr_emit_context "" ""
+                _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
               fi
               ;;
             help|remove)
               # Support hierarchical navigation with colors/emojis
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_context "$context_path" "$context_path"
+                _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
               else
                 # Root context - show folders and scripts with colors/emojis
-                _dr_emit_context "" ""
+                _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
               fi
               ;;
             move|rename)
               # Support hierarchical navigation for source argument
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_context "$context_path" "$context_path"
+                _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
               else
                 # Root context - show folders and scripts with colors/emojis
-                _dr_emit_context "" ""
+                _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
               fi
               ;;
             list)
@@ -954,7 +889,7 @@ _dr() {
               if [[ "$current_word" == */* ]]; then
                 # In folder context - preserve path
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_context "$context_path" "$context_path"
+                _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
               else
                 # Root context - just show folders
                 local -a folders folder_matches folder_displays
@@ -975,24 +910,24 @@ _dr() {
               # Support folder navigation: dr -a set cd/<tab>
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_aliases_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_aliases_context "$context_path" "$context_path"
+                _dr_get_feature_context aliases "$context_path" | _dr_display_feature_context aliases "$context_path"
               else
                 # Root context - show folders and alias files
-                _dr_emit_aliases_context "" ""
+                _dr_get_feature_context aliases "" | _dr_display_feature_context aliases ""
               fi
               ;;
             remove)
               # Hierarchical navigation for alias files
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_aliases_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_aliases_context "$context_path" "$context_path"
+                _dr_get_feature_context aliases "$context_path" | _dr_display_feature_context aliases "$context_path"
               else
                 # Root context - show folders and alias files
-                _dr_emit_aliases_context "" ""
+                _dr_get_feature_context aliases "" | _dr_display_feature_context aliases ""
               fi
               ;;
             list)
@@ -1008,24 +943,24 @@ _dr() {
               # Support folder navigation: dr -c set api/<tab>
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_configs_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_configs_context "$context_path" "$context_path"
+                _dr_get_feature_context configs "$context_path" | _dr_display_feature_context configs "$context_path"
               else
                 # Root context - show folders and config files
-                _dr_emit_configs_context "" ""
+                _dr_get_feature_context configs "" | _dr_display_feature_context configs ""
               fi
               ;;
             edit)
               # Hierarchical navigation for config files
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_configs_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_configs_context "$context_path" "$context_path"
+                _dr_get_feature_context configs "$context_path" | _dr_display_feature_context configs "$context_path"
               else
                 # Root context - show folders and config files
-                _dr_emit_configs_context "" ""
+                _dr_get_feature_context configs "" | _dr_display_feature_context configs ""
               fi
               ;;
             get|unset)
@@ -1053,9 +988,9 @@ _dr() {
               # Support folder navigation for destination: dr -s move old git/new
               local current_word="${words[5]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_context "$context_path" "$context_path"
+                _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
               else
                 # Root context - show folders for organization
                 local -a folders folder_matches folder_displays
