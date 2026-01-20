@@ -32,6 +32,16 @@ zstyle ':completion:*:*:dr:*:aliases-commands' list-colors '=(#b)(*)=35'   # Pur
 zstyle ':completion:*:*:dr:*:config-commands' list-colors '=(#b)(*)=31'    # Red for config
 zstyle ':completion:*:*:dr:*:collections-commands' list-colors '=(#b)(*)=34'  # Blue for collections
 
+# ============================================
+# ICON CONSTANTS (SINGLE SOURCE OF TRUTH)
+# ============================================
+# These icons are used throughout completion display
+# Change here to update all decorations consistently
+FOLDER_ICON='📁'
+SCRIPT_ICON='🚀'
+ALIAS_ICON='🎭'
+CONFIG_ICON='⚙'
+
 # Main completion function
 _dr() {
   # DEBUG: Log every function call
@@ -44,6 +54,7 @@ _dr() {
   } >> /tmp/dr_completion_debug.log
 
   local -a special_commands script_commands aliases_commands config_commands collections_commands
+
   # Get aliases and config directories
   local BIN_DIR="${DR_CONFIG:-$HOME/.config/dotrun}/scripts"
   local ALIASES_DIR="${DR_CONFIG:-$HOME/.config/dotrun}/aliases"
@@ -123,8 +134,155 @@ _dr() {
     fi
   }
 
+
+  # Helper: Show the gray hint at root
+  _dr_show_hint() {
+    _message -r $'\e[90m(hint: -s/scripts, -a/aliases, -c/config, -col/collections)\e[0m'
+  }
+
+  # Helper: Decorate folder paths with emoji for completion display (SINGLE SOURCE OF TRUTH)
+  # Appends decorated folders to the matches and displays arrays via indirect assignment
+  #
+  # Usage: _dr_decorate_folders <matches_var> <displays_var> <prefix> [mode] folder1 folder2 ...
+  #
+  # Args:
+  #   $1: variable name of array to append matches (for insertion into command line)
+  #   $2: variable name of array to append displays (for visual rendering with emoji)
+  #   $3: prefix to prepend to matches (e.g., "context/" or "")
+  #   $4: display mode (optional, default "simple"):
+  #       - "simple": always show "📁 basename/" (for hierarchical navigation)
+  #       - "fullpath": show "parent/📁 child/" for nested, "📁 folder/" for root (for search results)
+  #   $@: remaining args are folder paths to decorate
+  #
+  # Example (simple mode - hierarchical navigation):
+  #   local -a folder_matches folder_displays
+  #   _dr_decorate_folders folder_matches folder_displays "ai/tools/" simple "child1/" "child2/"
+  #   # Result: folder_matches=("ai/tools/child1/" "ai/tools/child2/")
+  #   #         folder_displays=("📁 child1/" "📁 child2/")
+  #
+  # Example (fullpath mode - search results):
+  #   _dr_decorate_folders folder_matches folder_displays "" fullpath "status/" "ai/tools/"
+  #   # Result: folder_matches=("status/" "ai/tools/")
+  #   #         folder_displays=("📁 status/" "ai/📁 tools/")
+  #
+  _dr_decorate_folders() {
+    local matches_var="$1" displays_var="$2" prefix="$3" mode="${4:-simple}"
+    shift 4
+
+    local item fullpath
+    for item; do
+      fullpath="${prefix}${item}"
+      eval "${matches_var}+=(\"\$fullpath\")"
+
+      if [[ "$mode" == "fullpath" ]]; then
+        local path_no_slash="${fullpath%/}"
+        if [[ "$path_no_slash" == */* ]]; then
+          local parent="${path_no_slash%/*}/"
+          local dirname="${path_no_slash##*/}"
+          eval "${displays_var}+=(\"${FOLDER_ICON} \${parent} \${dirname}/\")"
+        else
+          eval "${displays_var}+=(\"${FOLDER_ICON} \$fullpath\")"
+        fi
+      else
+        eval "${displays_var}+=(\"${FOLDER_ICON} \$item\")"
+      fi
+    done
+  }
+
+  # Helper: Decorate file paths with emoji for completion display (SINGLE SOURCE OF TRUTH)
+  # Unified function for scripts, aliases, and configs decoration
+  # Appends decorated items to the matches and displays arrays via indirect assignment
+  #
+  # Usage: _dr_decorate_files <type> <matches_var> <displays_var> <prefix> <mode> item1 item2 ...
+  #
+  # Args:
+  #   $1: type - "SCRIPTS", "ALIASES", or "CONFIGS" (determines icon)
+  #   $2: variable name of array to append matches (for insertion into command line)
+  #   $3: variable name of array to append displays (for visual rendering with emoji)
+  #   $4: prefix to prepend to matches (e.g., "ai/tools/" or "")
+  #   $5: mode - "simple" or "fullpath"
+  #   $@: remaining args are file paths to decorate
+  #
+  # Example (SCRIPTS, simple mode - hierarchical navigation):
+  #   local -a script_matches script_displays
+  #   _dr_decorate_files SCRIPTS script_matches script_displays "ai/tools/" simple "deploy" "test"
+  #   # Result: script_matches=("ai/tools/deploy" "ai/tools/test")
+  #   #         script_displays=("🚀 deploy" "🚀 test")
+  #
+  # Example (SCRIPTS, fullpath mode - search results):
+  #   _dr_decorate_files SCRIPTS script_matches script_displays "" fullpath "status" "git/status/bk"
+  #   # Result: script_matches=("status" "git/status/bk")
+  #   #         script_displays=("🚀 status" "git/status/🚀 bk")
+  #
+  # Example (ALIASES, simple mode):
+  #   _dr_decorate_files ALIASES alias_matches alias_displays "cd/" simple "git" "docker"
+  #   # Result: alias_matches=("cd/git" "cd/docker")
+  #   #         alias_displays=("🎭 git" "🎭 docker")
+  #
+  # Example (CONFIGS, simple mode):
+  #   _dr_decorate_files CONFIGS config_matches config_displays "api/" simple "database" "cache"
+  #   # Result: config_matches=("api/database" "api/cache")
+  #   #         config_displays=("⚙ database" "⚙ cache")
+  #
+  _dr_decorate_files() {
+    local type="$1" matches_var="$2" displays_var="$3" prefix="$4" mode="$5"
+    shift 5
+
+    # Determine icon based on type
+    local icon
+    case "$type" in
+      SCRIPTS) icon="$SCRIPT_ICON" ;;
+      ALIASES) icon="$ALIAS_ICON" ;;
+      CONFIGS) icon="$CONFIG_ICON" ;;
+      *) icon="📄" ;;  # Fallback for unknown types
+    esac
+
+    local item fullpath
+    for item; do
+      fullpath="${prefix}${item}"
+      eval "${matches_var}+=(\"\$fullpath\")"
+
+      if [[ "$mode" == "fullpath" ]]; then
+        if [[ "$fullpath" == */* ]]; then
+          local folder="${fullpath%/*}/"
+          local filename="${fullpath##*/}"
+          eval "${displays_var}+=(\"\${folder} ${icon} \${filename}\")"
+        else
+          eval "${displays_var}+=(\"${icon} \$fullpath\")"
+        fi
+      else
+        eval "${displays_var}+=(\"${icon} \$item\")"
+      fi
+    done
+  }
+
+  # Helper function: Add folders with emoji display using compadd
+  _dr_add_folders() {
+    local -a folders folder_matches folder_displays
+    while IFS= read -r folder; do
+      [[ -n "$folder" ]] && folders+=("$folder")
+    done
+
+    # Use centralized decoration function (simple mode - just basename with emoji)
+    _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
+
+    # Only call compset -P '*' if we have folders to add
+    # This prevents PREFIX consumption when no completions exist (which causes word deletion)
+    if (( ${#folder_matches[@]} )); then
+      # This marks the entire typed word as "consumed" before using -U, this means that
+      # ZSH will not delete the typed word while still bypassing ZSH filtering
+      compset -P '*'
+      # this allows us to use -U to bypass ZSH's prefix filtering and show all our pre-filtered results
+      # -U: bypass ZSH's prefix filtering
+      # -S '': no suffix for folders (they already have trailing slash)
+      # -d displays: use our custom display strings with emoji
+      # -a folders: add all folder candidates
+      compadd -U -S '' -d folder_displays -a folder_matches
+    fi
+  }
+  
   # Helper function: Get folders in context
-  # Outputs folders (one per line) without emoji - use _dr_add_folders to display with emoji
+  # Outputs folders (one per line) without emoji - use dr_add_folders to display with emoji
   _dr_get_folders() {
     local context="$1"
     local search_dir="$BIN_DIR"
@@ -149,11 +307,6 @@ _dr() {
     done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print0 2>/dev/null | sort -z)
   }
 
-  # Helper: Show the gray hint at root
-  _dr_show_hint() {
-    _message -r $'\e[90m(hint: -s/scripts, -a/aliases, -c/config, -col/collections)\e[0m'
-  }
-
   # Helper: Collect and emit candidates for a context.
   # Arg1: context (e.g., "ai/tools/" or ""), Arg2: prefix to insert (usually same as context)
   _dr_emit_context() {
@@ -162,34 +315,21 @@ _dr() {
     local -a folders scripts folder_matches folder_displays script_matches script_displays
     local item
 
-    # Collect
+    # Collect raw folder/script names
     while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_get_folders "$context")
     while IFS= read -r item; do [[ -n "$item" ]] && scripts+=("$item");  done < <(_dr_get_scripts  "$context")
 
-    # Decorate for display/insert
-    for item in "${folders[@]}"; do
-      folder_matches+=("${prefix}${item}")   # insert: "ai/tools/<child>/"
-      folder_displays+=("📁 ${item}")        # show:    "📁 <child>/"
-    done
-    for item in "${scripts[@]}"; do
-      script_matches+=("${prefix}${item}")   # insert: "ai/tools/<script>"
-      script_displays+=("🚀 ${item}")        # show:    "🚀 <script>"
-    done
+    # Decorate folders using centralized function (simple mode)
+    _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
+
+    # Decorate scripts using centralized function (simple mode)
+    _dr_decorate_files SCRIPTS script_matches script_displays "$prefix" simple "${scripts[@]}"
 
     # Emit with tags so group-order (folders → scripts) applies; keep -S '' for folders
     (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
     (( ${#script_matches[@]} )) && _wanted scripts  expl 'scripts'  compadd      -d script_displays -a -- script_matches
   }
 
-  # Helper function: Add folders with emoji display using compadd
-  _dr_add_folders() {
-    local -a folders displays
-    while IFS= read -r folder; do
-      [[ -n "$folder" ]] && folders+=("$folder") && displays+=("📁 $folder")
-    done
-
-    (( ${#folders[@]} )) && compadd -U -S '' -d displays -a folders
-  }
 
   # Helper function: Get scripts in context (strip .sh extension)
   # Outputs scripts (one per line) without emoji - use _dr_add_scripts to display with emoji
@@ -216,12 +356,20 @@ _dr() {
 
   # Helper function: Add scripts with emoji display using compadd
   _dr_add_scripts() {
-    local -a scripts displays
+    local -a scripts script_matches script_displays
     while IFS= read -r script; do
-      [[ -n "$script" ]] && scripts+=("$script") && displays+=("🚀 $script")
+      [[ -n "$script" ]] && scripts+=("$script")
     done
 
-    (( ${#scripts[@]} )) && compadd -U -d displays -a scripts
+    # Use centralized decoration function (simple mode - just basename with emoji)
+    _dr_decorate_files SCRIPTS script_matches script_displays "" simple "${scripts[@]}"
+
+    # Only call compset -P '*' if we have scripts to add
+    # This prevents PREFIX consumption when no completions exist (which causes word deletion)
+    if (( ${#script_matches[@]} )); then
+      compset -P '*'
+      compadd -U -d script_displays -a script_matches
+    fi
   }
 
   # Helper function: Get all scripts recursively (for edit/help/move)
@@ -247,12 +395,16 @@ _dr() {
 
   # Helper function: Search all scripts AND folders recursively by pattern
   # Supports case-insensitive substring matching with priority sorting:
-  #   Priority 1: Prefix match (highest)
-  #   Priority 2: Substring match
+  #   Priority 1: Basename prefix match (best)
+  #   Priority 2: Basename substring match
+  #   Priority 3: Full path substring match (parent dirs contain pattern)
   # Returns: "type:fullpath" where type is 'f' (file) or 'd' (directory)
   _dr_search_recursive() {
     local pattern="$1"
+    echo "DEBUG[START]: _dr_search_recursive called with pattern='$pattern', BIN_DIR='$BIN_DIR'" >> /tmp/dr_completion_debug.log
+
     if [[ ! -d "$BIN_DIR" ]]; then
+      echo "DEBUG: BIN_DIR does not exist: '$BIN_DIR'" >> /tmp/dr_completion_debug.log
       return
     fi
 
@@ -260,56 +412,83 @@ _dr() {
     local pattern_lower="${(L)pattern}"
     local -a results
 
-    # Search for matching scripts
+    echo "DEBUG: About to run: find \"$BIN_DIR\" -type f -name \"*.sh\" -ipath \"*${pattern}*\" -print0" >> /tmp/dr_completion_debug.log
+
+    # Search for matching scripts (case-insensitive, excluding hidden files)
     while IFS= read -r -d '' file; do
       local fullpath="${file#${BIN_DIR}/}"
-      fullpath="${fullpath%.sh}"
+      fullpath="${fullpath%.sh}"  # Strip .sh extension for display
+
+      echo "DEBUG[1]: Checking file '$fullpath'" >> /tmp/dr_completion_debug.log
 
       local basename="${fullpath##*/}"
       local basename_lower="${(L)basename}"
+      local fullpath_lower="${(L)fullpath}"
 
       local priority depth
       # Count depth (number of slashes)
       depth="${fullpath//[^\/]}"
       depth="${#depth}"
 
-      # Determine match priority
+      # Determine match priority (check basename first, then full path)
       if [[ "$basename_lower" == "$pattern_lower"* ]]; then
-        priority=1  # Prefix match (best)
+        priority=1  # Basename prefix match (best)
       elif [[ "$basename_lower" == *"$pattern_lower"* ]]; then
-        priority=2  # Substring match
+        priority=2  # Basename substring match
+      elif [[ "$fullpath_lower" == *"$pattern_lower"* ]]; then
+        priority=3  # Full path substring match (e.g., parent dir contains pattern)
       else
         continue  # No match, skip
       fi
 
       # Store as "priority:depth:type:fullpath" for sorting
       results+=("$priority:$depth:f:$fullpath")
-    done < <(find "$BIN_DIR" -type f -name "*.sh" -print0 2>/dev/null)
+    done < <(find "$BIN_DIR" -type f -name "*.sh" -ipath "*${pattern}*" -print0 2>/dev/null)
 
-    # Search for matching folders
+    # Search for matching folders (case-insensitive, excluding hidden folders)
     while IFS= read -r -d '' dir; do
       local fullpath="${dir#${BIN_DIR}/}"
       fullpath="${fullpath%/}"  # Remove trailing slash
 
+      echo "DEBUG[2]: Checking file '$fullpath'" >> /tmp/dr_completion_debug.log
+
+      # Skip the root BIN_DIR itself
+      [[ -z "$fullpath" ]] && continue
+
       local basename="${fullpath##*/}"
       local basename_lower="${(L)basename}"
+      local fullpath_lower="${(L)fullpath}"
 
       local priority depth
       depth="${fullpath//[^\/]}"
       depth="${#depth}"
 
-      # Match on folder basename
+      # Determine match priority (check basename first, then full path)
       if [[ "$basename_lower" == "$pattern_lower"* ]]; then
-        priority=1  # Prefix match
+        priority=1  # Basename prefix match
       elif [[ "$basename_lower" == *"$pattern_lower"* ]]; then
-        priority=2  # Substring match
+        priority=2  # Basename substring match
+      elif [[ "$fullpath_lower" == *"$pattern_lower"* ]]; then
+        priority=3  # Full path substring match
       else
         continue
       fi
 
       # Add trailing slash for folders
       results+=("$priority:$depth:d:$fullpath/")
-    done < <(find "$BIN_DIR" -type d ! -name '.*' -print0 2>/dev/null)
+      
+      # Also find all .sh files inside matched directories
+      while IFS= read -r -d '' nested_file; do
+        local nested_fullpath="${nested_file#${BIN_DIR}/}"
+
+      echo "DEBUG[3]: Checking file '$nested_fullpath'" >> /tmp/dr_completion_debug.log
+        nested_fullpath="${nested_fullpath%.sh}"
+        local nested_depth="${nested_fullpath//[^\/]}"
+        nested_depth="${#nested_depth}"
+        # Use priority 4 for nested files so they appear after direct matches
+        results+=("4:$nested_depth:f:$nested_fullpath")
+      done < <(find "${BIN_DIR}/${fullpath}" -type f -name "*.sh" -print0 2>/dev/null)
+    done < <(find "$BIN_DIR" -type d -ipath "*${pattern}*" -print0 2>/dev/null)
 
     # Sort by: priority (lower first), depth (shallower first), name (alphabetically)
     # Output format: "type:fullpath"
@@ -323,49 +502,51 @@ _dr() {
   # Uses _wanted for proper tag registration (enables zstyle menu/colors)
   _dr_emit_recursive_search() {
     local pattern="$1"
-    local -a folder_matches folder_displays script_matches script_displays
+    echo "DEBUG[EMIT-START]: _dr_emit_recursive_search called with pattern='$pattern'" >> /tmp/dr_completion_debug.log
+
+    local -a folders scripts folder_matches folder_displays script_matches script_displays
     local type fullpath
 
+    echo "DEBUG[EMIT]: About to call _dr_search_recursive" >> /tmp/dr_completion_debug.log
+    # Collect folders and scripts separately from search results
     while IFS=: read -r type fullpath; do
+      echo "DEBUG[EMIT-LOOP]: Read type='$type' fullpath='$fullpath'" >> /tmp/dr_completion_debug.log
       [[ -z "$type" || -z "$fullpath" ]] && continue
 
-      # Build display string with ANSI color codes and emoji
-      # Separate folders and scripts for proper _wanted tag registration
       if [[ "$type" == "d" ]]; then
-        # Directory - add trailing slash for completion, show with folder emoji
-        folder_matches+=("${fullpath}/")
-        if [[ "$fullpath" == */* ]]; then
-          local parent="${fullpath%/*}/"
-          local dirname="${fullpath##*/}"
-          folder_displays+=($'\e[33m'"${parent}"$'\e[33m'"📁 ${dirname}/"$'\e[0m')
-        else
-          folder_displays+=($'\e[33m'"📁 ${fullpath}/"$'\e[0m')
-        fi
+        folders+=("$fullpath")
       else
-        # File (script) - show with rocket emoji
-        script_matches+=("$fullpath")
-        if [[ "$fullpath" == */* ]]; then
-          local folder="${fullpath%/*}/"
-          local scriptname="${fullpath##*/}"
-          script_displays+=($'\e[33m'"${folder}"$'\e[32m'"🚀 ${scriptname}"$'\e[0m')
-        else
-          script_displays+=($'\e[32m'"🚀 ${fullpath}"$'\e[0m')
-        fi
+        scripts+=("$fullpath")
       fi
     done < <(_dr_search_recursive "$pattern")
 
+    # Decorate folders using centralized function (fullpath mode for search results)
+    # Shows "parent/${FOLDER_ICON} child/" for nested, "${FOLDER_ICON} folder/" for root
+    _dr_decorate_folders folder_matches folder_displays "" fullpath "${folders[@]}"
+
+    # Decorate scripts using centralized function (fullpath mode for search results)
+    # Shows "parent/${SCRIPT_ICON} script" for nested, "${SCRIPT_ICON} script" for root
+    _dr_decorate_files SCRIPTS script_matches script_displays "" fullpath "${scripts[@]}"
+
+    echo "DEBUG[EMIT]: After loop: folder_matches=${#folder_matches[@]}, script_matches=${#script_matches[@]}" >> /tmp/dr_completion_debug.log
+
     local has_matches=0
 
-    # Emit with _wanted for proper tag registration (enables zstyle menu/colors)
-    # -U: add unconditionally (we already did matching in _dr_search_recursive)
-    # -S '': no suffix for folders (they already have trailing slash)
-    if (( ${#folder_matches[@]} )); then
-      _wanted folders expl 'folders' compadd -U -S '' -d folder_displays -a -- folder_matches
-      has_matches=1
-    fi
-    if (( ${#script_matches[@]} )); then
-      _wanted scripts expl 'scripts' compadd -U -d script_displays -a -- script_matches
-      has_matches=1
+    # Use -i flag to preserve PREFIX while bypassing ZSH filtering
+    # -i "$PREFIX": sets ignored prefix to user's typed text (preserved in command line)
+    # -U: bypass ZSH's prefix filtering, show ALL our pre-filtered results
+    # This approach is cleaner than compset -P '*' because it doesn't modify PREFIX/IPREFIX
+    if (( ${#folder_matches[@]} || ${#script_matches[@]} )); then
+      # -U with -i: "only the string from the -i option is used" (not IPREFIX)
+      # -S '': no suffix for folders (they already have trailing slash)
+      if (( ${#folder_matches[@]} )); then
+        compadd -U -i "$PREFIX" -S '' -d folder_displays -a folder_matches
+        has_matches=1
+      fi
+      if (( ${#script_matches[@]} )); then
+        compadd -U -i "$PREFIX" -d script_displays -a script_matches
+        has_matches=1
+      fi
     fi
 
     (( has_matches )) && return 0 || return 1
@@ -427,19 +608,15 @@ _dr() {
     local -a folders alias_files folder_matches folder_displays alias_matches alias_displays
     local item
 
-    # Collect
+    # Collect raw folder/file names
     while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_get_alias_folders "$context")
     while IFS= read -r item; do [[ -n "$item" ]] && alias_files+=("$item");  done < <(_dr_get_alias_files  "$context")
 
-    # Decorate for display/insert
-    for item in "${folders[@]}"; do
-      folder_matches+=("${prefix}${item}")   # insert: "cd/<child>/"
-      folder_displays+=("📁 ${item}")        # show:    "📁 <child>/"
-    done
-    for item in "${alias_files[@]}"; do
-      alias_matches+=("${prefix}${item}")    # insert: "cd/<file>"
-      alias_displays+=("🎭 ${item}")         # show:    "🎭 <file>"
-    done
+    # Decorate folders using centralized function (simple mode)
+    _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
+
+    # Decorate alias files using centralized function
+    _dr_decorate_files ALIASES alias_matches alias_displays "$prefix" simple "${alias_files[@]}"
 
     # Emit with tags so group-order (folders → alias files) applies; keep -S '' for folders
     (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
@@ -501,19 +678,15 @@ _dr() {
     local -a folders config_files folder_matches folder_displays config_matches config_displays
     local item
 
-    # Collect
+    # Collect raw folder/file names
     while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_get_config_folders "$context")
     while IFS= read -r item; do [[ -n "$item" ]] && config_files+=("$item");  done < <(_dr_get_config_files  "$context")
 
-    # Decorate for display/insert
-    for item in "${folders[@]}"; do
-      folder_matches+=("${prefix}${item}")   # insert: "api/<child>/"
-      folder_displays+=("📁 ${item}")        # show:    "📁 <child>/"
-    done
-    for item in "${config_files[@]}"; do
-      config_matches+=("${prefix}${item}")    # insert: "api/<file>"
-      config_displays+=("⚙ ${item}")         # show:    "⚙ <file>"
-    done
+    # Decorate folders using centralized function (simple mode)
+    _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
+
+    # Decorate config files using centralized function
+    _dr_decorate_files CONFIGS config_matches config_displays "$prefix" simple "${config_files[@]}"
 
     # Emit with tags so group-order (folders → config files) applies; keep -S '' for folders
     (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
@@ -719,11 +892,12 @@ _dr() {
             _dr_emit_context "$context_path" "$context_path"
           else
             # Root context - show folders for organization
-            local -a folders folder_displays
+            local -a folders folder_matches folder_displays
             while IFS= read -r folder; do
-              [[ -n "$folder" ]] && folders+=("$folder") && folder_displays+=("📁 $folder")
+              [[ -n "$folder" ]] && folders+=("$folder")
             done < <(_dr_get_folders "")
-            (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folders
+            _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
+            (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
           fi
           ;;
         -s|scripts)
@@ -775,11 +949,12 @@ _dr() {
                 _dr_emit_context "$context_path" "$context_path"
               else
                 # Root context - just show folders
-                local -a folders folder_displays
+                local -a folders folder_matches folder_displays
                 while IFS= read -r folder; do
-                  [[ -n "$folder" ]] && folders+=("$folder") && folder_displays+=("📁 $folder")
+                  [[ -n "$folder" ]] && folders+=("$folder")
                 done < <(_dr_get_folders "")
-                (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folders
+                _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
+                (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
               fi
               ;;
           esac
@@ -875,11 +1050,12 @@ _dr() {
                 _dr_emit_context "$context_path" "$context_path"
               else
                 # Root context - show folders for organization
-                local -a folders folder_displays
+                local -a folders folder_matches folder_displays
                 while IFS= read -r folder; do
-                  [[ -n "$folder" ]] && folders+=("$folder") && folder_displays+=("📁 $folder")
+                  [[ -n "$folder" ]] && folders+=("$folder")
                 done < <(_dr_get_folders "")
-                (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folders
+                _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
+                (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
               fi
               ;;
           esac
