@@ -1,5 +1,5 @@
 #compdef dr
-# shellcheck shell=bash disable=SC2148,SC2034,SC2154,SC2206,SC2207,SC2295,SC2296
+# shellcheck shell=zsh disable=SC2148,SC2034,SC2154,SC2206,SC2207,SC2295,SC2296
 
 # Zsh completion for dr with namespace-based UX, colorized hierarchical display
 
