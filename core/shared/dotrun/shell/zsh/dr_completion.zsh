@@ -616,10 +616,7 @@ _dr() {
           # Empty or starts with dash - show ONLY hint, folders, and scripts (NO special commands)
           # Do NOT show namespace flags (-s, -a, -c, -col) or subcommands (scripts, aliases, config, collections)
 
-          # Show hint as non-selectable message
-          _message -r $'\e[90m(hint: -s/scripts, -a/aliases, -c/config, -col/collections)\e[0m'
-
-          # Hint + collect + emit via helpers
+          # Show hint + folders + scripts
           _dr_show_hint
           _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
 
