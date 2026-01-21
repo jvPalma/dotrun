@@ -22,11 +22,29 @@ zstyle ':completion:*:*:dr:*' insert-unambiguous false
 
 # Configure colors for completion groups
 # Colors: 33=yellow, 36=cyan, 90=dark gray, 32=green, 35=purple, 31=red
+#
+# Multi-color patterns using (#b) backreferences:
+# - Pattern 1 (with path): "📁 path/ 🚀 name" → path in yellow, name in feature color
+# - Pattern 2 (root level): "🚀 name" → all in feature color
+#
 zstyle ':completion:*:*:dr:*:hints' list-colors '=(#b)(*)=90'              # Dark gray for hints
 zstyle ':completion:*:*:dr:*:folders' list-colors '=(#b)(*)=33'            # Yellow for folders
-zstyle ':completion:*:*:dr:*:scripts' list-colors '=(#b)(*)=32'            # Green for scripts
-zstyle ':completion:*:*:dr:*:aliases' list-colors '=(#b)(*)=35'            # Purple for aliases
-zstyle ':completion:*:*:dr:*:configs' list-colors '=(#b)(*)=31'            # Red for configs
+
+# Scripts: path in yellow (33), name in green (32)
+zstyle ':completion:*:*:dr:*:scripts' list-colors \
+  '=(#b)(*] )(*)=0=33=32' \
+  '=(#b)(*)=32'
+
+# Aliases: path in yellow (33), name in purple (35)
+zstyle ':completion:*:*:dr:*:aliases' list-colors \
+  '=(#b)(*] )(*)=0=33=35' \
+  '=(#b)(*)=35'
+
+# Configs: path in yellow (33), name in red (31)
+zstyle ':completion:*:*:dr:*:configs' list-colors \
+  '=(#b)(*] )(*)=0=33=31' \
+  '=(#b)(*)=31'
+
 zstyle ':completion:*:*:dr:*:script-commands' list-colors '=(#b)(*)=32'    # Green for script management
 zstyle ':completion:*:*:dr:*:aliases-commands' list-colors '=(#b)(*)=35'   # Purple for aliases
 zstyle ':completion:*:*:dr:*:config-commands' list-colors '=(#b)(*)=31'    # Red for config
@@ -314,10 +332,12 @@ _dr() {
 
       if [[ "$mode" == "fullpath" ]]; then
         if [[ "$fullpath" == */* ]]; then
+          # Nested file: show "📁 path/ 🚀 filename" for multi-color display
           local folder="${fullpath%/*}/"
           local filename="${fullpath##*/}"
-          eval "${displays_var}+=(\"\${folder} ${icon} \${filename}\")"
+          eval "${displays_var}+=(\"${icon} \${folder}\${filename}\")"
         else
+          # Root-level file: show "🚀 filename" (no folder icon needed)
           eval "${displays_var}+=(\"${icon} \$fullpath\")"
         fi
       else
@@ -473,20 +493,26 @@ _dr() {
     done < <(_dr_global_filesystem_find "$feature" file "$depth" "$subcontext" true "$filter")
   }
 
-  # _dr_display_feature_context <feature> <prefix>
+  # _dr_display_feature_context <feature> <prefix> [mode] [bypass_filter]
   #
   # Reads piped data from _dr_get_feature_context, decorates and displays using compadd.
   #
   # Args:
-  #   $1 (feature): 'scripts' | 'aliases' | 'configs' (determines icons)
-  #   $2 (prefix):  Prefix to prepend to matches (e.g., "ai/tools/")
+  #   $1 (feature):       'scripts' | 'aliases' | 'configs' (determines icons)
+  #   $2 (prefix):        Prefix to prepend to matches (e.g., "ai/tools/")
+  #   $3 (mode):          'simple' (default) | 'fullpath' - decoration mode
+  #                       - simple: shows "📁 child/" (for hierarchical navigation)
+  #                       - fullpath: shows "parent/📁 child/" (for recursive search)
+  #   $4 (bypass_filter): 'false' (default) | 'true' - bypass zsh filtering
+  #                       - false: let zsh filter normally (hierarchical navigation)
+  #                       - true: use -U -i "$PREFIX" (recursive search, our results pre-filtered)
   #
   # Input format (stdin):
   #   folder:dirname/
   #   file:filename
   #
   _dr_display_feature_context() {
-    local feature="$1" prefix="$2"
+    local feature="$1" prefix="$2" mode="${3:-simple}" bypass_filter="${4:-false}"
     local -a folders files folder_matches folder_displays file_matches file_displays
     local line type name
 
@@ -500,8 +526,8 @@ _dr() {
       esac
     done
 
-    # Decorate folders
-    _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
+    # Decorate folders with specified mode
+    _dr_decorate_folders folder_matches folder_displays "$prefix" "$mode" "${folders[@]}"
 
     # Decorate files (using feature to determine icon type)
     local file_type
@@ -510,11 +536,40 @@ _dr() {
       aliases) file_type="ALIASES" ;;
       configs) file_type="CONFIGS" ;;
     esac
-    _dr_decorate_files "$file_type" file_matches file_displays "$prefix" simple "${files[@]}"
+    _dr_decorate_files "$file_type" file_matches file_displays "$prefix" "$mode" "${files[@]}"
 
-    # Emit with _wanted tags
-    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
-    (( ${#file_matches[@]} )) && _wanted "$feature" expl "$feature" compadd -d file_displays -a -- file_matches
+    # Emit with _wanted tags (for zstyle coloring)
+    if [[ "$bypass_filter" == "true" ]]; then
+      # Recursive search: bypass zsh filtering, REPLACE typed text with full path
+      # -U: bypass prefix matching - completions don't need to match what user typed
+      #     When user selects a completion, it REPLACES PREFIX (the typed text like "sta")
+      # In fullpath mode (recursive search), emit FILES ONLY - folders are shown as path prefixes
+
+      # DEBUG
+      {
+        echo "=== _dr_display_feature_context bypass_filter DEBUG ==="
+        echo "file_matches count: ${#file_matches[@]}"
+        echo "file_matches: ${file_matches[*]}"
+        echo "file_displays: ${file_displays[*]}"
+        echo "PREFIX='$PREFIX' IPREFIX='$IPREFIX'"
+      } >> /tmp/dr_completion_debug.log
+
+      # CRITICAL: Set compstate BEFORE compadd to prevent PREFIX deletion
+      # Without this, zsh calculates "longest common prefix" of all matches (which is empty)
+      # and replaces the typed text with empty string, deleting it.
+      # compstate[insert]='menu' tells zsh: "go directly to menu, don't insert anything"
+      compstate[insert]='menu'
+
+      # Use _wanted for proper tag context (needed for zstyle colors)
+      if [[ "$mode" != "fullpath" ]]; then
+        (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -U -S '' -d folder_displays -a -- folder_matches
+      fi
+      (( ${#file_matches[@]} )) && _wanted "$feature" expl "$feature" compadd -U -d file_displays -a -- file_matches
+    else
+      # Hierarchical navigation: let zsh filter normally
+      (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
+      (( ${#file_matches[@]} )) && _wanted "$feature" expl "$feature" compadd -d file_displays -a -- file_matches
+    fi
   }
 
   # Helper function: Add folders with emoji display using compadd
@@ -541,169 +596,6 @@ _dr() {
       compadd -U -S '' -d folder_displays -a folder_matches
     fi
   }
-
-
-
-
-  # Helper function: Search all scripts AND folders recursively by pattern
-  # Supports case-insensitive substring matching with priority sorting:
-  #   Priority 1: Basename prefix match (best)
-  #   Priority 2: Basename substring match
-  #   Priority 3: Full path substring match (parent dirs contain pattern)
-  # Returns: "type:fullpath" where type is 'f' (file) or 'd' (directory)
-  _dr_search_recursive() {
-    local pattern="$1"
-    echo "DEBUG[START]: _dr_search_recursive called with pattern='$pattern', BIN_DIR='$BIN_DIR'" >> /tmp/dr_completion_debug.log
-
-    if [[ ! -d "$BIN_DIR" ]]; then
-      echo "DEBUG: BIN_DIR does not exist: '$BIN_DIR'" >> /tmp/dr_completion_debug.log
-      return
-    fi
-
-    # Convert pattern to lowercase for case-insensitive matching
-    local pattern_lower="${(L)pattern}"
-    local -a results
-
-    echo "DEBUG: About to run: find \"$BIN_DIR\" -type f -name \"*.sh\" -ipath \"*${pattern}*\" -print0" >> /tmp/dr_completion_debug.log
-
-    # Search for matching scripts (case-insensitive, excluding hidden files)
-    while IFS= read -r -d '' file; do
-      local fullpath="${file#${BIN_DIR}/}"
-      fullpath="${fullpath%.sh}"  # Strip .sh extension for display
-
-      echo "DEBUG[1]: Checking file '$fullpath'" >> /tmp/dr_completion_debug.log
-
-      local basename="${fullpath##*/}"
-      local basename_lower="${(L)basename}"
-      local fullpath_lower="${(L)fullpath}"
-
-      local priority depth
-      # Count depth (number of slashes)
-      depth="${fullpath//[^\/]}"
-      depth="${#depth}"
-
-      # Determine match priority (check basename first, then full path)
-      if [[ "$basename_lower" == "$pattern_lower"* ]]; then
-        priority=1  # Basename prefix match (best)
-      elif [[ "$basename_lower" == *"$pattern_lower"* ]]; then
-        priority=2  # Basename substring match
-      elif [[ "$fullpath_lower" == *"$pattern_lower"* ]]; then
-        priority=3  # Full path substring match (e.g., parent dir contains pattern)
-      else
-        continue  # No match, skip
-      fi
-
-      # Store as "priority:depth:type:fullpath" for sorting
-      results+=("$priority:$depth:f:$fullpath")
-    done < <(find "$BIN_DIR" -type f -name "*.sh" -ipath "*${pattern}*" -print0 2>/dev/null)
-
-    # Search for matching folders (case-insensitive, excluding hidden folders)
-    while IFS= read -r -d '' dir; do
-      local fullpath="${dir#${BIN_DIR}/}"
-      fullpath="${fullpath%/}"  # Remove trailing slash
-
-      echo "DEBUG[2]: Checking file '$fullpath'" >> /tmp/dr_completion_debug.log
-
-      # Skip the root BIN_DIR itself
-      [[ -z "$fullpath" ]] && continue
-
-      local basename="${fullpath##*/}"
-      local basename_lower="${(L)basename}"
-      local fullpath_lower="${(L)fullpath}"
-
-      local priority depth
-      depth="${fullpath//[^\/]}"
-      depth="${#depth}"
-
-      # Determine match priority (check basename first, then full path)
-      if [[ "$basename_lower" == "$pattern_lower"* ]]; then
-        priority=1  # Basename prefix match
-      elif [[ "$basename_lower" == *"$pattern_lower"* ]]; then
-        priority=2  # Basename substring match
-      elif [[ "$fullpath_lower" == *"$pattern_lower"* ]]; then
-        priority=3  # Full path substring match
-      else
-        continue
-      fi
-
-      # Add trailing slash for folders
-      results+=("$priority:$depth:d:$fullpath/")
-      
-      # Also find all .sh files inside matched directories
-      while IFS= read -r -d '' nested_file; do
-        local nested_fullpath="${nested_file#${BIN_DIR}/}"
-
-      echo "DEBUG[3]: Checking file '$nested_fullpath'" >> /tmp/dr_completion_debug.log
-        nested_fullpath="${nested_fullpath%.sh}"
-        local nested_depth="${nested_fullpath//[^\/]}"
-        nested_depth="${#nested_depth}"
-        # Use priority 4 for nested files so they appear after direct matches
-        results+=("4:$nested_depth:f:$nested_fullpath")
-      done < <(find "${BIN_DIR}/${fullpath}" -type f -name "*.sh" -print0 2>/dev/null)
-    done < <(find "$BIN_DIR" -type d -ipath "*${pattern}*" -print0 2>/dev/null)
-
-    # Sort by: priority (lower first), depth (shallower first), name (alphabetically)
-    # Output format: "type:fullpath"
-    printf '%s\n' "${results[@]}" | sort -t: -k1,1n -k2,2n -k4 | while IFS=: read -r priority depth type fullpath; do
-      echo "$type:$fullpath"
-    done
-  }
-
-  # Helper: Emit recursive search results with colored path display
-  # Handles both files (scripts) and directories
-  # Uses _wanted for proper tag registration (enables zstyle menu/colors)
-  _dr_emit_recursive_search() {
-    local pattern="$1"
-    echo "DEBUG[EMIT-START]: _dr_emit_recursive_search called with pattern='$pattern'" >> /tmp/dr_completion_debug.log
-
-    local -a folders scripts folder_matches folder_displays script_matches script_displays
-    local type fullpath
-
-    echo "DEBUG[EMIT]: About to call _dr_search_recursive" >> /tmp/dr_completion_debug.log
-    # Collect folders and scripts separately from search results
-    while IFS=: read -r type fullpath; do
-      echo "DEBUG[EMIT-LOOP]: Read type='$type' fullpath='$fullpath'" >> /tmp/dr_completion_debug.log
-      [[ -z "$type" || -z "$fullpath" ]] && continue
-
-      if [[ "$type" == "d" ]]; then
-        folders+=("$fullpath")
-      else
-        scripts+=("$fullpath")
-      fi
-    done < <(_dr_search_recursive "$pattern")
-
-    # Decorate folders using centralized function (fullpath mode for search results)
-    # Shows "parent/${FOLDER_ICON} child/" for nested, "${FOLDER_ICON} folder/" for root
-    _dr_decorate_folders folder_matches folder_displays "" fullpath "${folders[@]}"
-
-    # Decorate scripts using centralized function (fullpath mode for search results)
-    # Shows "parent/${SCRIPT_ICON} script" for nested, "${SCRIPT_ICON} script" for root
-    _dr_decorate_files SCRIPTS script_matches script_displays "" fullpath "${scripts[@]}"
-
-    echo "DEBUG[EMIT]: After loop: folder_matches=${#folder_matches[@]}, script_matches=${#script_matches[@]}" >> /tmp/dr_completion_debug.log
-
-    local has_matches=0
-
-    # Use -i flag to preserve PREFIX while bypassing ZSH filtering
-    # -i "$PREFIX": sets ignored prefix to user's typed text (preserved in command line)
-    # -U: bypass ZSH's prefix filtering, show ALL our pre-filtered results
-    # This approach is cleaner than compset -P '*' because it doesn't modify PREFIX/IPREFIX
-    if (( ${#folder_matches[@]} || ${#script_matches[@]} )); then
-      # -U with -i: "only the string from the -i option is used" (not IPREFIX)
-      # -S '': no suffix for folders (they already have trailing slash)
-      if (( ${#folder_matches[@]} )); then
-        compadd -U -i "$PREFIX" -S '' -d folder_displays -a folder_matches
-        has_matches=1
-      fi
-      if (( ${#script_matches[@]} )); then
-        compadd -U -i "$PREFIX" -d script_displays -a script_matches
-        has_matches=1
-      fi
-    fi
-
-    (( has_matches )) && return 0 || return 1
-  }
-
 
 
   # Main completion logic by argument position
@@ -735,13 +627,19 @@ _dr() {
       else
         # Root context - check if user has typed a search pattern
         if [[ -n "$current_word" && "$current_word" != -* ]]; then
-          echo "BRANCH: recursive search for pattern='$current_word'" >> /tmp/dr_completion_debug.log
-          # User has typed a pattern (like "pr") - do recursive search ONLY
-          # COMPLETELY BLOCK default context - recursive search only
-          _dr_emit_recursive_search "$current_word"
-          # Return immediately - no other completions allowed
-          echo "RETURNED from recursive search" >> /tmp/dr_completion_debug.log
-          return
+          # User has typed a pattern (like "sta") - do recursive search
+          # Uses unified pipeline: get all matching items recursively, display with fullpath mode
+          # - depth "all": search entire scripts directory tree
+          # - filter "$current_word": case-insensitive substring match on paths
+          # - mode "fullpath": show "parent/📁 child/" format for context
+          # - bypass_filter "true": use -U flag (bypasses prefix matching, completion replaces PREFIX)
+          #
+          # IMPORTANT: Use here-string instead of pipe to keep _dr_display_feature_context
+          # in the main shell. Pipe creates subshell where compadd completions don't propagate.
+          local context_data
+          context_data=$(_dr_get_feature_context scripts "" all "$current_word")
+          _dr_display_feature_context scripts "" fullpath true <<< "$context_data"
+          return 0
         else
           echo "BRANCH: default context (hint + folders + scripts)" >> /tmp/dr_completion_debug.log
           # Empty or starts with dash - show ONLY hint, folders, and scripts (NO special commands)
@@ -777,9 +675,9 @@ _dr() {
 
           # If user has typed a pattern (not a flag), show matching scripts recursively
           if [[ -n "$current_word" && "$current_word" != -* ]]; then
-            echo "Pattern detected - calling recursive search" >> /tmp/dr_completion_debug.log
             # Show recursive search results for scripts matching the pattern
-            _dr_emit_recursive_search "$current_word"
+            # Uses unified pipeline with fullpath mode and filter bypass
+            _dr_get_feature_context scripts "" all "$current_word" | _dr_display_feature_context scripts "" fullpath true
           fi
 
           # Always show subcommands for discoverability (unless searching)
