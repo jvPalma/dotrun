@@ -127,15 +127,6 @@ _dr_ensure_config_categories_loaded() {
 
 # Main completion function
 _dr() {
-  # DEBUG: Log every function call
-  {
-    echo "========================================"
-    echo "_dr() called at $(date +%H:%M:%S)"
-    echo "CURRENT=$CURRENT"
-    echo "words=(${words[@]})"
-    echo "========================================"
-  } >> /tmp/dr_completion_debug.log
-
   # Reset lazy-load state for this completion invocation
   _DR_CONFIG_KEYS_LOADED=false
   _DR_ALIAS_CATEGORIES_LOADED=false
@@ -545,15 +536,6 @@ _dr() {
       #     When user selects a completion, it REPLACES PREFIX (the typed text like "sta")
       # In fullpath mode (recursive search), emit FILES ONLY - folders are shown as path prefixes
 
-      # DEBUG
-      {
-        echo "=== _dr_display_feature_context bypass_filter DEBUG ==="
-        echo "file_matches count: ${#file_matches[@]}"
-        echo "file_matches: ${file_matches[*]}"
-        echo "file_displays: ${file_displays[*]}"
-        echo "PREFIX='$PREFIX' IPREFIX='$IPREFIX'"
-      } >> /tmp/dr_completion_debug.log
-
       # CRITICAL: Set compstate BEFORE compadd to prevent PREFIX deletion
       # Without this, zsh calculates "longest common prefix" of all matches (which is empty)
       # and replaces the typed text with empty string, deleting it.
@@ -605,18 +587,8 @@ _dr() {
       # Namespace flags/subcommands are NOT shown in tab completion - user must type them
       local current_word="${words[2]}"
 
-      # DEBUG
-      {
-        echo "=== POSITION 2 DEBUG ==="
-        echo "current_word='$current_word'"
-        echo "is slash? $([[ "$current_word" == */* ]] && echo YES || echo NO)"
-        echo "is empty? $([[ -z "$current_word" ]] && echo YES || echo NO)"
-        echo "starts with dash? $([[ "$current_word" == -* ]] && echo YES || echo NO)"
-      } >> /tmp/dr_completion_debug.log
-
       # Check for folder context
       if [[ "$current_word" == */* ]]; then
-        echo "BRANCH: folder context" >> /tmp/dr_completion_debug.log
         # In folder context - show folder contents only (no commands, no hint)
         local context_path=$(_dr_get_context_path "$current_word")
 
@@ -641,7 +613,6 @@ _dr() {
           _dr_display_feature_context scripts "" fullpath true <<< "$context_data"
           return 0
         else
-          echo "BRANCH: default context (hint + folders + scripts)" >> /tmp/dr_completion_debug.log
           # Empty or starts with dash - show ONLY hint, folders, and scripts (NO special commands)
           # Do NOT show namespace flags (-s, -a, -c, -col) or subcommands (scripts, aliases, config, collections)
 
@@ -663,16 +634,6 @@ _dr() {
           # Script management context
           local current_word="${words[3]}"
 
-          # DEBUG
-          {
-            echo "=== POSITION 3 (-s/scripts) DEBUG ==="
-            echo "words[2]='${words[2]}'"
-            echo "words[3]='${words[3]}'"
-            echo "current_word='$current_word'"
-            echo "is empty? $([[ -z "$current_word" ]] && echo YES || echo NO)"
-            echo "starts with dash? $([[ "$current_word" == -* ]] && echo YES || echo NO)"
-          } >> /tmp/dr_completion_debug.log
-
           # If user has typed a pattern (not a flag), show matching scripts recursively
           if [[ -n "$current_word" && "$current_word" != -* ]]; then
             # Show recursive search results for scripts matching the pattern
@@ -683,7 +644,6 @@ _dr() {
           # Always show subcommands for discoverability (unless searching)
           # This allows users to see both search results AND available commands
           if [[ -z "$current_word" || "$current_word" == -* ]]; then
-            echo "Showing subcommands" >> /tmp/dr_completion_debug.log
             _dr_add_commands_with_tag 'script-commands' "${script_commands[@]}"
           fi
 
