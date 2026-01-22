@@ -8,7 +8,7 @@ set -euo pipefail
 
 IFS=$'\n\t'
 
-# Version - Read from VERSION file or fallback to 3.0.0
+# Version - Read from VERSION file or fallback to 3.1.0
 # Resolve symlinks to find the actual script location
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 while [[ -L "$SCRIPT_PATH" ]]; do
@@ -21,7 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
   DRUN_VERSION="$(cat "$SCRIPT_DIR/VERSION")"
 else
-  DRUN_VERSION="3.0.0"  # Fallback if VERSION file not found
+  DRUN_VERSION="3.1.0"  # Fallback if VERSION file not found
 fi
 
 # Configuration

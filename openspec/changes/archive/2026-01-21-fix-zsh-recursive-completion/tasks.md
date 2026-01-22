@@ -189,10 +189,22 @@ Create a single parameterized function to replace all filesystem getters:
 
   ```zsh
   case "$context" in
-    scripts)     base_dir="$BIN_DIR";        ext=".sh" ;;
-    aliases)     base_dir="$ALIASES_DIR";    ext=".aliases" ;;
-    configs)     base_dir="$CONFIG_DIR";     ext=".config" ;;
-    collections) base_dir="$COLLECTIONS_DIR"; ext="" ;;
+    scripts)
+      base_dir="$BIN_DIR"
+      ext=".sh"
+      ;;
+    aliases)
+      base_dir="$ALIASES_DIR"
+      ext=".aliases"
+      ;;
+    configs)
+      base_dir="$CONFIG_DIR"
+      ext=".config"
+      ;;
+    collections)
+      base_dir="$COLLECTIONS_DIR"
+      ext=""
+      ;;
   esac
   ```
 
@@ -200,9 +212,9 @@ Create a single parameterized function to replace all filesystem getters:
 
   ```zsh
   case "$type" in
-    file)      find_type=(-type f) ;;
+    file) find_type=(-type f) ;;
     directory) find_type=(-type d) ;;
-    both)      find_type=() ;;  # No -type filter
+    both) find_type=() ;; # No -type filter
   esac
   ```
 
@@ -211,7 +223,7 @@ Create a single parameterized function to replace all filesystem getters:
   ```zsh
   case "$depth" in
     single) find_depth=(-maxdepth 1) ;;
-    all)    find_depth=() ;;  # No limit
+    all) find_depth=() ;; # No limit
   esac
   ```
 
@@ -242,13 +254,13 @@ Create a single parameterized function to replace all filesystem getters:
   ```zsh
   # Test: Get immediate script folders
   _dr_global_filesystem_find scripts directory single
-
+  
   # Test: Get all scripts recursively
   _dr_global_filesystem_find scripts file all
-
+  
   # Test: Get alias files in subcontext
   _dr_global_filesystem_find aliases file single "git/"
-
+  
   # Test: Pattern search
   _dr_global_filesystem_find scripts file all "" true "status"
   ```
@@ -373,12 +385,12 @@ Create a single parameterized function to replace all filesystem getters:
   ```zsh
   _dr_get_feature_context() {
     local feature="$1" subcontext="$2" depth="${3:-single}" filter="${4:-}"
-
+  
     # Get folders
     while IFS= read -r folder; do
       [[ -n "$folder" ]] && echo "folder:$folder"
     done < <(_dr_global_filesystem_find "$feature" directory "$depth" "$subcontext" true "$filter")
-
+  
     # Get files
     while IFS= read -r file; do
       [[ -n "$file" ]] && echo "file:$file"
@@ -414,20 +426,20 @@ Create a single parameterized function to replace all filesystem getters:
     local feature="$1" prefix="$2"
     local -a folders files folder_matches folder_displays file_matches file_displays
     local line type name
-
+  
     # Parse input
     while IFS= read -r line; do
       type="${line%%:*}"
       name="${line#*:}"
       case "$type" in
         folder) folders+=("$name") ;;
-        file)   files+=("$name") ;;
+        file) files+=("$name") ;;
       esac
     done
-
+  
     # Decorate folders
     _dr_decorate_folders folder_matches folder_displays "$prefix" simple "${folders[@]}"
-
+  
     # Decorate files (using feature to determine icon type)
     local file_type
     case "$feature" in
@@ -436,10 +448,10 @@ Create a single parameterized function to replace all filesystem getters:
       configs) file_type="CONFIGS" ;;
     esac
     _dr_decorate_files "$file_type" file_matches file_displays "$prefix" simple "${files[@]}"
-
+  
     # Emit with _wanted tags
-    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
-    (( ${#file_matches[@]} )) && _wanted "$feature" expl "$feature" compadd -d file_displays -a -- file_matches
+    ((${#folder_matches[@]})) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
+    ((${#file_matches[@]})) && _wanted "$feature" expl "$feature" compadd -d file_displays -a -- file_matches
   }
   ```
 
@@ -452,7 +464,7 @@ Create a single parameterized function to replace all filesystem getters:
   ```zsh
   # Usage pattern:
   _dr_get_feature_context scripts "ai/tools/" | _dr_display_feature_context scripts "ai/tools/"
-
+  
   # With filter:
   _dr_get_feature_context scripts "" "status" | _dr_display_feature_context scripts ""
   ```
@@ -468,7 +480,7 @@ Create a single parameterized function to replace all filesystem getters:
   ```zsh
   # Before:
   _dr_emit_context "$context_path" "$context_path"
-
+  
   # After:
   _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
   ```
@@ -480,7 +492,7 @@ Create a single parameterized function to replace all filesystem getters:
   ```zsh
   # Before:
   _dr_emit_aliases_context "$context" "$prefix"
-
+  
   # After:
   _dr_get_feature_context aliases "$context" | _dr_display_feature_context aliases "$prefix"
   ```
@@ -492,7 +504,7 @@ Create a single parameterized function to replace all filesystem getters:
   ```zsh
   # Before:
   _dr_emit_configs_context "$context" "$prefix"
-
+  
   # After:
   _dr_get_feature_context configs "$context" | _dr_display_feature_context configs "$prefix"
   ```
@@ -605,7 +617,7 @@ All three functions:
     echo "CURRENT=$CURRENT"
     echo "words=(${words[@]})"
     echo "========================================"
-  } >> /tmp/dr_completion_debug.log
+  } >>/tmp/dr_completion_debug.log
   ```
 
 **Validation:** No debug block at start of `_dr()` function ✅

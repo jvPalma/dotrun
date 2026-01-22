@@ -98,8 +98,8 @@ for i in {1..${#matches[@]}}; do
     script_displays+=("${displays[$i]}")
   fi
 done
-(( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -U -S '' -d folder_displays -a -- folder_matches
-(( ${#script_matches[@]} )) && _wanted scripts expl 'scripts' compadd -U -d script_displays -a -- script_matches
+((${#folder_matches[@]})) && _wanted folders expl 'folders' compadd -U -S '' -d folder_displays -a -- folder_matches
+((${#script_matches[@]})) && _wanted scripts expl 'scripts' compadd -U -d script_displays -a -- script_matches
 ```
 
 **Or (Option B - simpler, just add `-U`):**
@@ -142,7 +142,7 @@ Remove all 20+ debug logging statements that write to `/tmp/dr_completion_debug.
 ```zsh
 _dr_emit_recursive_search "$current_word"
 # Return immediately - no other completions allowed
-echo "RETURNED from recursive search" >> /tmp/dr_completion_debug.log
+echo "RETURNED from recursive search" >>/tmp/dr_completion_debug.log
 return
 ```
 
@@ -248,7 +248,7 @@ This creates a new spec for shell completion behavior, as no existing spec cover
 **Considered:** This is a valid option if debugging is frequently needed. Could be implemented as:
 
 ```zsh
-[[ -n "${DR_COMPLETION_DEBUG:-}" ]] && echo "..." >> /tmp/dr_completion_debug.log
+[[ -n "${DR_COMPLETION_DEBUG:-}" ]] && echo "..." >>/tmp/dr_completion_debug.log
 ```
 
 ## Success Criteria
