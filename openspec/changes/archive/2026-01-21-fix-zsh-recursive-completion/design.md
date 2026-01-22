@@ -92,14 +92,14 @@ _dr_emit_recursive_search() {
   local pattern="$1"
   # ... search and build arrays ...
 
-  if (( ${#matches[@]} )); then
-    echo ">>> Adding ${#matches[@]} completions..." >> /tmp/dr_completion_debug.log
+  if ((${#matches[@]})); then
+    echo ">>> Adding ${#matches[@]} completions..." >>/tmp/dr_completion_debug.log
     # BUG: Missing -U flag causes ZSH to filter based on prefix matching
     compadd -M 'r:|[/]=* r:|=*' -d displays -a -- matches
-    echo ">>> Done adding completions with compadd" >> /tmp/dr_completion_debug.log
+    echo ">>> Done adding completions with compadd" >>/tmp/dr_completion_debug.log
     return 0
   else
-    echo ">>> NO MATCHES - returning 1" >> /tmp/dr_completion_debug.log
+    echo ">>> NO MATCHES - returning 1" >>/tmp/dr_completion_debug.log
     return 1
   fi
 }
@@ -112,7 +112,7 @@ _dr_emit_recursive_search() {
   local pattern="$1"
   # ... search and build arrays ...
 
-  if (( ${#matches[@]} )); then
+  if ((${#matches[@]})); then
     # -U: Add unconditionally (we already did matching in _dr_search_recursive)
     compadd -U -M 'r:|[/]=* r:|=*' -d displays -a -- matches
     return 0
@@ -131,7 +131,7 @@ _dr_emit_recursive_search() {
 
   # ... populate matches and displays from _dr_search_recursive ...
 
-  if (( ${#matches[@]} )); then
+  if ((${#matches[@]})); then
     # Separate folders and scripts for proper zstyle tagging
     local -a folder_matches folder_displays script_matches script_displays
     local i
@@ -146,10 +146,10 @@ _dr_emit_recursive_search() {
     done
 
     # Use _wanted for proper tag registration (enables zstyle colors)
-    (( ${#folder_matches[@]} )) && \
-      _wanted folders expl 'folders' compadd -U -S '' -d folder_displays -a -- folder_matches
-    (( ${#script_matches[@]} )) && \
-      _wanted scripts expl 'scripts' compadd -U -d script_displays -a -- script_matches
+    ((${#folder_matches[@]})) \
+      && _wanted folders expl 'folders' compadd -U -S '' -d folder_displays -a -- folder_matches
+    ((${#script_matches[@]})) \
+      && _wanted scripts expl 'scripts' compadd -U -d script_displays -a -- script_matches
     return 0
   else
     return 1
@@ -184,7 +184,7 @@ Delete all lines that write to `/tmp/dr_completion_debug.log`.
 ```zsh
 # At top of file, define helper
 _dr_debug() {
-  [[ -n "${DR_COMPLETION_DEBUG:-}" ]] && echo "$@" >> /tmp/dr_completion_debug.log
+  [[ -n "${DR_COMPLETION_DEBUG:-}" ]] && echo "$@" >>/tmp/dr_completion_debug.log
 }
 
 # Replace all direct writes with:
@@ -322,9 +322,9 @@ _dr_cache_scripts() {
   local scripts_dir="$BIN_DIR"
 
   # Refresh if cache older than 60 seconds
-  if [[ ! -f "$cache_file" ]] || \
-     [[ $(stat -c %Y "$scripts_dir") -gt $(stat -c %Y "$cache_file") ]]; then
-    find "$scripts_dir" -type f -name "*.sh" > "$cache_file"
+  if [[ ! -f "$cache_file" ]] \
+    || [[ $(stat -c %Y "$scripts_dir") -gt $(stat -c %Y "$cache_file") ]]; then
+    find "$scripts_dir" -type f -name "*.sh" >"$cache_file"
   fi
 
   cat "$cache_file"

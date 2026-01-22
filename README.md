@@ -1,6 +1,6 @@
 # DotRun - unified script management framework
 
-[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](VERSION)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Shell Support](https://img.shields.io/badge/shell-bash%20%7C%20zsh%20%7C%20fish-blue.svg)](#)
 
