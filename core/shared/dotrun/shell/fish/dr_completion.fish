@@ -436,6 +436,7 @@ complete -c dr -n __dr_needs_first_arg -a "(__dr_complete_context)" -d "📁 Fol
 
 # Special commands (green in zsh equivalent)
 complete -c dr -n __dr_needs_first_arg -a "help" -d "Show embedded documentation"
+# NOTE: reload is a global command but not shown in root completion per standardize-feature-commands spec
 complete -c dr -n __dr_needs_first_arg -s l -d "List scripts (names only)"
 complete -c dr -n __dr_needs_first_arg -s L -d "List scripts with documentation"
 complete -c dr -n __dr_needs_first_arg -s h -d "Show help"
@@ -470,28 +471,27 @@ complete -c dr -n __dr_needs_first_arg -a "collections" -d "Collections manageme
 
 # Script management commands (after -s or scripts)
 complete -c dr -n __dr_in_scripts_namespace -n __dr_needs_second_arg -a "set" -d "Create or open script (idempotent)"
-complete -c dr -n __dr_in_scripts_namespace -n __dr_needs_second_arg -a "edit" -d "Edit existing script"
 complete -c dr -n __dr_in_scripts_namespace -n __dr_needs_second_arg -a "move" -d "Move/rename script"
-complete -c dr -n __dr_in_scripts_namespace -n __dr_needs_second_arg -a "rename" -d "Rename script"
-complete -c dr -n __dr_in_scripts_namespace -n __dr_needs_second_arg -a "remove" -d "Remove script"
+complete -c dr -n __dr_in_scripts_namespace -n __dr_needs_second_arg -a "rm" -d "Remove script"
 complete -c dr -n __dr_in_scripts_namespace -n __dr_needs_second_arg -a "help" -d "Show script documentation"
-complete -c dr -n __dr_in_scripts_namespace -n __dr_needs_second_arg -a "list" -d "List all scripts"
 
 # Aliases management commands (after -a or aliases)
-complete -c dr -n __dr_in_aliases_namespace -n __dr_needs_second_arg -a "init" -d "Initialize aliases"
-complete -c dr -n __dr_in_aliases_namespace -n __dr_needs_second_arg -a "set" -d "Create or edit alias file (opens editor)"
-complete -c dr -n __dr_in_aliases_namespace -n __dr_needs_second_arg -a "list" -d "List alias files"
-complete -c dr -n __dr_in_aliases_namespace -n __dr_needs_second_arg -a "remove" -d "Remove alias file"
-complete -c dr -n __dr_in_aliases_namespace -n __dr_needs_second_arg -a "reload" -d "Reload aliases"
+complete -c dr -n __dr_in_aliases_namespace -n __dr_needs_second_arg -a "move" -d "Move/rename an alias file"
+complete -c dr -n __dr_in_aliases_namespace -n __dr_needs_second_arg -a "rm" -d "Remove an alias file"
+complete -c dr -n __dr_in_aliases_namespace -n __dr_needs_second_arg -a "help" -d "Show alias file documentation"
+complete -c dr -n __dr_in_aliases_namespace -n __dr_needs_second_arg -a "init" -d "Initialize aliases folder structure"
+complete -c dr -n __dr_in_aliases_namespace -n __dr_needs_second_arg -a "-l" -d "List aliases (short format)"
+complete -c dr -n __dr_in_aliases_namespace -n __dr_needs_second_arg -a "-L" -d "List aliases with documentation (long format)"
 
 # Config management commands (after -c or config)
-complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "init" -d "Initialize config"
-complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "set" -d "Set config value"
-complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "get" -d "Get config value"
-complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "list" -d "List configuration"
-complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "edit" -d "Edit config"
-complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "unset" -d "Remove config"
-complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "reload" -d "Reload config"
+complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "move" -d "Move/rename a config file"
+complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "rm" -d "Remove a config file"
+complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "help" -d "Show config file documentation"
+complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "init" -d "Initialize configs folder structure"
+complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "-l" -d "List configs (short format)"
+complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "-L" -d "List configs with documentation (long format)"
+# Also show config files for default add/edit behavior
+complete -c dr -n __dr_in_config_namespace -n __dr_needs_second_arg -a "(__dr_complete_config_context)" -d "📁 Folder / ⚙ Config file"
 
 # Collections management commands (after -col or collections)
 complete -c dr -n __dr_in_collections_namespace -n __dr_needs_second_arg -a "list" -d "List collections"
@@ -500,10 +500,8 @@ complete -c dr -n __dr_in_collections_namespace -n __dr_needs_second_arg -a "rem
 
 # Direct commands (backwards compatibility)
 complete -c dr -n "__dr_first_arg_is set" -a "(__dr_complete_context)" -d "📁 Navigate folders"
-complete -c dr -n "__dr_first_arg_is edit" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
 complete -c dr -n "__dr_first_arg_is move" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
-complete -c dr -n "__dr_first_arg_is rename" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
-complete -c dr -n "__dr_first_arg_is remove" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
+complete -c dr -n "__dr_first_arg_is rm" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
 complete -c dr -n "__dr_first_arg_is help" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
 
 # List command folder filter
@@ -516,28 +514,24 @@ complete -c dr -n "__dr_first_arg_is -L" -a "(__dr_get_folders '')" -d "📁 Fil
 
 # Script namespace operations
 complete -c dr -n __dr_in_scripts_namespace -n "__dr_second_arg_is set" -a "(__dr_complete_context)" -d "📁 Navigate folders"
-complete -c dr -n __dr_in_scripts_namespace -n "__dr_second_arg_is edit" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
 complete -c dr -n __dr_in_scripts_namespace -n "__dr_second_arg_is move" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
-complete -c dr -n __dr_in_scripts_namespace -n "__dr_second_arg_is rename" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
-complete -c dr -n __dr_in_scripts_namespace -n "__dr_second_arg_is remove" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
+complete -c dr -n __dr_in_scripts_namespace -n "__dr_second_arg_is rm" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
 complete -c dr -n __dr_in_scripts_namespace -n "__dr_second_arg_is help" -a "(__dr_complete_context)" -d "📁 Folder / 🚀 Script"
-complete -c dr -n __dr_in_scripts_namespace -n "__dr_second_arg_is list" -a "(__dr_get_folders '')" -d "📁 Filter by folder"
 
 # Aliases namespace operations
-complete -c dr -n __dr_in_aliases_namespace -n "__dr_second_arg_is set" -a "(__dr_complete_alias_context)" -d "📁 Folder / 🎭 Alias file"
-complete -c dr -n __dr_in_aliases_namespace -n "__dr_second_arg_is remove" -a "(__dr_complete_alias_context)" -d "📁 Folder / 🎭 Alias file"
-complete -c dr -n __dr_in_aliases_namespace -n "__dr_second_arg_is list" -l categories -d "Show categories"
-complete -c dr -n __dr_in_aliases_namespace -n "__dr_second_arg_is list" -l category -d "Filter by category"
+complete -c dr -n __dr_in_aliases_namespace -n "__dr_second_arg_is move" -a "(__dr_complete_alias_context)" -d "📁 Folder / 🎭 Alias file"
+complete -c dr -n __dr_in_aliases_namespace -n "__dr_second_arg_is rm" -a "(__dr_complete_alias_context)" -d "📁 Folder / 🎭 Alias file"
+complete -c dr -n __dr_in_aliases_namespace -n "__dr_second_arg_is help" -a "(__dr_complete_alias_context)" -d "📁 Folder / 🎭 Alias file"
+complete -c dr -n __dr_in_aliases_namespace -n "__dr_second_arg_is -l" -a "(__dr_get_alias_folders '')" -d "📁 Filter by folder"
+complete -c dr -n __dr_in_aliases_namespace -n "__dr_second_arg_is -L" -a "(__dr_get_alias_folders '')" -d "📁 Filter by folder"
 
 # Config namespace operations
 complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is set" -a "(__dr_complete_config_context)" -d "📁 Folder / ⚙ Config file"
-complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is edit" -a "(__dr_complete_config_context)" -d "📁 Folder / ⚙ Config file"
-complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is get" -a "(__dr_config_keys)" -d "Config key"
-complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is unset" -a "(__dr_config_keys)" -d "Config key"
-complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is get" -l show-value -d "Show actual value"
-complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is list" -l categories -d "Show categories"
-complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is list" -l category -d "Filter by category"
-complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is list" -l keys-only -d "Show keys only"
+complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is move" -a "(__dr_complete_config_context)" -d "📁 Folder / ⚙ Config file"
+complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is rm" -a "(__dr_complete_config_context)" -d "📁 Folder / ⚙ Config file"
+complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is help" -a "(__dr_complete_config_context)" -d "📁 Folder / ⚙ Config file"
+complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is -l" -a "(__dr_get_config_folders '')" -d "📁 Filter by folder"
+complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is -L" -a "(__dr_get_config_folders '')" -d "📁 Filter by folder"
 
 # ============================================================================
 # POSITION 4: Move/rename destinations
@@ -558,11 +552,53 @@ function __dr_needs_namespace_move_dest
         if contains -- "$cmd[2]" -s scripts
             return (contains -- "$cmd[3]" move rename)
         end
+        if contains -- "$cmd[2]" -a aliases
+            return (contains -- "$cmd[3]" move)
+        end
+        if contains -- "$cmd[2]" -c config
+            return (contains -- "$cmd[3]" move)
+        end
     end
     return 1
 end
 
-complete -c dr -n __dr_needs_namespace_move_dest -a "(__dr_complete_context)" -d "📁 Destination folder"
+# Scripts move destination
+function __dr_needs_scripts_move_dest
+    set -l cmd (commandline -opc)
+    if test (count $cmd) -eq 4
+        if contains -- "$cmd[2]" -s scripts
+            return (contains -- "$cmd[3]" move rename)
+        end
+    end
+    return 1
+end
+
+# Aliases move destination
+function __dr_needs_aliases_move_dest
+    set -l cmd (commandline -opc)
+    if test (count $cmd) -eq 4
+        if contains -- "$cmd[2]" -a aliases
+            return (contains -- "$cmd[3]" move)
+        end
+    end
+    return 1
+end
+
+complete -c dr -n __dr_needs_scripts_move_dest -a "(__dr_complete_context)" -d "📁 Destination folder"
+complete -c dr -n __dr_needs_aliases_move_dest -a "(__dr_complete_alias_context)" -d "📁 Destination folder"
+
+# Configs move destination
+function __dr_needs_configs_move_dest
+    set -l cmd (commandline -opc)
+    if test (count $cmd) -eq 4
+        if contains -- "$cmd[2]" -c config
+            return (contains -- "$cmd[3]" move)
+        end
+    end
+    return 1
+end
+
+complete -c dr -n __dr_needs_configs_move_dest -a "(__dr_complete_config_context)" -d "📁 Destination folder"
 
 # ============================================================================
 # CATEGORY COMPLETIONS
@@ -575,12 +611,12 @@ complete -c dr -n "contains -- --category (commandline -opc)" -n __dr_in_config_
 # ENABLE FILE COMPLETION FOR NEW NAMES
 # ============================================================================
 
-# Re-enable file completion for 'set' to allow new script/alias/config names
+# Re-enable file completion for 'set' to allow new script/config names
 complete -c dr -n "__dr_first_arg_is set" -F
 complete -c dr -n __dr_in_scripts_namespace -n "__dr_second_arg_is set" -F
-complete -c dr -n __dr_in_aliases_namespace -n "__dr_second_arg_is set" -F
 complete -c dr -n __dr_in_config_namespace -n "__dr_second_arg_is set" -F
 
 # Re-enable for move/rename destinations to allow new names
 complete -c dr -n __dr_needs_move_dest -F
-complete -c dr -n __dr_needs_namespace_move_dest -F
+complete -c dr -n __dr_needs_scripts_move_dest -F
+complete -c dr -n __dr_needs_aliases_move_dest -F

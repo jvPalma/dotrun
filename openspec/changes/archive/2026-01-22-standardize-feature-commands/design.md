@@ -42,11 +42,11 @@ esac
 
 Command arrays define available completions:
 
-| Array | Lines | Current Commands |
-|-------|-------|------------------|
-| `script_commands` | 153-158 | set, move, rename, help |
-| `aliases_commands` | 161-165 | set, list, remove |
-| `config_commands` | 168-172 | set, list, remove |
+| Array                  | Lines   | Current Commands                              |
+| ---------------------- | ------- | --------------------------------------------- |
+| `script_commands`      | 153-158 | set, move, rename, help                       |
+| `aliases_commands`     | 161-165 | set, list, remove                             |
+| `config_commands`      | 168-172 | set, list, remove                             |
 | `collections_commands` | 175-182 | set, list, sync, update, list:details, remove |
 
 ---
@@ -64,11 +64,9 @@ Command arrays define available completions:
 1. **Remove `edit)` case blocks:**
    - Lines 533-540 (within `-s|scripts` namespace)
    - Lines 593-599 (direct `edit)` case)
-   
 2. **Keep `rename` as alias to `move`:**
    - Line 541: `move|rename)` stays BUT
    - Remove from completion (user guidance toward `move`)
-   
 3. **Remove from `script_commands` array:**
    - Remove: `'rename:Move/rename a script (alias for move)'`
 
@@ -104,7 +102,7 @@ Command arrays define available completions:
     list_files "aliases" ...
     exit 0
   fi
-  
+
   case "${2:-}" in
     init) ... ;;
     set) ... ;;       # Keep for backwards compat
@@ -135,21 +133,21 @@ Command arrays define available completions:
 remove_script() {
   local name="$1"
   validate_script_name "$name" || exit 1
-  
+
   local file
   file=$(find_script_file "$name")
   [[ -z "$file" ]] && {
     echo "Error: Script '$name' not found" >&2
     exit 1
   }
-  
+
   local rel_path="${file#"$BIN_DIR"/}"
-  
+
   # Colored confirmation
   echo -e "${YELLOW}⚠️  Remove script:${RESET} ${CYAN}$rel_path${RESET}"
   read -p "Are you sure? [y/N] " -n 1 -r
   echo
-  
+
   if [[ $REPLY =~ ^[Yy]$ ]]; then
     rm "$file" && {
       echo -e "${GREEN}✓ Removed:${RESET} $rel_path"
@@ -171,7 +169,7 @@ remove|rm)
   remove_script "$3"
   ;;
 
-# At root level (after help case)  
+# At root level (after help case)
 remove|rm)
   [[ -z "${2:-}" ]] && { echo "Usage: dr rm <name>"; exit 1; }
   remove_script "$2"
@@ -188,12 +186,12 @@ remove|rm)
 # Generalized tree listing
 # list_feature_files feature_type base_dir extension show_docs [scope]
 list_feature_files() {
-  local feature_type="$1"  # "aliases" or "configs"
+  local feature_type="$1" # "aliases" or "configs"
   local base_dir="$2"
-  local extension="$3"     # ".aliases" or ".config"
-  local show_docs="$4"     # 0=short, 1=long
+  local extension="$3" # ".aliases" or ".config"
+  local show_docs="$4" # 0=short, 1=long
   local scope="${5:-}"
-  
+
   # Reuse logic from existing list_scripts()
   # Replace hardcoded values with parameters
   # Use feature-specific colors/icons
@@ -203,6 +201,7 @@ list_feature_files() {
 #### Integration Points
 
 **Aliases:** Before `case "${2:-}"` block
+
 ```bash
 -a|aliases)
   if [[ "${2:-}" == "-l" ]]; then
@@ -231,7 +230,7 @@ list_feature_files() {
     echo "Error: ~/.drrc not found" >&2
     exit 1
   fi
-  
+
   echo -e "${CYAN}🔄 Reloading DotRun...${RESET}"
   echo ""
   echo "Run this in your current shell:"
@@ -251,6 +250,7 @@ list_feature_files() {
 #### Array Updates
 
 **script_commands (final):**
+
 ```zsh
 script_commands=(
   'set:Create or open a script in editor'
@@ -261,6 +261,7 @@ script_commands=(
 ```
 
 **aliases_commands (final):**
+
 ```zsh
 aliases_commands=(
   'move:Move/rename an alias file'
@@ -273,6 +274,7 @@ aliases_commands=(
 ```
 
 **config_commands (final):**
+
 ```zsh
 config_commands=(
   'move:Move/rename a config file'
@@ -287,6 +289,7 @@ config_commands=(
 #### Hint Updates
 
 **`_dr_show_hint()` modification:**
+
 ```zsh
 _dr_show_hint() {
   local hint="(hint: set, move, rm, help, -l, -L)"
@@ -297,6 +300,7 @@ _dr_show_hint() {
 #### Default Behavior Completion
 
 For `-a` and `-c` namespaces, show both commands AND files:
+
 ```zsh
 -a|aliases)
   # Show both commands and files for default behavior
@@ -311,27 +315,27 @@ For `-a` and `-c` namespaces, show both commands AND files:
 
 ### `/home/user/dotrun/core/shared/dotrun/dr`
 
-| Section | Lines | Changes |
-|---------|-------|---------|
-| Scripts namespace | 523-584 | Remove edit, add rm case |
-| Direct commands | 586-626 | Remove edit, add rm case |
-| Global commands | ~516 | Add reload handler |
-| Aliases namespace | 935-1001 | Add -l/-L, move, help, rm; remove reload |
-| Configs namespace | 1003-1059 | Add -l/-L, move, help, rm |
-| Help outputs | Various | Update all help text |
-| New functions | ~495 | Add `remove_script()`, `list_feature_files()` |
+| Section           | Lines     | Changes                                       |
+| ----------------- | --------- | --------------------------------------------- |
+| Scripts namespace | 523-584   | Remove edit, add rm case                      |
+| Direct commands   | 586-626   | Remove edit, add rm case                      |
+| Global commands   | ~516      | Add reload handler                            |
+| Aliases namespace | 935-1001  | Add -l/-L, move, help, rm; remove reload      |
+| Configs namespace | 1003-1059 | Add -l/-L, move, help, rm                     |
+| Help outputs      | Various   | Update all help text                          |
+| New functions     | ~495      | Add `remove_script()`, `list_feature_files()` |
 
 **Estimated changes:** +200 lines (new features), -50 lines (removals)
 
 ### `/home/user/dotrun/core/shared/dotrun/shell/zsh/dr_completion.zsh`
 
-| Section | Lines | Changes |
-|---------|-------|---------|
-| Command arrays | 153-182 | Update all arrays |
-| Hint function | 218-220 | Update hint text |
-| Scripts completion | 630-716 | Remove edit, add rm |
-| Aliases completion | 649-652, 798-829 | Add new commands |
-| Configs completion | 654-657, 831-867 | Add new commands |
+| Section            | Lines            | Changes             |
+| ------------------ | ---------------- | ------------------- |
+| Command arrays     | 153-182          | Update all arrays   |
+| Hint function      | 218-220          | Update hint text    |
+| Scripts completion | 630-716          | Remove edit, add rm |
+| Aliases completion | 649-652, 798-829 | Add new commands    |
+| Configs completion | 654-657, 831-867 | Add new commands    |
 
 **Estimated changes:** +100 lines
 
@@ -342,42 +346,46 @@ For `-a` and `-c` namespaces, show both commands AND files:
 ### Unit Tests (Manual)
 
 **Phase 1 - Scripts:**
+
 ```bash
 # Positive tests
-dr test-script           # Should run
-dr set test-script       # Should open editor
-dr move old new          # Should move with preview
-dr rm test-script        # Should delete with confirm
-dr help test-script      # Should show docs
-dr -l                    # Should list short
-dr -L                    # Should list long
+dr test-script      # Should run
+dr set test-script  # Should open editor
+dr move old new     # Should move with preview
+dr rm test-script   # Should delete with confirm
+dr help test-script # Should show docs
+dr -l               # Should list short
+dr -L               # Should list long
 
 # Negative tests
-dr edit test-script      # Should fail gracefully
-dr init test-script      # Should fail gracefully
-dr rename old new        # Should suggest move
+dr edit test-script # Should fail gracefully
+dr init test-script # Should fail gracefully
+dr rename old new   # Should suggest move
 ```
 
 **Phase 2 - Aliases:**
+
 ```bash
 # Positive tests
-dr -a my-alias           # Should open editor (default)
-dr -a move old new       # Should move with preview
-dr -a rm my-alias        # Should delete
-dr -a help my-alias      # Should show docs
-dr -a -l                 # Should list short
-dr -a -L                 # Should list long
-dr -a init               # Should init folders
+dr -a my-alias      # Should open editor (default)
+dr -a move old new  # Should move with preview
+dr -a rm my-alias   # Should delete
+dr -a help my-alias # Should show docs
+dr -a -l            # Should list short
+dr -a -L            # Should list long
+dr -a init          # Should init folders
 ```
 
 **Phase 3 - Configs:**
+
 ```bash
 # Same tests as aliases with -c flag
 ```
 
 **Phase 4 - Global:**
+
 ```bash
-dr reload                # Should show instructions
+dr reload # Should show instructions
 ```
 
 ### Integration Tests
@@ -390,12 +398,12 @@ dr reload                # Should show instructions
 
 ## Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Breaking user workflows | High | Document migration, keep `set` working |
-| Completion confusion | Medium | Clear hint messages, test thoroughly |
+| Risk                       | Impact | Mitigation                             |
+| -------------------------- | ------ | -------------------------------------- |
+| Breaking user workflows    | High   | Document migration, keep `set` working |
+| Completion confusion       | Medium | Clear hint messages, test thoroughly   |
 | Default behavior surprises | Medium | Document clearly in help and CHANGELOG |
-| Shell compatibility | Low | Test bash/zsh/fish completion |
+| Shell compatibility        | Low    | Test bash/zsh/fish completion          |
 
 ---
 

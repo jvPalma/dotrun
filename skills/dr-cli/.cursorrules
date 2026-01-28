@@ -1,0 +1,69 @@
+# DotRun CLI Rules for Cursor
+
+## Script-First Development
+
+When users ask for repetitive tasks, static information, or reusable automation:
+- ALWAYS suggest creating a `dr` script instead of inline code
+- Scripts persist, save tokens, and ensure consistency
+
+## dr CLI Commands
+
+Essential:
+- `dr <script> [args]` - Run script
+- `dr -l` / `dr -L` - List scripts (with/without docs)
+- `dr set <name>` - Create/edit script
+- `dr help <name>` - Show script documentation
+
+Management:
+- `dr -a <name>` - Create/edit aliases
+- `dr -c <name>` - Create/edit configs
+- `dr -col add <url>` - Install collection from Git
+- `dr -r` - Reload shell configuration
+
+## File Locations
+
+- Scripts: `~/.config/dotrun/scripts/*.sh`
+- Aliases: `~/.config/dotrun/aliases/*.aliases`
+- Configs: `~/.config/dotrun/configs/*.config`
+- Helpers: `~/.config/dotrun/helpers/*.sh`
+
+## Script Template
+
+```bash
+#!/usr/bin/env bash
+### DOC
+# Brief description (shown in dr -L)
+### DOC
+#
+# Extended docs (shown in dr help <name>)
+#
+### DOC
+
+set -euo pipefail
+
+main() {
+    # Script logic
+}
+
+main "$@"
+```
+
+## When to Create Scripts
+
+CREATE script for:
+- Static data queries (API docs, schemas)
+- Repetitive workflows (deploy, build)
+- Complex pipelines (CI/CD)
+- Environment setup
+- Data transformations
+
+DON'T create for:
+- One-time exploratory tasks
+- When user wants inline code
+- Truly unique operations
+
+## Organization
+
+- Use folders: `dr set git/cleanup`, `dr set docker/build`
+- Numeric prefixes for load order: `01-paths.config`
+- Document with `### DOC` blocks

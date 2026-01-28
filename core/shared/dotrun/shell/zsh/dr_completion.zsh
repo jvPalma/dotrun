@@ -145,30 +145,36 @@ _dr() {
     '-L:List scripts with docs'
     '-h:Show help'
     '--help:Show help'
-    '-r:Reload all Aliases and Configs in current shell'
-    'reload:Reload all Aliases and Configs in current shell'
+    '-r:Reload dotrun environment (source ~/.drrc)'
+    'reload:Reload dotrun environment (source ~/.drrc)'
   )
 
   # Define script management commands (accessible via -s/scripts)
   script_commands=(
     'set:Create or open a script in editor (idempotent)'
     'move:Move/rename a script'
-    'rename:Move/rename a script (alias for move)'
+    'rm:Remove a script'
     'help:Show script documentation'
   )
 
   # Define aliases management commands (accessible via -a/aliases)
   aliases_commands=(
-    'set:Create or edit alias file (opens editor)'
-    'list:List all alias files'
-    'remove:Remove alias file'
+    'move:Move/rename an alias file'
+    'rm:Remove an alias file'
+    'help:Show alias file documentation'
+    'init:Initialize aliases folder structure'
+    '-l:List aliases (short format)'
+    '-L:List aliases with documentation (long format)'
   )
 
   # Define config management commands (accessible via -c/config)
   config_commands=(
-    'set:Create or edit config file (opens editor)'
-    'list:List all config files'
-    'remove:Remove config file'
+    'move:Move/rename a config file'
+    'rm:Remove a config file'
+    'help:Show config file documentation'
+    'init:Initialize configs folder structure'
+    '-l:List configs (short format)'
+    '-L:List configs with documentation (long format)'
   )
 
   # Define collections management commands (accessible via -col/collections)
@@ -214,9 +220,9 @@ _dr() {
   }
 
 
-  # Helper: Show the gray hint at root
+  # Helper: Show the gray hint at root (scripts are default feature)
   _dr_show_hint() {
-    _message -r $'\e[90m(hint: -s/scripts, -a/aliases, -c/config, -col/collections)\e[0m'
+    _message -r $'\e[90m(hint: run (default), set, move, rm, help, -l, -L)\e[0m'
   }
 
   # Helper: Decorate folder paths with emoji for completion display (SINGLE SOURCE OF TRUTH)
@@ -627,33 +633,80 @@ _dr() {
     3)
       # Second argument - context depends on first argument
       case "${words[2]}" in
+        -r|reload)
+          # reload command takes no arguments - prevent further completion
+          return 0
+          ;;
         -s|scripts)
-          # Script management context
+          # Script management context - must work identically to root 'dr TAB'
           local current_word="${words[3]}"
 
           # If user has typed a pattern (not a flag), show matching scripts recursively
           if [[ -n "$current_word" && "$current_word" != -* ]]; then
             # Show recursive search results for scripts matching the pattern
-            # Uses unified pipeline with fullpath mode and filter bypass
             _dr_get_feature_context scripts "" all "$current_word" | _dr_display_feature_context scripts "" fullpath true
-          fi
-
-          # Always show subcommands for discoverability (unless searching)
-          # This allows users to see both search results AND available commands
-          if [[ -z "$current_word" || "$current_word" == -* ]]; then
-            _dr_add_commands_with_tag 'script-commands' "${script_commands[@]}"
+          else
+            # Empty or flag - show hint + folders + scripts (like root dr TAB)
+            _dr_show_hint
+            _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
           fi
 
           return 0
           ;;
         -a|aliases)
-          # Aliases management context - show subcommands with proper tag
-          _dr_add_commands_with_tag 'aliases-commands' "${aliases_commands[@]}"
+          # Aliases management context - NO commands shown, only hint + folders + files
+          local current_word="${words[3]}"
+
+          # If user has typed a pattern (not a flag), show matching aliases recursively
+          if [[ -n "$current_word" && "$current_word" != -* ]]; then
+            # Show recursive search results for aliases matching the pattern
+            _dr_get_feature_context aliases "" all "$current_word" | _dr_display_feature_context aliases "" fullpath true
+          else
+            # Empty or flag - show hint + folders + aliases (NO commands)
+            _message -r $'\e[90m(hint: add/edit (default), -l, -L, move, rm, help, init)\e[0m'
+            _dr_get_feature_context aliases "" | _dr_display_feature_context aliases ""
+          fi
+
+          return 0
+          ;;
+        -l|-L)
+          # List commands with optional folder filter - supports recursive folder navigation
+          local current_word="${words[3]}"
+          local feature="scripts"
+
+          # Determine which feature based on words[2]
+          [[ "${words[2]}" == "-a" || "${words[2]}" == "aliases" ]] && feature="aliases"
+          [[ "${words[2]}" == "-c" || "${words[2]}" == "config" ]] && feature="configs"
+
+          if [[ "$current_word" == */* ]]; then
+            # User is navigating into subfolders - show contents of selected folder
+            local context_path=$(_dr_get_context_path "$current_word")
+            # Show only folders for -l/-L (list filtering by folder)
+            _dr_get_feature_context "$feature" "$context_path" single "" | while IFS= read -r line; do
+              [[ "$line" == folder:* ]] && echo "$line"
+            done | _dr_display_feature_context "$feature" "$context_path"
+          else
+            # At root level - show only folders with proper styling
+            _dr_get_feature_context "$feature" "" single "" | while IFS= read -r line; do
+              [[ "$line" == folder:* ]] && echo "$line"
+            done | _dr_display_feature_context "$feature" ""
+          fi
           return 0
           ;;
         -c|config)
-          # Config management context - show subcommands with proper tag
-          _dr_add_commands_with_tag 'config-commands' "${config_commands[@]}"
+          # Config management context - NO commands shown, only hint + folders + files
+          local current_word="${words[3]}"
+
+          # If user has typed a pattern (not a flag), show matching configs recursively
+          if [[ -n "$current_word" && "$current_word" != -* ]]; then
+            # Show recursive search results for configs matching the pattern
+            _dr_get_feature_context configs "" all "$current_word" | _dr_display_feature_context configs "" fullpath true
+          else
+            # Empty or flag - show hint + folders + configs (NO commands)
+            _message -r $'\e[90m(hint: add/edit (default), -l, -L, move, rm, help, init)\e[0m'
+            _dr_get_feature_context configs "" | _dr_display_feature_context configs ""
+          fi
+
           return 0
           ;;
         -col|collections)
@@ -697,7 +750,7 @@ _dr() {
             _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
           fi
           ;;
-        remove)
+        rm)
           # Support hierarchical navigation for removal
           local current_word="${words[3]}"
           if [[ "$current_word" == */* ]]; then
@@ -752,7 +805,7 @@ _dr() {
                 _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
               fi
               ;;
-            help|remove)
+            help|rm)
               # Support hierarchical navigation with colors/emojis
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
@@ -798,20 +851,7 @@ _dr() {
         -a|aliases)
           # Aliases subcommands
           case "${words[3]}" in
-            set)
-              # Hierarchical navigation for alias files
-              # Support folder navigation: dr -a set cd/<tab>
-              local current_word="${words[4]}"
-              if [[ "$current_word" == */* ]]; then
-                # In folder context - use piped feature context to preserve path prefix
-                local context_path=$(_dr_get_context_path "$current_word")
-                _dr_get_feature_context aliases "$context_path" | _dr_display_feature_context aliases "$context_path"
-              else
-                # Root context - show folders and alias files
-                _dr_get_feature_context aliases "" | _dr_display_feature_context aliases ""
-              fi
-              ;;
-            remove)
+            move|rm|help)
               # Hierarchical navigation for alias files
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
@@ -823,28 +863,26 @@ _dr() {
                 _dr_get_feature_context aliases "" | _dr_display_feature_context aliases ""
               fi
               ;;
-            list)
-              compadd -- --categories --category
+            -l|-L)
+              # List with optional folder filter - supports recursive folder navigation
+              local current_word="${words[4]}"
+              if [[ "$current_word" == */* ]]; then
+                local context_path=$(_dr_get_context_path "$current_word")
+                _dr_get_feature_context aliases "$context_path" single "" | while IFS= read -r line; do
+                  [[ "$line" == folder:* ]] && echo "$line"
+                done | _dr_display_feature_context aliases "$context_path"
+              else
+                _dr_get_feature_context aliases "" single "" | while IFS= read -r line; do
+                  [[ "$line" == folder:* ]] && echo "$line"
+                done | _dr_display_feature_context aliases ""
+              fi
               ;;
           esac
           ;;
         -c|config)
           # Config subcommands
           case "${words[3]}" in
-            set)
-              # Hierarchical navigation for config files
-              # Support folder navigation: dr -c set api/<tab>
-              local current_word="${words[4]}"
-              if [[ "$current_word" == */* ]]; then
-                # In folder context - use piped feature context to preserve path prefix
-                local context_path=$(_dr_get_context_path "$current_word")
-                _dr_get_feature_context configs "$context_path" | _dr_display_feature_context configs "$context_path"
-              else
-                # Root context - show folders and config files
-                _dr_get_feature_context configs "" | _dr_display_feature_context configs ""
-              fi
-              ;;
-            edit)
+            set|move|rm|help)
               # Hierarchical navigation for config files
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
@@ -856,10 +894,19 @@ _dr() {
                 _dr_get_feature_context configs "" | _dr_display_feature_context configs ""
               fi
               ;;
-            get|unset)
-              # Complete with config keys
-              _dr_ensure_config_keys_loaded
-              _describe -t config-keys 'config keys' _DR_CONFIG_KEYS
+            -l|-L)
+              # List with optional folder filter - supports recursive folder navigation
+              local current_word="${words[4]}"
+              if [[ "$current_word" == */* ]]; then
+                local context_path=$(_dr_get_context_path "$current_word")
+                _dr_get_feature_context configs "$context_path" single "" | while IFS= read -r line; do
+                  [[ "$line" == folder:* ]] && echo "$line"
+                done | _dr_display_feature_context configs "$context_path"
+              else
+                _dr_get_feature_context configs "" single "" | while IFS= read -r line; do
+                  [[ "$line" == folder:* ]] && echo "$line"
+                done | _dr_display_feature_context configs ""
+              fi
               ;;
             list)
               compadd -- --categories --category --keys-only
@@ -899,10 +946,21 @@ _dr() {
           ;;
         -a|aliases)
           case "${words[3]}" in
-            list)
-              if [[ "${words[4]}" == "--category" ]]; then
-                _dr_ensure_alias_categories_loaded
-                _describe -t alias-categories 'alias categories' _DR_ALIAS_CATEGORIES
+            move)
+              # Destination for move operations
+              local current_word="${words[5]}"
+              if [[ "$current_word" == */* ]]; then
+                # In folder context - use piped feature context to preserve path prefix
+                local context_path=$(_dr_get_context_path "$current_word")
+                _dr_get_feature_context aliases "$context_path" | _dr_display_feature_context aliases "$context_path"
+              else
+                # Root context - show folders for organization
+                local -a folders folder_matches folder_displays
+                while IFS= read -r folder; do
+                  [[ -n "$folder" ]] && folders+=("$folder")
+                done < <(_dr_global_filesystem_find aliases directory single)
+                _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
+                (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
               fi
               ;;
           esac
