@@ -48,8 +48,11 @@ function ble/cmdinfo/complete:dr {
 
   # Show hint at root level only
   if [[ -z "$context" ]] && [[ ${comp_cword} -eq 1 ]]; then
-    local hint="${_dr_color_gray}💡 (hint: -s/scripts, -a/aliases, -c/config, -col/collections)${_dr_color_reset}"
+    local hint="${_dr_color_gray}💡 (hint: run (default), set, move, rm, help, -l, -L)${_dr_color_reset}"
     ble/complete/cand/yield word "" "$hint"
+
+    # Global reload command
+    ble/complete/cand/yield word "reload" "🔄 reload"
   fi
 
   # Generate folder and script completions
@@ -123,29 +126,26 @@ function ble/cmdinfo/complete:dr {
   if [[ ${comp_cword} -eq 2 ]]; then
     case "${comp_words[1]}" in
       -s | scripts)
-        ble/complete/cand/yield word "add" "➕ add"
-        ble/complete/cand/yield word "edit" "✏️  edit"
+        ble/complete/cand/yield word "set" "➕ set"
         ble/complete/cand/yield word "move" "🔀 move"
-        ble/complete/cand/yield word "rename" "📝 rename"
+        ble/complete/cand/yield word "rm" "🗑️  rm"
         ble/complete/cand/yield word "help" "❓ help"
-        ble/complete/cand/yield word "list" "📋 list"
         ;;
       -a | aliases)
+        ble/complete/cand/yield word "move" "🔀 move"
+        ble/complete/cand/yield word "rm" "🗑️  rm"
+        ble/complete/cand/yield word "help" "❓ help"
         ble/complete/cand/yield word "init" "🆕 init"
-        ble/complete/cand/yield word "add" "➕ add"
-        ble/complete/cand/yield word "list" "📋 list"
-        ble/complete/cand/yield word "edit" "✏️  edit"
-        ble/complete/cand/yield word "remove" "🗑️  remove"
-        ble/complete/cand/yield word "reload" "🔄 reload"
+        ble/complete/cand/yield word "-l" "📋 list (short)"
+        ble/complete/cand/yield word "-L" "📋 list (long)"
         ;;
       -c | config)
+        ble/complete/cand/yield word "move" "🔀 move"
+        ble/complete/cand/yield word "rm" "🗑️  rm"
+        ble/complete/cand/yield word "help" "❓ help"
         ble/complete/cand/yield word "init" "🆕 init"
-        ble/complete/cand/yield word "set" "💾 set"
-        ble/complete/cand/yield word "get" "🔍 get"
-        ble/complete/cand/yield word "list" "📋 list"
-        ble/complete/cand/yield word "edit" "✏️  edit"
-        ble/complete/cand/yield word "unset" "🗑️  unset"
-        ble/complete/cand/yield word "reload" "🔄 reload"
+        ble/complete/cand/yield word "-l" "📋 list (short)"
+        ble/complete/cand/yield word "-L" "📋 list (long)"
         ;;
     esac
   fi

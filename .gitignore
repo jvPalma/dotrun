@@ -1,4 +1,8 @@
 .claude
+.agents
+.codex
+.gemini
+.opencode
 .local
 ai-docs
 

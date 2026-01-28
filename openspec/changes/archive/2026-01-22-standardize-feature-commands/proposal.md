@@ -129,13 +129,13 @@ Commands referenced in code, help messages, and documentation don't match actual
 **Final Command Set:**
 
 ```bash
-dr [SCRIPT_NAME]           # RUN (default)
-dr -l [FOLDER/]            # LIST (short format)
-dr -L [FOLDER/]            # LIST (long format with descriptions)
-dr set SCRIPT_NAME         # ADD/EDIT
-dr move SCRIPT_NAME        # MOVE/RENAME
-dr rm SCRIPT_NAME          # REMOVE
-dr help SCRIPT_NAME        # HELP
+dr [SCRIPT_NAME]    # RUN (default)
+dr -l [FOLDER/]     # LIST (short format)
+dr -L [FOLDER/]     # LIST (long format with descriptions)
+dr set SCRIPT_NAME  # ADD/EDIT
+dr move SCRIPT_NAME # MOVE/RENAME
+dr rm SCRIPT_NAME   # REMOVE
+dr help SCRIPT_NAME # HELP
 ```
 
 **Flag Consistency:**
@@ -178,14 +178,14 @@ dr help SCRIPT_NAME        # HELP
 **Final Command Set:**
 
 ```bash
-dr -a ALIAS_NAME           # ADD/EDIT (default)
-dr -a -l [FOLDER/]         # LIST (short format)
-dr -a -L [FOLDER/]         # LIST (long format)
-dr -a set ALIAS_NAME       # ADD/EDIT (explicit, same as default)
-dr -a move ALIAS_NAME      # MOVE/RENAME
-dr -a rm ALIAS_NAME        # REMOVE
-dr -a help ALIAS_NAME      # HELP
-dr -a init [FOLDER/]       # INIT folder structure
+dr -a ALIAS_NAME      # ADD/EDIT (default)
+dr -a -l [FOLDER/]    # LIST (short format)
+dr -a -L [FOLDER/]    # LIST (long format)
+dr -a set ALIAS_NAME  # ADD/EDIT (explicit, same as default)
+dr -a move ALIAS_NAME # MOVE/RENAME
+dr -a rm ALIAS_NAME   # REMOVE
+dr -a help ALIAS_NAME # HELP
+dr -a init [FOLDER/]  # INIT folder structure
 ```
 
 ### 3. CONFIGS Namespace Changes
@@ -224,14 +224,14 @@ dr -a init [FOLDER/]       # INIT folder structure
 **Final Command Set:**
 
 ```bash
-dr -c CONFIG_NAME          # ADD/EDIT (default)
-dr -c -l [FOLDER/]         # LIST (short format)
-dr -c -L [FOLDER/]         # LIST (long format)
-dr -c set CONFIG_NAME      # ADD/EDIT (explicit, same as default)
-dr -c move CONFIG_NAME     # MOVE/RENAME
-dr -c rm CONFIG_NAME       # REMOVE
-dr -c help CONFIG_NAME     # HELP
-dr -c init [FOLDER/]       # INIT folder structure
+dr -c CONFIG_NAME      # ADD/EDIT (default)
+dr -c -l [FOLDER/]     # LIST (short format)
+dr -c -L [FOLDER/]     # LIST (long format)
+dr -c set CONFIG_NAME  # ADD/EDIT (explicit, same as default)
+dr -c move CONFIG_NAME # MOVE/RENAME
+dr -c rm CONFIG_NAME   # REMOVE
+dr -c help CONFIG_NAME # HELP
+dr -c init [FOLDER/]   # INIT folder structure
 ```
 
 ### 4. Global Commands
@@ -241,7 +241,7 @@ dr -c init [FOLDER/]       # INIT folder structure
 **New Global Command:**
 
 ```bash
-dr reload                  # Reload entire dotrun environment (sources ~/.drrc)
+dr reload # Reload entire dotrun environment (sources ~/.drrc)
 ```
 
 **Purpose:** Feature-agnostic command that reloads the entire dotrun tool by sourcing `~/.drrc`. Replaces feature-specific reload commands.
@@ -515,32 +515,32 @@ This is a **MAJOR BREAKING CHANGE** that requires user action.
 **Commands Removed (will fail if used):**
 
 ```bash
-dr edit SCRIPT           # ❌ No longer valid
-dr -a edit ALIAS         # ❌ No longer valid
-dr -c edit CONFIG        # ❌ No longer valid
+dr edit SCRIPT    # ❌ No longer valid
+dr -a edit ALIAS  # ❌ No longer valid
+dr -c edit CONFIG # ❌ No longer valid
 
-dr init SCRIPT           # ❌ No longer valid (scripts only)
-dr -s init SCRIPT        # ❌ No longer valid
+dr init SCRIPT    # ❌ No longer valid (scripts only)
+dr -s init SCRIPT # ❌ No longer valid
 
-dr rename ANYTHING       # ❌ No longer valid
-dr -s rename SCRIPT      # ❌ No longer valid
-dr -a rename ALIAS       # ❌ No longer valid
-dr -c rename CONFIG      # ❌ No longer valid
+dr rename ANYTHING  # ❌ No longer valid
+dr -s rename SCRIPT # ❌ No longer valid
+dr -a rename ALIAS  # ❌ No longer valid
+dr -c rename CONFIG # ❌ No longer valid
 
-dr remove SCRIPT         # ❌ No longer valid
-dr -s remove SCRIPT      # ❌ No longer valid
-dr -a remove ALIAS       # ❌ No longer valid (use 'rm')
-dr -c remove CONFIG      # ❌ No longer valid (use 'rm')
+dr remove SCRIPT    # ❌ No longer valid
+dr -s remove SCRIPT # ❌ No longer valid
+dr -a remove ALIAS  # ❌ No longer valid (use 'rm')
+dr -c remove CONFIG # ❌ No longer valid (use 'rm')
 
-dr reload                # ✓ Valid (moved to global, different behavior)
-dr -s reload             # ❌ No longer valid
-dr -a reload             # ❌ No longer valid
-dr -c reload             # ❌ No longer valid
+dr reload    # ✓ Valid (moved to global, different behavior)
+dr -s reload # ❌ No longer valid
+dr -a reload # ❌ No longer valid
+dr -c reload # ❌ No longer valid
 
-dr sync                  # ❌ No longer valid
-dr -s sync               # ❌ No longer valid
-dr -a sync               # ❌ No longer valid
-dr -c sync               # ❌ No longer valid
+dr sync    # ❌ No longer valid
+dr -s sync # ❌ No longer valid
+dr -a sync # ❌ No longer valid
+dr -c sync # ❌ No longer valid
 ```
 
 **Migration Guide for Users:**

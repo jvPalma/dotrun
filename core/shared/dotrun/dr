@@ -52,6 +52,7 @@ color_folder() {
 }
 color_script="\033[1;92m" # Bright Green
 color_doc="\033[0;37m"    # Gray
+color_bold="\033[1m"      # Bold
 color_reset="\033[0m"
 
 # Input validation
@@ -494,6 +495,61 @@ move_script() {
   echo "Run with: dr $destination"
 }
 
+# Remove/delete a script
+remove_script() {
+  local name="$1"
+
+  # Validate input
+  validate_script_name "$name" || exit 1
+  check_prerequisites
+
+  # Find script file
+  local script_file
+  script_file=$(find_script_file "$name")
+  if [[ -z "$script_file" ]]; then
+    echo "Error: Script '$name' not found" >&2
+    echo "Use 'dr -l' to list available scripts" >&2
+    exit 1
+  fi
+
+  # Get relative paths
+  local rel_path="${script_file#"$BIN_DIR"/}"
+  local script_name
+  script_name="$(basename "$rel_path" .sh)"
+  local script_dir
+  script_dir="$(dirname "$rel_path")"
+
+  # Normalize directory path
+  [[ "$script_dir" == "." ]] && script_dir=""
+
+  # Display what will be removed with color
+  echo -e "${color_script}Remove script:${color_reset} $rel_path"
+  read -r -p "Are you sure? [y/N] " confirm
+
+  if [[ "$confirm" =~ ^[Yy]$ ]]; then
+    rm "$script_file"
+    echo -e "${color_script}✓ Removed script:${color_reset} $name"
+
+    # Clean up empty directories
+    if [[ -n "$script_dir" ]]; then
+      local dir_to_check="$script_dir"
+      while [[ -n "$dir_to_check" ]]; do
+        if [[ -d "$BIN_DIR/$dir_to_check" && -z "$(ls -A "$BIN_DIR/$dir_to_check" 2>/dev/null)" ]]; then
+          rmdir "$BIN_DIR/$dir_to_check" 2>/dev/null && echo "✓ Removed empty directory: $dir_to_check"
+        else
+          break
+        fi
+        dir_to_check="$(dirname "$dir_to_check")"
+        [[ "$dir_to_check" == "." ]] && break
+      done
+    fi
+
+    echo "Successfully removed script: $name"
+  else
+    echo "Cancelled"
+  fi
+}
+
 run_script() {
   local name="$1"
   shift
@@ -514,6 +570,29 @@ run_script() {
 
 # Main command parser
 case "${1:-}" in
+-r|reload)
+  # Feature-agnostic reload command
+  drrc="$HOME/.drrc"
+
+  if [[ ! -f "$drrc" ]]; then
+    echo -e "${color_script}Error:${color_reset} ~/.drrc not found" >&2
+    echo "DotRun may not be properly installed or initialized." >&2
+    exit 1
+  fi
+
+  # Display reload instructions with colors
+  echo -e "${color_script}🔄 Reloading DotRun...${color_reset}"
+  echo ""
+  echo -e "${color_doc}Note: Scripts run in subshells and cannot modify the parent shell environment.${color_reset}"
+  echo ""
+  echo -e "To reload DotRun in your ${color_bold}current shell${color_reset}, run:"
+  echo -e "  ${color_script}source ~/.drrc${color_reset}"
+  echo ""
+  echo -e "Or create a convenient alias:"
+  echo -e "  ${color_script}alias drr='source ~/.drrc'${color_reset}"
+  echo ""
+  echo -e "Then you can simply type: ${color_script}drr${color_reset}"
+  ;;
 -l | -L)
   show_docs=0
   [[ "$1" == "-L" ]] && show_docs=1
@@ -529,14 +608,6 @@ case "${1:-}" in
       exit 1
     }
     set_script "$3"
-    ;;
-  edit)
-    [[ -z "${3:-}" ]] && {
-      echo "Usage: dr $1 edit <name>"
-      exit 1
-    }
-    echo "Editing script: $3 ---- with editor: $EDITOR"
-    edit_script "$3"
     ;;
   move|rename)
     [[ -z "${3:-}" || -z "${4:-}" ]] && {
@@ -557,6 +628,13 @@ case "${1:-}" in
     }
     show_help "$3"
     ;;
+  rm)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr $1 rm <name>"
+      exit 1
+    }
+    remove_script "$3"
+    ;;
   list)
     # Optional folder scope for list
     show_docs=0
@@ -564,22 +642,26 @@ case "${1:-}" in
     list_scripts "$show_docs" "$scope"
     ;;
   *)
-    echo "Usage: dr $1 <command>"
+    echo "Usage: dr $1 <command> [args]"
+    echo "       dr $1 <scriptname>  (runs the script)"
+    echo
+    echo "Default: Runs the script (no command needed)"
+    echo
     echo "Commands:"
-    echo "  set <name>          Create or open a script in editor (idempotent)"
-    echo "  edit <name>         Open existing script in editor"
+    echo "  <scriptname>        Run script (default action)"
+    echo "  set <name>          Create or open a script in editor"
     echo "  move <src> <dst>    Move/rename a script"
-    echo "  rename <src> <dst>  Move/rename a script (alias for move)"
+    echo "  rm <name>           Remove a script"
     echo "  help <name>         Show script documentation"
-    echo "  list [folder]       List scripts"
+    echo
+    echo "Use 'dr -l' or 'dr -L' to list scripts."
     echo
     echo "Examples:"
-    echo "  dr $1 set myScript"
-    echo "  dr $1 edit myScript"
-    echo "  dr $1 move old new"
-    echo "  dr $1 help myScript"
-    echo "  dr $1 list"
-    echo "  dr $1 list git/"
+    echo "  dr $1 myScript          # Runs myScript"
+    echo "  dr $1 set myScript      # Opens myScript in editor"
+    echo "  dr $1 move old new      # Renames script"
+    echo "  dr $1 rm myScript       # Removes script"
+    echo "  dr $1 help myScript     # Shows documentation"
     ;;
   esac
   ;;
@@ -589,14 +671,6 @@ set)
     exit 1
   }
   set_script "$2"
-  ;;
-edit)
-  [[ -z "${2:-}" ]] && {
-    echo "Usage: dr edit <name>"
-    exit 1
-  }
-  echo "Editing script: $2 ---- with editor: $EDITOR"
-  edit_script "$2"
   ;;
 move | rename | mv)
   [[ -z "${2:-}" || -z "${3:-}" ]] && {
@@ -623,6 +697,13 @@ docs)
     exit 1
   }
   show_help "$2"
+  ;;
+rm)
+  [[ -z "${2:-}" ]] && {
+    echo "Usage: dr rm <name>"
+    exit 1
+  }
+  remove_script "$2"
   ;;
 yadm-init)
   check_prerequisites
@@ -938,6 +1019,16 @@ EOF
     echo "Error: Aliases helper not available" >&2
     exit 1
   fi
+
+  # Handle -l and -L flags first (before case statement)
+  if [[ "${2:-}" == "-l" ]]; then
+    list_aliases 0 "${3:-}"
+    exit 0
+  elif [[ "${2:-}" == "-L" ]]; then
+    list_aliases 1 "${3:-}"
+    exit 0
+  fi
+
   case "${2:-}" in
   init)
     aliases_init
@@ -969,34 +1060,54 @@ EOF
     ;;
   remove | rm)
     [[ -z "${3:-}" ]] && {
-      echo "Usage: dr aliases remove <name>"
+      echo "Usage: dr aliases rm <name>"
       exit 1
     }
     aliases_remove "$3"
     ;;
-  reload)
-    aliases_reload
+  help)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr aliases help <name>" >&2
+      exit 1
+    }
+    aliases_help "$3"
+    ;;
+  move)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr aliases move <source> <destination>" >&2
+      exit 1
+    }
+    aliases_move "$3" "${4:-}"
     ;;
   *)
-    echo "Usage: dr aliases <command>"
-    echo "Commands:"
-    echo "  init                          Initialize aliases system"
-    echo "  set <path/to/file>            Create or edit alias file (one file, multiple aliases)"
-    echo "  list                          List all alias files"
-    echo "  list --categories             List files with category information"
-    echo "  list --category <name>        List files in specific category"
-    echo "  remove <path/to/file>         Remove alias file"
-    echo "  reload                        Reload aliases in current shell"
-    echo
-    echo "File-based workflow: Each file can contain multiple aliases"
-    echo
-    echo "Examples:"
-    echo "  dr aliases init"
-    echo "  dr aliases set 01-git         # Creates/edits ~/.config/dotrun/aliases/01-git.aliases"
-    echo "  dr aliases set cd/shortcuts   # Creates/edits in category folder"
-    echo "  dr aliases list --category cd"
-    echo "  dr aliases remove 01-git"
-    echo "  dr aliases reload"
+    # Default action: if argument doesn't start with - and is not empty, treat as filename
+    if [[ -n "${2:-}" && "${2:0:1}" != "-" ]]; then
+      aliases_set "$2"
+    else
+      echo "Usage: dr -a [command] [args]"
+      echo ""
+      echo "Default: Opens alias file for editing (no command needed)"
+      echo ""
+      echo "Commands:"
+      echo "  <name>                        Edit alias file (default action)"
+      echo "  -l [folder/]                  List aliases (tree view, short)"
+      echo "  -L [folder/]                  List aliases (tree view, with descriptions)"
+      echo "  move <source> <dest>          Move/rename alias file"
+      echo "  rm <name>                     Remove alias file"
+      echo "  help <name>                   Show alias file documentation"
+      echo "  init                          Initialize aliases folder structure"
+      echo ""
+      echo "Note: 'set' is optional - 'dr -a myalias' and 'dr -a set myalias' are equivalent"
+      echo ""
+      echo "Examples:"
+      echo "  dr -a git-shortcuts           # Edit (or create) git-shortcuts.aliases"
+      echo "  dr -a -l                      # List all aliases in tree format"
+      echo "  dr -a -L cd/                  # List aliases in cd/ with descriptions"
+      echo "  dr -a move old-name new-name  # Rename alias file"
+      echo "  dr -a rm unused-alias         # Remove alias file"
+      echo "  dr -a help git-shortcuts      # Show documentation for alias file"
+      echo "  dr -a init                    # Initialize aliases directory"
+    fi
     ;;
   esac
   ;;
@@ -1005,6 +1116,14 @@ EOF
   if [[ $(type -t config_set) != "function" ]]; then
     echo "Error: Config helper not available" >&2
     exit 1
+  fi
+  # Handle -l and -L flags first (before case statement)
+  if [[ "${2:-}" == "-l" ]]; then
+    list_configs 0 "${3:-}"
+    exit 0
+  elif [[ "${2:-}" == "-L" ]]; then
+    list_configs 1 "${3:-}"
+    exit 0
   fi
   case "${2:-}" in
   set)
@@ -1032,29 +1151,75 @@ EOF
     fi
     config_list "$show_categories" "$filter_category"
     ;;
+  move)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr config move <source> <destination>" >&2
+      exit 1
+    }
+    config_move "$3" "${4:-}"
+    ;;
+  help)
+    [[ -z "${3:-}" ]] && {
+      echo "Usage: dr config help <name>" >&2
+      exit 1
+    }
+    config_help "$3"
+    ;;
   remove | rm)
     [[ -z "${3:-}" ]] && {
-      echo "Usage: dr config remove <name>"
+      echo "Usage: dr config rm <name>"
       exit 1
     }
     config_remove "$3"
     ;;
-  *)
-    echo "Usage: dr config <command>"
-    echo "Commands:"
-    echo "  set <path/to/file>            Create or edit config file (one file, multiple exports)"
-    echo "  list                          List all config files"
-    echo "  list --categories             List files with category information"
-    echo "  list --category <name>        List files in specific category"
-    echo "  remove <path/to/file>         Remove config file"
+  init)
+    # Initialize config folder structure
+    config_dir="${DR_CONFIG:-$HOME/.config/dotrun}/configs"
+    if [[ ! -d "$config_dir" ]]; then
+      mkdir -p "$config_dir"
+      echo "✓ Created configs directory: $config_dir"
+    else
+      echo "Configs directory already exists: $config_dir"
+    fi
+    ;;
+  "")
+    # Show help when no arguments
+    echo "Usage: dr -c <configname>  (opens config for editing)"
+    echo "       dr -c <command> [args...]"
     echo
-    echo "File-based workflow: Each file can contain multiple export statements"
+    echo "Commands:"
+    echo "  <configname>                  Add/edit config file (default action)"
+    echo "  -l [FOLDER/]                  List configs (tree view)"
+    echo "  -L [FOLDER/]                  List configs with descriptions"
+    echo "  move <source> <dest>          Move/rename config file"
+    echo "  rm <path/to/file>             Remove config file"
+    echo "  help <path/to/file>           Show config documentation"
+    echo "  init                          Initialize configs folder"
+    echo
+    echo "Note: 'set' is optional - 'dr -c myconfig' and 'dr -c set myconfig' are equivalent"
     echo
     echo "Examples:"
-    echo "  dr config set 01-main         # Creates/edits ~/.config/dotrun/configs/01-main.config"
-    echo "  dr config set api/keys        # Creates/edits in category folder"
-    echo "  dr config list --category api"
-    echo "  dr config remove 01-main"
+    echo "  dr -c myconfig                # Opens myconfig.config for editing"
+    echo "  dr -c -l                      # List all configs"
+    echo "  dr -c api/keys                # Opens api/keys.config for editing"
+    echo "  dr -c move old new            # Rename config file"
+    echo "  dr -c rm api/keys             # Remove config file"
+    ;;
+  -*)
+    # Unknown flag
+    echo "Error: Unknown flag ${2}" >&2
+    exit 1
+    ;;
+  *)
+    # Default action: if argument doesn't start with - and is not empty, treat as filename
+    if [[ -n "${2:-}" && "${2:0:1}" != "-" ]]; then
+      config_set "$2"
+    else
+      echo "Usage: dr -c <configname>  (opens config for editing)"
+      echo "       dr -c <command> [args...]"
+      echo
+      echo "Run 'dr -c' for full command list"
+    fi
     ;;
   esac
   ;;
@@ -1086,22 +1251,28 @@ ${BOLD}Core Commands${RESET}
 
 ${BOLD}${GREEN}Script Management${RESET} ${GRAY}(${GREEN}-s${RESET}${GRAY} or ${GREEN}scripts${RESET}${GRAY}, or ${GREEN}nothing${RESET}${GRAY} - the \`Script\` feature is default behavior)${RESET}
   ${GREEN}set${RESET} ${YELLOW}<name>${RESET}       Create or open ${YELLOW}<name>${RESET}.sh in editor (idempotent)
-  ${GREEN}edit${RESET} ${YELLOW}<name>${RESET}      Open existing script in editor
   ${GREEN}move${RESET} ${YELLOW}<src> <dst>${RESET} Move/rename script
+  ${GREEN}rm${RESET} ${YELLOW}<name>${RESET}        Remove script
   ${GREEN}help${RESET} ${YELLOW}<name>${RESET}      Show inline docs
   ${GREEN}${YELLOW}<name>${RESET} ${GRAY}[args…]${RESET}   Execute script ${YELLOW}<name>${RESET} from anywhere
 
 ${BOLD}${PURPLE}Aliases Management${RESET} ${GRAY}(${PURPLE}-a${RESET}${GRAY} or ${PURPLE}aliases${RESET}${GRAY})${RESET}
-  ${PURPLE}-a init${RESET}             Initialize aliases system with shell integration
-  ${PURPLE}-a set${RESET} ${YELLOW}<path/to/file>${RESET}  Create or edit alias file (one file = multiple aliases)
-  ${PURPLE}-a list${RESET}             List all alias files
-  ${PURPLE}-a remove${RESET} ${YELLOW}<file>${RESET}    Remove alias file
-  ${PURPLE}-a reload${RESET}           Reload aliases in current shell
+  ${PURPLE}-a${RESET} ${YELLOW}<path/to/file>${RESET}        Create or edit alias file (default action)
+  ${PURPLE}-a -l${RESET} ${YELLOW}[folder/]${RESET}         List aliases in tree view (short)
+  ${PURPLE}-a -L${RESET} ${YELLOW}[folder/]${RESET}         List aliases in tree view (with descriptions)
+  ${PURPLE}-a move${RESET} ${YELLOW}<src> <dst>${RESET}     Move/rename alias file
+  ${PURPLE}-a rm${RESET} ${YELLOW}<file>${RESET}            Remove alias file
+  ${PURPLE}-a help${RESET} ${YELLOW}<file>${RESET}          Show alias documentation
+  ${PURPLE}-a init${RESET}               Initialize aliases folder
 
 ${BOLD}${RED}Configuration Management${RESET} ${GRAY}(${RED}-c${RESET}${GRAY} or ${RED}config${RESET}${GRAY})${RESET}
-  ${RED}-c set${RESET} ${YELLOW}<path/to/file>${RESET}  Create or edit config file (one file = multiple exports)
-  ${RED}-c list${RESET}             List all config files
-  ${RED}-c remove${RESET} ${YELLOW}<file>${RESET}    Remove config file
+  ${RED}-c${RESET} ${YELLOW}<path/to/file>${RESET}        Create or edit config file (default action)
+  ${RED}-c -l${RESET} ${YELLOW}[folder/]${RESET}         List configs in tree view (short)
+  ${RED}-c -L${RESET} ${YELLOW}[folder/]${RESET}         List configs in tree view (with descriptions)
+  ${RED}-c move${RESET} ${YELLOW}<src> <dst>${RESET}     Move/rename config file
+  ${RED}-c rm${RESET} ${YELLOW}<file>${RESET}            Remove config file
+  ${RED}-c help${RESET} ${YELLOW}<file>${RESET}          Show config documentation
+  ${RED}-c init${RESET}               Initialize configs folder
 
 ${BOLD}${BLUE}Collections System${RESET} ${GRAY}(${BLUE}-col${RESET}${GRAY} or ${BLUE}collections${RESET}${GRAY})${RESET}
   ${GRAY}Share and update script collections from Git repositories with version tracking,${RESET}

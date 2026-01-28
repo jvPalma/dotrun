@@ -74,7 +74,7 @@ dr -s TAB # needs to work exactly like the command without the `-s`
 ## ST2: command: `set`
 
 ```bash
-dr  set TAB
+dr set TAB
 # line 1 : folders, and after all folders, all the scripts
 # line 2+: N/A
 
@@ -86,7 +86,7 @@ dr -s set TAB # needs to work exactly like the command without the `-s`
 ## ST3: command: `edit` 🔴 [does not exist/to be removed], we need to remove all references of this in the code, documentation, labels, and actions if any exists
 
 ```bash
-dr  edit TAB
+dr edit TAB
 dr -s edit TAB
 ```
 
@@ -95,7 +95,7 @@ dr -s edit TAB
 ## ST4: command: `init` 🔴 [does not exist/to be removed], we need to remove all references of this in the code, documentation, labels, and actions if any exists
 
 ```bash
-dr  init TAB
+dr init TAB
 dr -s init TAB
 ```
 
@@ -106,7 +106,7 @@ dr -s init TAB
 removed in favor of command: `move`
 
 ```bash
-dr  rename TAB
+dr rename TAB
 dr -s rename TAB
 ```
 
@@ -115,7 +115,7 @@ dr -s rename TAB
 ## ST6: command: `move`
 
 ```bash
-dr  rename TAB   # does the autocomplete correctly, just want to add preview of what will actually happen once the user submits `dr move path1/file path2/newFile` -> show the user clearlly, with colors, what is the original path, the new path, ask for confirmation with [Y/y/enter] and if so, show the success message with colors aswell.
+dr rename TAB # does the autocomplete correctly, just want to add preview of what will actually happen once the user submits `dr move path1/file path2/newFile` -> show the user clearlly, with colors, what is the original path, the new path, ask for confirmation with [Y/y/enter] and if so, show the success message with colors aswell.
 # also, nmoticed a bug right now, if we do  `dr move folder1/file folder1/folder2/` without giving him a name in the end, the file gets renamed to nothing, the filename goes from `folder1/file.sh` to `folder1/folder2/.sh`
 dr -s rename TAB # needs to work exactly like the command without the `-s`
 ```
@@ -125,7 +125,7 @@ dr -s rename TAB # needs to work exactly like the command without the `-s`
 ## ST7: command: `help`
 
 ```bash
-dr  help TAB # works as expected
+dr help TAB    # works as expected
 dr -s help TAB # needs to work exactly like the command without the `-s`
 ```
 
@@ -134,7 +134,7 @@ dr -s help TAB # needs to work exactly like the command without the `-s`
 ## ST8: command: `rm` 🔴 does not exist, but it should!
 
 ```bash
-dr  rm TAB
+dr rm TAB
 dr -s rm TAB # needs to work exactly like the command without the `-s`
 ```
 
@@ -157,7 +157,7 @@ dr -s reload TAB
 ## ST10: command: `sync` 🔴 [does not exist/to be removed], we need to remove all references of this in the code, documentation, labels, and actions if any exists
 
 ```bash
-dr  sync TAB
+dr sync TAB
 # line 1 :
 # line 2+:
 
@@ -166,7 +166,9 @@ dr -s sync TAB
 # line 2+:
 ```
 
-## SUMMARY: with final version of the commands accepted, tabs, and documentation states
+## SUMMARY
+
+### with final version of the commands accepted, tabs, and documentation states
 
 **DEFAULT ACTION**: `RUN SCRIPT`
 

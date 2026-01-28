@@ -256,10 +256,11 @@ _dr_autocomplete() {
   # ============================================================================
 
   # Command definitions
-  local script_mgmt_commands="set edit move rename help list"
-  local aliases_commands="init set list remove reload"
-  local config_commands="init set get list edit unset reload"
+  local script_mgmt_commands="set move rm help"
+  local aliases_commands="move rm help init -l -L"
+  local config_commands="move rm help init -l -L"
   local collections_commands="list list:details remove"
+  local global_commands="reload"
 
   # Position 1: First argument
   if [[ $cword -eq 1 ]]; then
@@ -268,7 +269,8 @@ _dr_autocomplete() {
       local context_path=$(_dr_get_context_path "$cur")
       _dr_emit_context "$context_path" "$context_path"
     else
-      # Root context: folders, scripts (NO hint, NO special commands)
+      # Root context: global commands, folders, scripts
+      COMPREPLY=($(compgen -W "$global_commands" -- "$cur"))
       _dr_emit_context "" ""
     fi
     return 0
@@ -276,23 +278,59 @@ _dr_autocomplete() {
   # Position 2: Second argument
   elif [[ $cword -eq 2 ]]; then
     case "$prev" in
+      reload)
+        # reload takes no arguments - return empty
+        return 0
+        ;;
       -s | scripts)
         # Script management commands
         COMPREPLY=($(compgen -W "$script_mgmt_commands" -- "$cur"))
         ;;
       -a | aliases)
-        # Aliases commands
+        # Aliases commands AND folders/files for default add/edit behavior
         COMPREPLY=($(compgen -W "$aliases_commands" -- "$cur"))
+        # Also show folders and alias files
+        if [[ "$cur" == */* ]]; then
+          local context_path=$(_dr_get_context_path "$cur")
+          _dr_emit_aliases_context "$context_path" "$context_path"
+        else
+          _dr_emit_aliases_context "" ""
+        fi
+        ;;
+      -l | -L)
+        # List with folder filter
+        if [[ "${words[1]}" == "-a" || "${words[1]}" == "aliases" ]]; then
+          # For aliases list, show only folders
+          local -a folders_only
+          while IFS= read -r folder; do
+            [[ -n "$folder" ]] && folders_only+=("$folder")
+          done < <(_dr_get_alias_folders "")
+          COMPREPLY+=("${folders_only[@]}")
+        else
+          # For scripts list, show only folders (already handled in existing code)
+          local -a folders_only
+          while IFS= read -r folder; do
+            [[ -n "$folder" ]] && folders_only+=("$folder")
+          done < <(_dr_get_folders "")
+          COMPREPLY=("${folders_only[@]}")
+        fi
         ;;
       -c | config)
-        # Config commands
+        # Config commands AND folders/files for default add/edit behavior
         COMPREPLY=($(compgen -W "$config_commands" -- "$cur"))
+        # Also show folders and config files
+        if [[ "$cur" == */* ]]; then
+          local context_path=$(_dr_get_context_path "$cur")
+          _dr_emit_configs_context "$context_path" "$context_path"
+        else
+          _dr_emit_configs_context "" ""
+        fi
         ;;
       -col | collections)
         # Collections commands
         COMPREPLY=($(compgen -W "$collections_commands" -- "$cur"))
         ;;
-      set | edit | help | move | rename | mv | remove)
+      set | help | move | mv | rm)
         # Direct commands with hierarchical navigation
         if [[ "$cur" == */* ]]; then
           local context_path=$(_dr_get_context_path "$cur")
@@ -330,7 +368,7 @@ _dr_autocomplete() {
         ;;
       -s | scripts)
         case "$prev" in
-          set | edit | help | remove | move | rename)
+          set | help | rm | move)
             if [[ "$cur" == */* ]]; then
               local context_path=$(_dr_get_context_path "$cur")
               _dr_emit_context "$context_path" "$context_path"
@@ -349,7 +387,7 @@ _dr_autocomplete() {
         ;;
       -a | aliases)
         case "$prev" in
-          set)
+          move | rm | help)
             # Hierarchical navigation for alias files
             if [[ "$cur" == */* ]]; then
               local context_path=$(_dr_get_context_path "$cur")
@@ -358,23 +396,19 @@ _dr_autocomplete() {
               _dr_emit_aliases_context "" ""
             fi
             ;;
-          remove)
-            # Hierarchical navigation for alias files
-            if [[ "$cur" == */* ]]; then
-              local context_path=$(_dr_get_context_path "$cur")
-              _dr_emit_aliases_context "$context_path" "$context_path"
-            else
-              _dr_emit_aliases_context "" ""
-            fi
-            ;;
-          list)
-            COMPREPLY=($(compgen -W "--categories --category" -- "$cur"))
+          -l | -L)
+            # List with optional folder filter - show only folders
+            local -a folders_only
+            while IFS= read -r folder; do
+              [[ -n "$folder" ]] && folders_only+=("$folder")
+            done < <(_dr_get_alias_folders "")
+            COMPREPLY=("${folders_only[@]}")
             ;;
         esac
         ;;
       -c | config)
         case "$prev" in
-          set)
+          set | move | rm | help)
             # Hierarchical navigation for config files
             if [[ "$cur" == */* ]]; then
               local context_path=$(_dr_get_context_path "$cur")
@@ -383,24 +417,13 @@ _dr_autocomplete() {
               _dr_emit_configs_context "" ""
             fi
             ;;
-          edit)
-            # Hierarchical navigation for config files
-            if [[ "$cur" == */* ]]; then
-              local context_path=$(_dr_get_context_path "$cur")
-              _dr_emit_configs_context "$context_path" "$context_path"
-            else
-              _dr_emit_configs_context "" ""
-            fi
-            ;;
-          get | unset)
-            # Complete with config keys
-            local -a config_keys
-            if [[ -d "$CONFIG_DIR" ]]; then
-              while IFS= read -r config_file; do
-                [[ -f "$config_file" ]] && IFS=$'\n' config_keys+=($(grep -E "^export " "$config_file" 2>/dev/null | sed 's/^export \([^=]*\)=.*/\1/' | sort))
-              done < <(find "$CONFIG_DIR" -name "*.config" -type f 2>/dev/null)
-            fi
-            COMPREPLY=($(compgen -W "${config_keys[*]}" -- "$cur"))
+          -l | -L)
+            # List with optional folder filter - show only folders
+            local -a folders_only
+            while IFS= read -r folder; do
+              [[ -n "$folder" ]] && folders_only+=("$folder")
+            done < <(_dr_get_config_folders "")
+            COMPREPLY=("${folders_only[@]}")
             ;;
           list)
             COMPREPLY=($(compgen -W "--categories --category --keys-only" -- "$cur"))
@@ -424,6 +447,40 @@ _dr_autocomplete() {
               while IFS= read -r folder; do
                 [[ -n "$folder" ]] && folders_only+=("$folder")
               done < <(_dr_get_folders "")
+              COMPREPLY=("${folders_only[@]}")
+            fi
+            ;;
+        esac
+        ;;
+      -a | aliases)
+        case "${words[2]}" in
+          move)
+            # Destination for move operations
+            if [[ "$cur" == */* ]]; then
+              local context_path=$(_dr_get_context_path "$cur")
+              _dr_emit_aliases_context "$context_path" "$context_path"
+            else
+              local -a folders_only
+              while IFS= read -r folder; do
+                [[ -n "$folder" ]] && folders_only+=("$folder")
+              done < <(_dr_get_alias_folders "")
+              COMPREPLY=("${folders_only[@]}")
+            fi
+            ;;
+        esac
+        ;;
+      -c | config)
+        case "${words[2]}" in
+          move)
+            # Destination for move operations
+            if [[ "$cur" == */* ]]; then
+              local context_path=$(_dr_get_context_path "$cur")
+              _dr_emit_configs_context "$context_path" "$context_path"
+            else
+              local -a folders_only
+              while IFS= read -r folder; do
+                [[ -n "$folder" ]] && folders_only+=("$folder")
+              done < <(_dr_get_config_folders "")
               COMPREPLY=("${folders_only[@]}")
             fi
             ;;
