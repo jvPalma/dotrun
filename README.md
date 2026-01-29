@@ -141,6 +141,15 @@ dr -col sync          # Check for updates
 dr -col update dotrun # Update with conflict resolution
 ```
 
+### Install AI Agent Skill
+
+```bash
+# Install DotRun skill for Claude Code or other AI agents
+npx skills add jvPalma/dotrun
+```
+
+This gives AI coding agents deep knowledge of DotRun's script system, enabling them to create, manage, and migrate scripts following best practices.
+
 ### Explore with Tab Completion
 
 ```bash
