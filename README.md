@@ -88,7 +88,7 @@ dr deploy staging # Run with confidence
 
 ## Quick Preview:
 
-<img width="704" height="690" alt="dotrun" src="https://github.com/user-attachments/assets/b8c668f0-70c0-49c3-b086-89de8fbc2319" />
+<img width="844" height="797" alt="image" src="https://github.com/user-attachments/assets/7518c538-a495-44e4-a362-16fa1a0e6bf1" />
 
 ## Installation
 
