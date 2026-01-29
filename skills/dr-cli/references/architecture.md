@@ -129,8 +129,8 @@ Shell-specific loaders:
 ### Reload Configuration
 
 ```bash
-dr -r                  # Shows reload instructions
-source ~/.drrc         # Actually reload
+dr -r          # Shows reload instructions
+source ~/.drrc # Actually reload
 ```
 
 ---
@@ -161,19 +161,19 @@ Two-tier search strategy:
 2. **Basename fallback**: Search entire `$BIN_DIR` recursively
 
 ```bash
-dr foo/bar   # First: ~/.config/dotrun/scripts/foo/bar.sh
-             # Fallback: find -name "bar.sh" anywhere
+dr foo/bar # First: ~/.config/dotrun/scripts/foo/bar.sh
+# Fallback: find -name "bar.sh" anywhere
 
-dr cleanup   # Search: find -name "cleanup.sh" in scripts/
+dr cleanup # Search: find -name "cleanup.sh" in scripts/
 ```
 
 ### Script Execution Context
 
 ```bash
 run_script() {
-    export DR_CONFIG
-    export DR_LOAD_HELPERS
-    "$script_file" "$@"  # Execute with all args
+  export DR_CONFIG
+  export DR_LOAD_HELPERS
+  "$script_file" "$@" # Execute with all args
 }
 ```
 

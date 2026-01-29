@@ -84,7 +84,7 @@ dr set api/endpoints
 ### DOC
 # Display all API endpoints
 ### DOC
-cat << 'EOF'
+cat <<'EOF'
 Production API: https://api.example.com/v1
 Staging API: https://staging-api.example.com/v1
 
@@ -223,7 +223,7 @@ dr set project/structure
 ### DOC
 # Display project directory structure with descriptions
 ### DOC
-cat << 'EOF'
+cat <<'EOF'
 src/
 ├── components/     # React components
 ├── hooks/          # Custom React hooks
@@ -247,7 +247,7 @@ dr set db/users-report
 ### DOC
 # Generate user activity report from database
 ### DOC
-psql $DATABASE_URL << 'SQL'
+psql $DATABASE_URL <<'SQL'
 SELECT
   date_trunc('day', created_at) as date,
   count(*) as signups

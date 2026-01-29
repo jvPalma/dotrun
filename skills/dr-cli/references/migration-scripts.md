@@ -94,11 +94,12 @@ For each script, detect these patterns and map to DotRun helpers:
 
 ```bash
 # DETECT (legacy patterns):
-echo -e "\033[31mError\033[0m"      # Raw ANSI red
-echo -e "\e[32mSuccess\e[0m"        # Escape sequences
-RED='\033[0;31m'; NC='\033[0m'      # Manual color vars
-$'\e[31m'                           # ANSI in $'' syntax
-tput setaf 1                        # tput color calls
+echo -e "\033[31mError\033[0m" # Raw ANSI red
+echo -e "\e[32mSuccess\e[0m"   # Escape sequences
+RED='\033[0;31m'
+NC='\033[0m' # Manual color vars
+$'\e[31m'    # ANSI in $'' syntax
+tput setaf 1 # tput color calls
 
 # REPLACE WITH:
 loadHelpers global/colors
@@ -131,7 +132,10 @@ if ! command -v jq &>/dev/null; then
   echo "jq is not installed"
   exit 1
 fi
-command -v git >/dev/null || { echo "git required"; exit 1; }
+command -v git >/dev/null || {
+  echo "git required"
+  exit 1
+}
 which docker || exit 1
 
 # REPLACE WITH:
@@ -326,8 +330,11 @@ show_help() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case $1 in
-      -h|--help) show_help ;;
-      -v|--verbose) VERBOSE=true; shift ;;
+      -h | --help) show_help ;;
+      -v | --verbose)
+        VERBOSE=true
+        shift
+        ;;
       *) break ;;
     esac
   done
@@ -499,7 +506,7 @@ fi
 
 3. **Execution test** (if safe):
    ```bash
-   dr {namespace/name} --help  # Should show documentation
+   dr {namespace/name} --help # Should show documentation
    ```
 
 ### Verification Checklist

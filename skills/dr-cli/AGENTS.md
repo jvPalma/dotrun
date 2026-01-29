@@ -67,7 +67,7 @@ dr -col update <name>   # Update collection
 set -euo pipefail
 
 main() {
-    echo "Running with args: $@"
+  echo "Running with args: $@"
 }
 
 main "$@"

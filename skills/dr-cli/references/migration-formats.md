@@ -246,11 +246,11 @@ main() {
   # Argument parsing
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      -h|--help)
+      -h | --help)
         showHelp
         exit 0
         ;;
-      -f|--file)
+      -f | --file)
         file="$2"
         shift 2
         ;;
@@ -317,11 +317,11 @@ main() {
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      -h|--help)
+      -h | --help)
         showHelp
         exit 0
         ;;
-      -o|--option)
+      -o | --option)
         option="$2"
         shift 2
         ;;
@@ -592,9 +592,9 @@ FILE_SIZE=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
 
 # Read file line by line
 while IFS= read -r line || [[ -n "$line" ]]; do
-  [[ -z "$line" || "$line" =~ ^# ]] && continue  # Skip empty/comments
+  [[ -z "$line" || "$line" =~ ^# ]] && continue # Skip empty/comments
   processLine "$line"
-done < "$input_file"
+done <"$input_file"
 ```
 
 ### Argument Parsing with Options
@@ -602,15 +602,15 @@ done < "$input_file"
 ```bash
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    -h|--help)
+    -h | --help)
       showHelp
       exit 0
       ;;
-    -f|--file)
+    -f | --file)
       file="$2"
       shift 2
       ;;
-    -o|--option)
+    -o | --option)
       option="$2"
       shift 2
       ;;

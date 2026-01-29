@@ -36,13 +36,13 @@ Helpers are stored in `~/.config/dotrun/helpers/` with domain-based organization
 
 ```bash
 ~/.config/dotrun/helpers/
-├── global/              # Core utilities (colors, logging, pkg management)
-├── git/                 # Git operations (branches, PRs, diffs)
-├── validation/          # Linting and validation
-├── ai/claude/           # Claude AI integration
-├── system/              # System-level operations
-├── utils/               # General utilities
-└── 01-dotrun-anc/       # Namespaced collections (custom/org-specific)
+├── global/        # Core utilities (colors, logging, pkg management)
+├── git/           # Git operations (branches, PRs, diffs)
+├── validation/    # Linting and validation
+├── ai/claude/     # Claude AI integration
+├── system/        # System-level operations
+├── utils/         # General utilities
+└── 01-dotrun-anc/ # Namespaced collections (custom/org-specific)
 ```
 
 **Core System Files:**
@@ -94,7 +94,7 @@ Helpers are stored in `~/.config/dotrun/helpers/` with domain-based organization
 ### Syntax
 
 ```bash
-loadHelpers <pattern> [--list]
+loadHelpers <pattern >[--list]
 ```
 
 ### Pattern Resolution Order
@@ -112,7 +112,7 @@ From most to least specific:
 - `@collection-name` - Load all helpers from a collection
 
   ```bash
-  loadHelpers @dotrun-anc  # Loads all from 01-dotrun-anc/
+  loadHelpers @dotrun-anc # Loads all from 01-dotrun-anc/
   ```
 
 - `--list` flag - Preview matches without loading
@@ -163,7 +163,7 @@ main "$@"
 ```bash
 # Sequential loading (dependencies)
 loadHelpers global/colors
-loadHelpers global/logging  # depends on colors
+loadHelpers global/logging # depends on colors
 
 # Or load related helpers
 loadHelpers git/git
@@ -438,7 +438,7 @@ Available after `loadHelpers global/colors`:
 
 ```bash
 RED GREEN YELLOW BLUE MAGENTA CYAN WHITE GRAY ORANGE
-RESET NC  # Both reset colors
+RESET NC # Both reset colors
 BOLD
 ```
 
@@ -454,11 +454,11 @@ echo -e "${RED}${BOLD}Critical Error${NC}"
 Available after `loadHelpers global/logging`:
 
 ```bash
-log_info "message"     # Blue [INFO]
-log_error "message"    # Red [ERROR] (stderr)
-log_warning "message"  # Yellow [WARNING]
-log_success "message"  # Green [SUCCESS]
-log_debug "message"    # Magenta [DEBUG] (only if DEBUG=true)
+log_info "message"    # Blue [INFO]
+log_error "message"   # Red [ERROR] (stderr)
+log_warning "message" # Yellow [WARNING]
+log_success "message" # Green [SUCCESS]
+log_debug "message"   # Magenta [DEBUG] (only if DEBUG=true)
 ```
 
 Pipe support:
@@ -493,7 +493,7 @@ loadHelpers git/git
 
 ```bash
 # Load from specific collection only
-loadHelpers 01-dotrun-anc/gcp/workstation.sh  # Exact with namespace
+loadHelpers 01-dotrun-anc/gcp/workstation.sh # Exact with namespace
 ```
 
 ---
@@ -505,7 +505,7 @@ loadHelpers 01-dotrun-anc/gcp/workstation.sh  # Exact with namespace
    ```bash
    # ❌ Wrong - will fail if DR_LOAD_HELPERS not set
    source "$DR_LOAD_HELPERS"
-
+   
    # ✅ Correct - conditional load
    [[ -n "${DR_LOAD_HELPERS:-}" ]] && source "$DR_LOAD_HELPERS"
    ```
@@ -573,8 +573,8 @@ loadHelpers my-helper --list
 
 ```bash
 # This is normal - loadHelpers prevents re-sourcing
-loadHelpers global/colors  # First load
-loadHelpers global/colors  # Skipped (already loaded)
+loadHelpers global/colors # First load
+loadHelpers global/colors # Skipped (already loaded)
 ```
 
 ### Wrong Helper Version

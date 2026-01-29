@@ -61,9 +61,9 @@ dr git/cleanup --dry-run
 Create or edit script. Opens in `$EDITOR`.
 
 ```bash
-dr set deploy              # ~/.config/dotrun/scripts/deploy.sh
-dr set git/sync            # ~/.config/dotrun/scripts/git/sync.sh
-dr set devops/ci/build     # Deeply nested script
+dr set deploy          # ~/.config/dotrun/scripts/deploy.sh
+dr set git/sync        # ~/.config/dotrun/scripts/git/sync.sh
+dr set devops/ci/build # Deeply nested script
 ```
 
 ### `dr help <name>`
@@ -80,9 +80,9 @@ dr help git/cleanup
 Rename or move script.
 
 ```bash
-dr move oldName newName           # Rename
-dr move script folder/script      # Move to subfolder
-dr move git/old git/new           # Rename within folder
+dr move oldName newName      # Rename
+dr move script folder/script # Move to subfolder
+dr move git/old git/new      # Rename within folder
 ```
 
 ### `dr rm <name>`
@@ -105,8 +105,8 @@ Aliases namespace: `dr -a` or `dr aliases`
 Create or edit alias file.
 
 ```bash
-dr -a 01-git              # ~/.config/dotrun/aliases/01-git.aliases
-dr -a docker/compose      # Nested alias file
+dr -a 01-git         # ~/.config/dotrun/aliases/01-git.aliases
+dr -a docker/compose # Nested alias file
 ```
 
 ### `dr -a -l [folder/]`
@@ -155,8 +155,8 @@ Configs namespace: `dr -c` or `dr config`
 Create or edit config file (environment exports).
 
 ```bash
-dr -c 01-paths            # ~/.config/dotrun/configs/01-paths.config
-dr -c api/credentials     # Nested config file
+dr -c 01-paths        # ~/.config/dotrun/configs/01-paths.config
+dr -c api/credentials # Nested config file
 ```
 
 ### `dr -c -l [folder/]`
@@ -278,13 +278,13 @@ All namespaces support both flag and word syntax:
 dr -s set deploy      # Flag syntax
 dr scripts set deploy # Word syntax
 
-dr -a -l              # Flag syntax
-dr aliases list       # Word syntax
+dr -a -l        # Flag syntax
+dr aliases list # Word syntax
 
-dr -c set api         # Flag syntax
-dr config set api     # Word syntax
+dr -c set api     # Flag syntax
+dr config set api # Word syntax
 
-dr -col add url       # Flag syntax
+dr -col add url        # Flag syntax
 dr collections add url # Word syntax
 ```
 
@@ -293,9 +293,9 @@ dr collections add url # Word syntax
 Scripts, aliases, and configs support nested paths:
 
 ```bash
-dr set folder/subfolder/script    # Creates nested structure
-dr -a category/subcategory        # Nested aliases
-dr -c domain/subdomain            # Nested configs
+dr set folder/subfolder/script # Creates nested structure
+dr -a category/subcategory     # Nested aliases
+dr -c domain/subdomain         # Nested configs
 ```
 
 ### Naming Rules

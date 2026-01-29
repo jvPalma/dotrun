@@ -39,10 +39,10 @@ When a user asks for something that involves:
 
 ```bash
 # Instead of explaining a complex git workflow each time:
-dr set git/pr-workflow    # Create it once, use forever
+dr set git/pr-workflow # Create it once, use forever
 
 # Instead of regenerating API query code:
-dr set api/fetch-users    # Reusable from any terminal
+dr set api/fetch-users # Reusable from any terminal
 ```
 
 ## Quick Reference
@@ -50,16 +50,16 @@ dr set api/fetch-users    # Reusable from any terminal
 ### Run a Script
 
 ```bash
-dr <script-name> [args]     # Run script with arguments
-dr git/cleanup --dry-run    # Nested script with flag
+dr <script-name >[args]  # Run script with arguments
+dr git/cleanup --dry-run # Nested script with flag
 ```
 
 ### List Scripts
 
 ```bash
-dr -l                       # Tree view (names only)
-dr -L                       # Tree view with descriptions
-dr -l ai/                   # List scripts in folder
+dr -l     # Tree view (names only)
+dr -L     # Tree view with descriptions
+dr -l ai/ # List scripts in folder
 ```
 
 ### Create/Edit Script
@@ -110,7 +110,7 @@ dr -col update <name>       # Update collection
 ### Reload
 
 ```bash
-dr -r                       # Reload shell configuration
+dr -r # Reload shell configuration
 ```
 
 ## File Locations
@@ -147,16 +147,16 @@ set -euo pipefail
 
 # Optional: Load helpers
 [[ -n "${DR_LOAD_HELPERS:-}" ]] && source "$DR_LOAD_HELPERS"
-loadHelpers global/colors  # If needed
+loadHelpers global/colors # If needed
 
-helperFunctionsAbove()[
-   echo "Running helperFunction"
+helperFunctionsAbove() [
+echo "Running helperFunction"
 ]
 
 main() {
-   helperFunctionsAbove
-   # Script logic here
-   echo "Running with args: $@"
+  helperFunctionsAbove
+  # Script logic here
+  echo "Running with args: $@"
 }
 
 main "$@"
@@ -170,14 +170,14 @@ main "$@"
 
    ```bash
    # "What are our API endpoints?"
-   dr set api/endpoints  # Store once, query forever
+   dr set api/endpoints # Store once, query forever
    ```
 
 2. **Repetitive Workflows** - Same steps multiple times
 
    ```bash
    # "Deploy to staging"
-   dr set deploy/staging  # Codify the process
+   dr set deploy/staging # Codify the process
    ```
 
 3. **Complex Pipelines** - Multi-step processes
@@ -256,9 +256,9 @@ Scripts can load reusable helper modules:
 # In your script:
 [[ -n "${DR_LOAD_HELPERS:-}" ]] && source "$DR_LOAD_HELPERS"
 
-loadHelpers global/colors           # Load by path
-loadHelpers workstation             # Load by name
-loadHelpers @my-collection          # Load all from collection
+loadHelpers global/colors  # Load by path
+loadHelpers workstation    # Load by name
+loadHelpers @my-collection # Load all from collection
 ```
 
 ## Collections for Team Sharing
