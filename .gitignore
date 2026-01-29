@@ -5,6 +5,7 @@
 .opencode
 .local
 ai-docs
+wiki-docs
 
 **.out
 .out
