@@ -110,7 +110,7 @@ validate_github_url() {
     echo "Examples:" >&2
     echo "  HTTPS (public/private): dr -col add https://github.com/jvPalma/dotrun.git" >&2
     echo "  SSH (private repos):    dr -col add git@github.com:company/private-repo.git" >&2
-    echo "  Local (testing):        dr -col add /home/user/dotrun/examples" >&2
+    echo "  Local (testing):        dr -col add /path/to/local/collection" >&2
     return 1
   fi
 
@@ -205,7 +205,7 @@ init_collections_conf() {
 # [collection-name]
 # url = https://github.com/user/repo.git
 # version = 1.0.0
-# path = /home/user/.config/dotrun/collections/collection-name
+# path = ~/.local/share/dotrun/collections/collection-name
 # imported_scripts = file1.sh:hash1,file2.sh:hash2
 # imported_aliases = file1.aliases:hash1
 # imported_helpers = file1.sh:hash1

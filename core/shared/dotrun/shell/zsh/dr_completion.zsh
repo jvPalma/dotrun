@@ -1,5 +1,5 @@
 #compdef dr
-# shellcheck shell=bash disable=SC2148,SC2034,SC2154,SC2206,SC2207,SC2295,SC2296
+# shellcheck shell=zsh disable=SC2148,SC2034,SC2154,SC2206,SC2207,SC2295,SC2296
 
 # Zsh completion for dr with namespace-based UX, colorized hierarchical display
 
@@ -12,21 +12,128 @@ zstyle ':completion:*:*:dr:*' list-rows-first true
 zstyle ':completion:*:*:dr:*' format ''
 zstyle ':completion:*:*:dr:*' group-order hints folders scripts aliases configs script-commands aliases-commands config-commands collections-commands
 
+# Force menu completion even with 1 match, always show list
+zstyle ':completion:*:*:dr:*' menu yes=long select=long
+zstyle ':completion:*:*:dr:*' list-prompt ''
+
+# Prevent auto-insertion of ambiguous matches
+zstyle ':completion:*:*:dr:*' insert-tab false
+zstyle ':completion:*:*:dr:*' insert-unambiguous false
+
 # Configure colors for completion groups
 # Colors: 33=yellow, 36=cyan, 90=dark gray, 32=green, 35=purple, 31=red
+#
+# Multi-color patterns using (#b) backreferences:
+# - Pattern 1 (with path): "📁 path/ 🚀 name" → path in yellow, name in feature color
+# - Pattern 2 (root level): "🚀 name" → all in feature color
+#
 zstyle ':completion:*:*:dr:*:hints' list-colors '=(#b)(*)=90'              # Dark gray for hints
 zstyle ':completion:*:*:dr:*:folders' list-colors '=(#b)(*)=33'            # Yellow for folders
-zstyle ':completion:*:*:dr:*:scripts' list-colors '=(#b)(*)=32'            # Green for scripts
-zstyle ':completion:*:*:dr:*:aliases' list-colors '=(#b)(*)=35'            # Purple for aliases
-zstyle ':completion:*:*:dr:*:configs' list-colors '=(#b)(*)=31'            # Red for configs
+
+# Scripts: path in yellow (33), name in green (32)
+zstyle ':completion:*:*:dr:*:scripts' list-colors \
+  '=(#b)(*] )(*)=0=33=32' \
+  '=(#b)(*)=32'
+
+# Aliases: path in yellow (33), name in purple (35)
+zstyle ':completion:*:*:dr:*:aliases' list-colors \
+  '=(#b)(*] )(*)=0=33=35' \
+  '=(#b)(*)=35'
+
+# Configs: path in yellow (33), name in red (31)
+zstyle ':completion:*:*:dr:*:configs' list-colors \
+  '=(#b)(*] )(*)=0=33=31' \
+  '=(#b)(*)=31'
+
 zstyle ':completion:*:*:dr:*:script-commands' list-colors '=(#b)(*)=32'    # Green for script management
 zstyle ':completion:*:*:dr:*:aliases-commands' list-colors '=(#b)(*)=35'   # Purple for aliases
 zstyle ':completion:*:*:dr:*:config-commands' list-colors '=(#b)(*)=31'    # Red for config
 zstyle ':completion:*:*:dr:*:collections-commands' list-colors '=(#b)(*)=34'  # Blue for collections
 
+# ============================================
+# ICON CONSTANTS (SINGLE SOURCE OF TRUTH)
+# ============================================
+# These icons are used throughout completion display
+# Change here to update all decorations consistently
+FOLDER_ICON='📁'
+SCRIPT_ICON='🚀'
+ALIAS_ICON='🎭'
+CONFIG_ICON='⚙'
+
+# ============================================
+# LAZY-LOADING STATE AND FUNCTIONS
+# ============================================
+# These variables are reset at the start of each _dr() invocation
+# and populated on-demand only when needed
+
+typeset -g _DR_CONFIG_KEYS_LOADED=false
+typeset -ga _DR_CONFIG_KEYS=()
+
+typeset -g _DR_ALIAS_CATEGORIES_LOADED=false
+typeset -ga _DR_ALIAS_CATEGORIES=()
+
+typeset -g _DR_CONFIG_CATEGORIES_LOADED=false
+typeset -ga _DR_CONFIG_CATEGORIES=()
+
+# Lazy-load config keys (export variable names from .config files)
+_dr_ensure_config_keys_loaded() {
+  [[ "$_DR_CONFIG_KEYS_LOADED" == "true" ]] && return 0
+
+  local config_dir="${DR_CONFIG:-$HOME/.config/dotrun}/configs"
+  _DR_CONFIG_KEYS=()
+  if [[ -d "$config_dir" ]]; then
+    while IFS= read -r config_file; do
+      [[ -f "$config_file" ]] && _DR_CONFIG_KEYS+=(${(f)"$(grep -E "^export " "$config_file" 2>/dev/null | sed 's/^export \([^=]*\)=.*/\1/' | sort)"})
+    done < <(find "$config_dir" -name "*.config" -type f 2>/dev/null)
+  fi
+  _DR_CONFIG_KEYS_LOADED=true
+}
+
+# Lazy-load alias categories (relative paths of .aliases files)
+_dr_ensure_alias_categories_loaded() {
+  [[ "$_DR_ALIAS_CATEGORIES_LOADED" == "true" ]] && return 0
+
+  local aliases_dir="${DR_CONFIG:-$HOME/.config/dotrun}/aliases"
+  _DR_ALIAS_CATEGORIES=()
+  if [[ -d "$aliases_dir" ]]; then
+    while IFS= read -r alias_file; do
+      if [[ -f "$alias_file" ]]; then
+        local rel_path="${alias_file#$aliases_dir/}"
+        local category="${rel_path%.aliases}"
+        _DR_ALIAS_CATEGORIES+=("$category")
+      fi
+    done < <(find "$aliases_dir" -name "*.aliases" -type f 2>/dev/null)
+  fi
+  _DR_ALIAS_CATEGORIES_LOADED=true
+}
+
+# Lazy-load config categories (relative paths of .config files)
+_dr_ensure_config_categories_loaded() {
+  [[ "$_DR_CONFIG_CATEGORIES_LOADED" == "true" ]] && return 0
+
+  local config_dir="${DR_CONFIG:-$HOME/.config/dotrun}/configs"
+  _DR_CONFIG_CATEGORIES=()
+  if [[ -d "$config_dir" ]]; then
+    while IFS= read -r config_file; do
+      if [[ -f "$config_file" ]]; then
+        local rel_path="${config_file#$config_dir/}"
+        local category="${rel_path%.config}"
+        _DR_CONFIG_CATEGORIES+=("$category")
+      fi
+    done < <(find "$config_dir" -name "*.config" -type f 2>/dev/null)
+  fi
+  _DR_CONFIG_CATEGORIES_LOADED=true
+}
+
 # Main completion function
 _dr() {
+  # Reset lazy-load state for this completion invocation
+  _DR_CONFIG_KEYS_LOADED=false
+  _DR_ALIAS_CATEGORIES_LOADED=false
+  _DR_CONFIG_CATEGORIES_LOADED=false
+
   local -a special_commands script_commands aliases_commands config_commands collections_commands
+
   # Get aliases and config directories
   local BIN_DIR="${DR_CONFIG:-$HOME/.config/dotrun}/scripts"
   local ALIASES_DIR="${DR_CONFIG:-$HOME/.config/dotrun}/aliases"
@@ -38,30 +145,36 @@ _dr() {
     '-L:List scripts with docs'
     '-h:Show help'
     '--help:Show help'
-    '-r:Reload all Aliases and Configs in current shell'
-    'reload:Reload all Aliases and Configs in current shell'
+    '-r:Reload dotrun environment (source ~/.drrc)'
+    'reload:Reload dotrun environment (source ~/.drrc)'
   )
 
   # Define script management commands (accessible via -s/scripts)
   script_commands=(
     'set:Create or open a script in editor (idempotent)'
     'move:Move/rename a script'
-    'rename:Move/rename a script (alias for move)'
+    'rm:Remove a script'
     'help:Show script documentation'
   )
 
   # Define aliases management commands (accessible via -a/aliases)
   aliases_commands=(
-    'set:Create or edit alias file (opens editor)'
-    'list:List all alias files'
-    'remove:Remove alias file'
+    'move:Move/rename an alias file'
+    'rm:Remove an alias file'
+    'help:Show alias file documentation'
+    'init:Initialize aliases folder structure'
+    '-l:List aliases (short format)'
+    '-L:List aliases with documentation (long format)'
   )
 
   # Define config management commands (accessible via -c/config)
   config_commands=(
-    'set:Create or edit config file (opens editor)'
-    'list:List all config files'
-    'remove:Remove config file'
+    'move:Move/rename a config file'
+    'rm:Remove a config file'
+    'help:Show config file documentation'
+    'init:Initialize configs folder structure'
+    '-l:List configs (short format)'
+    '-L:List configs with documentation (long format)'
   )
 
   # Define collections management commands (accessible via -col/collections)
@@ -106,308 +219,372 @@ _dr() {
     fi
   }
 
-  # Helper function: Get folders in context
-  # Outputs folders (one per line) without emoji - use _dr_add_folders to display with emoji
-  _dr_get_folders() {
-    local context="$1"
-    local search_dir="$BIN_DIR"
 
-    if [[ -n "$context" ]]; then
-      search_dir="$BIN_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate subdirectories only, add trailing /, ascending sort
-    # Exclude hidden folders (starting with .)
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' dir; do
-      local dirname="${dir#${strip_prefix}}"
-      dirname="${dirname%/}"
-      # Skip hidden folders (starting with .)
-      [[ "$dirname" == .* ]] && continue
-      [[ -n "$dirname" ]] && echo "${dirname}/"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print0 2>/dev/null | sort -z)
-  }
-
-  # Helper: Show the gray hint at root
+  # Helper: Show the gray hint at root (scripts are default feature)
   _dr_show_hint() {
-    _message -r $'\e[90m(hint: -s/scripts, -a/aliases, -c/config, -col/collections)\e[0m'
+    _message -r $'\e[90m(hint: run (default), set, move, rm, help, -l, -L)\e[0m'
   }
 
-  # Helper: Collect and emit candidates for a context.
-  # Arg1: context (e.g., "ai/tools/" or ""), Arg2: prefix to insert (usually same as context)
-  _dr_emit_context() {
-    local context="$1"
-    local prefix="$2"
-    local -a folders scripts folder_matches folder_displays script_matches script_displays
-    local item
+  # Helper: Decorate folder paths with emoji for completion display (SINGLE SOURCE OF TRUTH)
+  # Appends decorated folders to the matches and displays arrays via indirect assignment
+  #
+  # Usage: _dr_decorate_folders <matches_var> <displays_var> <prefix> [mode] folder1 folder2 ...
+  #
+  # Args:
+  #   $1: variable name of array to append matches (for insertion into command line)
+  #   $2: variable name of array to append displays (for visual rendering with emoji)
+  #   $3: prefix to prepend to matches (e.g., "context/" or "")
+  #   $4: display mode (optional, default "simple"):
+  #       - "simple": always show "📁 basename/" (for hierarchical navigation)
+  #       - "fullpath": show "parent/📁 child/" for nested, "📁 folder/" for root (for search results)
+  #   $@: remaining args are folder paths to decorate
+  #
+  # Example (simple mode - hierarchical navigation):
+  #   local -a folder_matches folder_displays
+  #   _dr_decorate_folders folder_matches folder_displays "ai/tools/" simple "child1/" "child2/"
+  #   # Result: folder_matches=("ai/tools/child1/" "ai/tools/child2/")
+  #   #         folder_displays=("📁 child1/" "📁 child2/")
+  #
+  # Example (fullpath mode - search results):
+  #   _dr_decorate_folders folder_matches folder_displays "" fullpath "status/" "ai/tools/"
+  #   # Result: folder_matches=("status/" "ai/tools/")
+  #   #         folder_displays=("📁 status/" "ai/📁 tools/")
+  #
+  _dr_decorate_folders() {
+    local matches_var="$1" displays_var="$2" prefix="$3" mode="${4:-simple}"
+    shift 4
 
-    # Collect
-    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_get_folders "$context")
-    while IFS= read -r item; do [[ -n "$item" ]] && scripts+=("$item");  done < <(_dr_get_scripts  "$context")
+    local item fullpath
+    for item; do
+      fullpath="${prefix}${item}"
+      eval "${matches_var}+=(\"\$fullpath\")"
 
-    # Decorate for display/insert
-    for item in "${folders[@]}"; do
-      folder_matches+=("${prefix}${item}")   # insert: "ai/tools/<child>/"
-      folder_displays+=("📁 ${item}")        # show:    "📁 <child>/"
+      if [[ "$mode" == "fullpath" ]]; then
+        local path_no_slash="${fullpath%/}"
+        if [[ "$path_no_slash" == */* ]]; then
+          local parent="${path_no_slash%/*}/"
+          local dirname="${path_no_slash##*/}"
+          eval "${displays_var}+=(\"${FOLDER_ICON} \${parent} \${dirname}/\")"
+        else
+          eval "${displays_var}+=(\"${FOLDER_ICON} \$fullpath\")"
+        fi
+      else
+        eval "${displays_var}+=(\"${FOLDER_ICON} \$item\")"
+      fi
     done
-    for item in "${scripts[@]}"; do
-      script_matches+=("${prefix}${item}")   # insert: "ai/tools/<script>"
-      script_displays+=("🚀 ${item}")        # show:    "🚀 <script>"
+  }
+
+  # Helper: Decorate file paths with emoji for completion display (SINGLE SOURCE OF TRUTH)
+  # Unified function for scripts, aliases, and configs decoration
+  # Appends decorated items to the matches and displays arrays via indirect assignment
+  #
+  # Usage: _dr_decorate_files <type> <matches_var> <displays_var> <prefix> <mode> item1 item2 ...
+  #
+  # Args:
+  #   $1: type - "SCRIPTS", "ALIASES", or "CONFIGS" (determines icon)
+  #   $2: variable name of array to append matches (for insertion into command line)
+  #   $3: variable name of array to append displays (for visual rendering with emoji)
+  #   $4: prefix to prepend to matches (e.g., "ai/tools/" or "")
+  #   $5: mode - "simple" or "fullpath"
+  #   $@: remaining args are file paths to decorate
+  #
+  # Example (SCRIPTS, simple mode - hierarchical navigation):
+  #   local -a script_matches script_displays
+  #   _dr_decorate_files SCRIPTS script_matches script_displays "ai/tools/" simple "deploy" "test"
+  #   # Result: script_matches=("ai/tools/deploy" "ai/tools/test")
+  #   #         script_displays=("🚀 deploy" "🚀 test")
+  #
+  # Example (SCRIPTS, fullpath mode - search results):
+  #   _dr_decorate_files SCRIPTS script_matches script_displays "" fullpath "status" "git/status/bk"
+  #   # Result: script_matches=("status" "git/status/bk")
+  #   #         script_displays=("🚀 status" "git/status/🚀 bk")
+  #
+  # Example (ALIASES, simple mode):
+  #   _dr_decorate_files ALIASES alias_matches alias_displays "cd/" simple "git" "docker"
+  #   # Result: alias_matches=("cd/git" "cd/docker")
+  #   #         alias_displays=("🎭 git" "🎭 docker")
+  #
+  # Example (CONFIGS, simple mode):
+  #   _dr_decorate_files CONFIGS config_matches config_displays "api/" simple "database" "cache"
+  #   # Result: config_matches=("api/database" "api/cache")
+  #   #         config_displays=("⚙ database" "⚙ cache")
+  #
+  _dr_decorate_files() {
+    local type="$1" matches_var="$2" displays_var="$3" prefix="$4" mode="$5"
+    shift 5
+
+    # Determine icon based on type
+    local icon
+    case "$type" in
+      SCRIPTS) icon="$SCRIPT_ICON" ;;
+      ALIASES) icon="$ALIAS_ICON" ;;
+      CONFIGS) icon="$CONFIG_ICON" ;;
+      *) icon="📄" ;;  # Fallback for unknown types
+    esac
+
+    local item fullpath
+    for item; do
+      fullpath="${prefix}${item}"
+      eval "${matches_var}+=(\"\$fullpath\")"
+
+      if [[ "$mode" == "fullpath" ]]; then
+        if [[ "$fullpath" == */* ]]; then
+          # Nested file: show "📁 path/ 🚀 filename" for multi-color display
+          local folder="${fullpath%/*}/"
+          local filename="${fullpath##*/}"
+          eval "${displays_var}+=(\"${icon} \${folder}\${filename}\")"
+        else
+          # Root-level file: show "🚀 filename" (no folder icon needed)
+          eval "${displays_var}+=(\"${icon} \$fullpath\")"
+        fi
+      else
+        eval "${displays_var}+=(\"${icon} \$item\")"
+      fi
+    done
+  }
+
+  # ============================================
+  # UNIFIED FILESYSTEM FINDER (SINGLE SOURCE OF TRUTH)
+  # ============================================
+  # Replaces: _dr_get_folders, _dr_get_scripts, _dr_get_alias_folders,
+  #           _dr_get_alias_files, _dr_get_config_folders, _dr_get_config_files
+  #
+  # _dr_global_filesystem_find <context> <type> <depth> [subcontext] [sortAz] [pattern]
+  #
+  # Args:
+  #   $1 (context):    'scripts' | 'aliases' | 'configs' | 'collections'
+  #                    Maps to: $BIN_DIR, $ALIASES_DIR, $CONFIG_DIR, $COLLECTIONS_DIR
+  #   $2 (type):       'file' | 'directory' | 'both'
+  #   $3 (depth):      'single' | 'all'
+  #   $4 (subcontext): Optional relative path within context (e.g., "ai/tools/")
+  #   $5 (sortAz):     Optional, default 'true' - alphabetical sort
+  #   $6 (pattern):    Optional filter pattern for -ipath matching
+  #
+  # Returns: One result per line (stdout)
+  #   - Directories: "dirname/" (with trailing slash)
+  #   - Files: "filename" (extension stripped based on context)
+  #
+  # Examples:
+  #   _dr_global_filesystem_find scripts directory single        # Script folders at root
+  #   _dr_global_filesystem_find scripts file single "ai/tools"  # Scripts in ai/tools/
+  #   _dr_global_filesystem_find aliases file all "" true "git"  # All alias files matching "git"
+  #
+  _dr_global_filesystem_find() {
+    local context="$1" type="$2" depth="$3"
+    local subcontext="${4:-}" sortAz="${5:-true}" pattern="${6:-}"
+
+    # Map context to base directory and file extension
+    local base_dir ext
+    case "$context" in
+      scripts)     base_dir="$BIN_DIR";        ext=".sh" ;;
+      aliases)     base_dir="$ALIASES_DIR";    ext=".aliases" ;;
+      configs)     base_dir="$CONFIG_DIR";     ext=".config" ;;
+      collections) base_dir="$COLLECTIONS_DIR"; ext="" ;;
+      *) return 1 ;;  # Invalid context
+    esac
+
+    # Build search directory (base + optional subcontext)
+    local search_dir="$base_dir"
+    if [[ -n "$subcontext" ]]; then
+      search_dir="$base_dir/${subcontext%/}"
+    fi
+
+    # Early return if directory doesn't exist
+    [[ ! -d "$search_dir" ]] && return 0
+
+    # Build find command arguments
+    local -a find_args=("$search_dir" -mindepth 1)
+
+    # Depth option
+    [[ "$depth" == "single" ]] && find_args+=(-maxdepth 1)
+
+    # Type option
+    case "$type" in
+      file)      find_args+=(-type f) ;;
+      directory) find_args+=(-type d) ;;
+      # 'both' - no type filter
+    esac
+
+    # File name filter (only for files with extension)
+    if [[ "$type" == "file" && -n "$ext" ]]; then
+      find_args+=(-name "*${ext}")
+    fi
+
+    # Pattern filter (optional)
+    [[ -n "$pattern" ]] && find_args+=(-ipath "*${pattern}*")
+
+    # Exclude hidden files/folders
+    find_args+=(! -name '.*' -print0)
+
+    # Process results
+    local strip_prefix="${search_dir%/}/"
+    local item rel_path
+
+    while IFS= read -r -d '' item; do
+      # Strip prefix to get relative path
+      rel_path="${item#${strip_prefix}}"
+      [[ -z "$rel_path" ]] && continue
+
+      # Format output based on actual type
+      if [[ -d "$item" ]]; then
+        echo "${rel_path%/}/"
+      else
+        [[ -n "$ext" ]] && rel_path="${rel_path%${ext}}"
+        echo "$rel_path"
+      fi
+    done < <(
+      if [[ "$sortAz" == "true" ]]; then
+        find "${find_args[@]}" 2>/dev/null | sort -z
+      else
+        find "${find_args[@]}" 2>/dev/null
+      fi
+    )
+  }
+
+  # ============================================
+  # GET + DISPLAY PATTERN FUNCTIONS
+  # ============================================
+  # These functions split data retrieval from display, enabling piped composition.
+  #
+  # Usage pattern:
+  #   _dr_get_feature_context scripts "ai/tools/" | _dr_display_feature_context scripts "ai/tools/"
+  #
+  # With filter:
+  #   _dr_get_feature_context scripts "" single "status" | _dr_display_feature_context scripts ""
+  #
+  # Recursive search:
+  #   _dr_get_feature_context scripts "" all "pattern" | _dr_display_feature_context scripts ""
+
+  # _dr_get_feature_context <feature> <subcontext> [depth] [filter]
+  #
+  # Gets folders and files for a feature context, outputting in TYPE:NAME format.
+  #
+  # Args:
+  #   $1 (feature):    'scripts' | 'aliases' | 'configs'
+  #   $2 (subcontext): Relative path context (e.g., "ai/tools/" or "")
+  #   $3 (depth):      'single' | 'all' (default: 'single')
+  #   $4 (filter):     Optional pattern filter for matching
+  #
+  # Output format (stdout, one per line):
+  #   TYPE:NAME
+  #   - "folder:dirname/"   for directories
+  #   - "file:filename"     for files (extension stripped)
+  #
+  # Example output:
+  #   folder:ai/
+  #   folder:git/
+  #   file:status
+  #   file:deploy
+  #
+  _dr_get_feature_context() {
+    local feature="$1" subcontext="$2" depth="${3:-single}" filter="${4:-}"
+
+    # Get folders
+    while IFS= read -r folder; do
+      [[ -n "$folder" ]] && echo "folder:$folder"
+    done < <(_dr_global_filesystem_find "$feature" directory "$depth" "$subcontext" true "$filter")
+
+    # Get files
+    while IFS= read -r file; do
+      [[ -n "$file" ]] && echo "file:$file"
+    done < <(_dr_global_filesystem_find "$feature" file "$depth" "$subcontext" true "$filter")
+  }
+
+  # _dr_display_feature_context <feature> <prefix> [mode] [bypass_filter]
+  #
+  # Reads piped data from _dr_get_feature_context, decorates and displays using compadd.
+  #
+  # Args:
+  #   $1 (feature):       'scripts' | 'aliases' | 'configs' (determines icons)
+  #   $2 (prefix):        Prefix to prepend to matches (e.g., "ai/tools/")
+  #   $3 (mode):          'simple' (default) | 'fullpath' - decoration mode
+  #                       - simple: shows "📁 child/" (for hierarchical navigation)
+  #                       - fullpath: shows "parent/📁 child/" (for recursive search)
+  #   $4 (bypass_filter): 'false' (default) | 'true' - bypass zsh filtering
+  #                       - false: let zsh filter normally (hierarchical navigation)
+  #                       - true: use -U -i "$PREFIX" (recursive search, our results pre-filtered)
+  #
+  # Input format (stdin):
+  #   folder:dirname/
+  #   file:filename
+  #
+  _dr_display_feature_context() {
+    local feature="$1" prefix="$2" mode="${3:-simple}" bypass_filter="${4:-false}"
+    local -a folders files folder_matches folder_displays file_matches file_displays
+    local line type name
+
+    # Parse input
+    while IFS= read -r line; do
+      type="${line%%:*}"
+      name="${line#*:}"
+      case "$type" in
+        folder) folders+=("$name") ;;
+        file)   files+=("$name") ;;
+      esac
     done
 
-    # Emit with tags so group-order (folders → scripts) applies; keep -S '' for folders
-    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folder_matches
-    (( ${#script_matches[@]} )) && _wanted scripts  expl 'scripts'  compadd -Q      -d script_displays -a -- script_matches
+    # Decorate folders with specified mode
+    _dr_decorate_folders folder_matches folder_displays "$prefix" "$mode" "${folders[@]}"
+
+    # Decorate files (using feature to determine icon type)
+    local file_type
+    case "$feature" in
+      scripts) file_type="SCRIPTS" ;;
+      aliases) file_type="ALIASES" ;;
+      configs) file_type="CONFIGS" ;;
+    esac
+    _dr_decorate_files "$file_type" file_matches file_displays "$prefix" "$mode" "${files[@]}"
+
+    # Emit with _wanted tags (for zstyle coloring)
+    if [[ "$bypass_filter" == "true" ]]; then
+      # Recursive search: bypass zsh filtering, REPLACE typed text with full path
+      # -U: bypass prefix matching - completions don't need to match what user typed
+      #     When user selects a completion, it REPLACES PREFIX (the typed text like "sta")
+      # In fullpath mode (recursive search), emit FILES ONLY - folders are shown as path prefixes
+
+      # CRITICAL: Set compstate BEFORE compadd to prevent PREFIX deletion
+      # Without this, zsh calculates "longest common prefix" of all matches (which is empty)
+      # and replaces the typed text with empty string, deleting it.
+      # compstate[insert]='menu' tells zsh: "go directly to menu, don't insert anything"
+      compstate[insert]='menu'
+
+      # Use _wanted for proper tag context (needed for zstyle colors)
+      if [[ "$mode" != "fullpath" ]]; then
+        (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -U -S '' -d folder_displays -a -- folder_matches
+      fi
+      (( ${#file_matches[@]} )) && _wanted "$feature" expl "$feature" compadd -U -d file_displays -a -- file_matches
+    else
+      # Hierarchical navigation: let zsh filter normally
+      (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
+      (( ${#file_matches[@]} )) && _wanted "$feature" expl "$feature" compadd -d file_displays -a -- file_matches
+    fi
   }
 
   # Helper function: Add folders with emoji display using compadd
   _dr_add_folders() {
-    local -a folders displays
+    local -a folders folder_matches folder_displays
     while IFS= read -r folder; do
-      [[ -n "$folder" ]] && folders+=("$folder") && displays+=("📁 $folder")
+      [[ -n "$folder" ]] && folders+=("$folder")
     done
 
-    (( ${#folders[@]} )) && compadd -U -S '' -Q -d displays -a folders
+    # Use centralized decoration function (simple mode - just basename with emoji)
+    _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
+
+    # Only call compset -P '*' if we have folders to add
+    # This prevents PREFIX consumption when no completions exist (which causes word deletion)
+    if (( ${#folder_matches[@]} )); then
+      # This marks the entire typed word as "consumed" before using -U, this means that
+      # ZSH will not delete the typed word while still bypassing ZSH filtering
+      compset -P '*'
+      # this allows us to use -U to bypass ZSH's prefix filtering and show all our pre-filtered results
+      # -U: bypass ZSH's prefix filtering
+      # -S '': no suffix for folders (they already have trailing slash)
+      # -d displays: use our custom display strings with emoji
+      # -a folders: add all folder candidates
+      compadd -U -S '' -d folder_displays -a folder_matches
+    fi
   }
 
-  # Helper function: Get scripts in context (strip .sh extension)
-  # Outputs scripts (one per line) without emoji - use _dr_add_scripts to display with emoji
-  _dr_get_scripts() {
-    local context="$1"
-    local search_dir="$BIN_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$BIN_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate .sh files only, strip extension, ascending sort
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' file; do
-      local filename="${file#${strip_prefix}}"
-      filename="${filename%.sh}"
-      [[ -n "$filename" ]] && echo "${filename}"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type f -name "*.sh" -print0 2>/dev/null | sort -z)
-  }
-
-  # Helper function: Add scripts with emoji display using compadd
-  _dr_add_scripts() {
-    local -a scripts displays
-    while IFS= read -r script; do
-      [[ -n "$script" ]] && scripts+=("$script") && displays+=("🚀 $script")
-    done
-
-    (( ${#scripts[@]} )) && compadd -U -d displays -a scripts
-  }
-
-  # Helper function: Get all scripts recursively (for edit/help/move)
-  _dr_get_all_scripts() {
-    if [[ ! -d "$BIN_DIR" ]]; then
-      return
-    fi
-
-    local -a result
-    while IFS= read -r -d '' file; do
-      local relpath="${file#${BIN_DIR}/}"  # Strip directory path with trailing slash
-      # Skip scripts in hidden folders (check relative path only)
-      [[ "$relpath" == .* ]] || [[ "$relpath" == */.* ]] && continue
-      relpath="${relpath%.sh}"  # Strip .sh extension
-      result+=("${relpath}")
-    done < <(find "$BIN_DIR" -type f -name "*.sh" -print0 2>/dev/null | sort -z)
-
-    # Use echo instead of print -l for proper subshell capture
-    for item in "${result[@]}"; do
-      echo "$item"
-    done
-  }
-
-
-  # Helper function: Get alias folders in context
-  _dr_get_alias_folders() {
-    local context="$1"
-    local search_dir="$ALIASES_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$ALIASES_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate subdirectories only, add trailing /, ascending sort
-    # Exclude hidden folders (starting with .)
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' dir; do
-      local dirname="${dir#${strip_prefix}}"
-      dirname="${dirname%/}"
-      # Skip hidden folders (starting with .)
-      [[ "$dirname" == .* ]] && continue
-      [[ -n "$dirname" ]] && echo "${dirname}/"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print0 2>/dev/null | sort -z)
-  }
-
-  # Helper function: Get alias files in context (strip .aliases extension)
-  _dr_get_alias_files() {
-    local context="$1"
-    local search_dir="$ALIASES_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$ALIASES_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate .aliases files only, strip extension, ascending sort
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' file; do
-      local filename="${file#${strip_prefix}}"
-      filename="${filename%.aliases}"
-      [[ -n "$filename" ]] && echo "${filename}"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type f -name "*.aliases" -print0 2>/dev/null | sort -z)
-  }
-
-  # Helper: Collect and emit candidates for alias context
-  # Arg1: context (e.g., "cd/" or ""), Arg2: prefix to insert (usually same as context)
-  _dr_emit_aliases_context() {
-    local context="$1"
-    local prefix="$2"
-    local -a folders alias_files folder_matches folder_displays alias_matches alias_displays
-    local item
-
-    # Collect
-    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_get_alias_folders "$context")
-    while IFS= read -r item; do [[ -n "$item" ]] && alias_files+=("$item");  done < <(_dr_get_alias_files  "$context")
-
-    # Decorate for display/insert
-    for item in "${folders[@]}"; do
-      folder_matches+=("${prefix}${item}")   # insert: "cd/<child>/"
-      folder_displays+=("📁 ${item}")        # show:    "📁 <child>/"
-    done
-    for item in "${alias_files[@]}"; do
-      alias_matches+=("${prefix}${item}")    # insert: "cd/<file>"
-      alias_displays+=("🎭 ${item}")         # show:    "🎭 <file>"
-    done
-
-    # Emit with tags so group-order (folders → alias files) applies; keep -S '' for folders
-    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folder_matches
-    (( ${#alias_matches[@]} )) && _wanted aliases  expl 'aliases'  compadd -Q      -d alias_displays -a -- alias_matches
-  }
-
-  # Helper function: Get config folders in context
-  _dr_get_config_folders() {
-    local context="$1"
-    local search_dir="$CONFIG_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$CONFIG_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate subdirectories only, add trailing /, ascending sort
-    # Exclude hidden folders (starting with .)
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' dir; do
-      local dirname="${dir#${strip_prefix}}"
-      dirname="${dirname%/}"
-      # Skip hidden folders (starting with .)
-      [[ "$dirname" == .* ]] && continue
-      [[ -n "$dirname" ]] && echo "${dirname}/"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print0 2>/dev/null | sort -z)
-  }
-
-  # Helper function: Get config files in context (strip .config extension)
-  _dr_get_config_files() {
-    local context="$1"
-    local search_dir="$CONFIG_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$CONFIG_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate .config files only, strip extension, ascending sort
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' file; do
-      local filename="${file#${strip_prefix}}"
-      filename="${filename%.config}"
-      [[ -n "$filename" ]] && echo "${filename}"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type f -name "*.config" -print0 2>/dev/null | sort -z)
-  }
-
-  # Helper: Collect and emit candidates for config context
-  # Arg1: context (e.g., "api/" or ""), Arg2: prefix to insert (usually same as context)
-  _dr_emit_configs_context() {
-    local context="$1"
-    local prefix="$2"
-    local -a folders config_files folder_matches folder_displays config_matches config_displays
-    local item
-
-    # Collect
-    while IFS= read -r item; do [[ -n "$item" ]] && folders+=("$item"); done < <(_dr_get_config_folders "$context")
-    while IFS= read -r item; do [[ -n "$item" ]] && config_files+=("$item");  done < <(_dr_get_config_files  "$context")
-
-    # Decorate for display/insert
-    for item in "${folders[@]}"; do
-      folder_matches+=("${prefix}${item}")   # insert: "api/<child>/"
-      folder_displays+=("📁 ${item}")        # show:    "📁 <child>/"
-    done
-    for item in "${config_files[@]}"; do
-      config_matches+=("${prefix}${item}")    # insert: "api/<file>"
-      config_displays+=("⚙ ${item}")         # show:    "⚙ <file>"
-    done
-
-    # Emit with tags so group-order (folders → config files) applies; keep -S '' for folders
-    (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folder_matches
-    (( ${#config_matches[@]} )) && _wanted configs  expl 'configs'  compadd -Q      -d config_displays -a -- config_matches
-  }
-
-  # Get config keys (recursive search)
-  local -a config_keys
-  if [[ -d "$CONFIG_DIR" ]]; then
-    while IFS= read -r config_file; do
-      [[ -f "$config_file" ]] && config_keys+=(${(f)"$(grep -E "^export " "$config_file" 2>/dev/null | sed 's/^export \([^=]*\)=.*/\1/' | sort)"})
-    done < <(find "$CONFIG_DIR" -name "*.config" -type f 2>/dev/null)
-  fi
-
-  # Get alias categories
-  local -a alias_categories
-  if [[ -d "$ALIASES_DIR" ]]; then
-    while IFS= read -r alias_file; do
-      if [[ -f "$alias_file" ]]; then
-        local rel_path="${alias_file#$ALIASES_DIR/}"
-        local category="${rel_path%.aliases}"
-        alias_categories+=("$category")
-      fi
-    done < <(find "$ALIASES_DIR" -name "*.aliases" -type f 2>/dev/null)
-  fi
-
-  # Get config categories
-  local -a config_categories
-  if [[ -d "$CONFIG_DIR" ]]; then
-    while IFS= read -r config_file; do
-      if [[ -f "$config_file" ]]; then
-        local rel_path="${config_file#$CONFIG_DIR/}"
-        local category="${rel_path%.config}"
-        config_categories+=("$category")
-      fi
-    done < <(find "$CONFIG_DIR" -name "*.config" -type f 2>/dev/null)
-  fi
 
   # Main completion logic by argument position
   case $CURRENT in
@@ -422,39 +599,114 @@ _dr() {
         local context_path=$(_dr_get_context_path "$current_word")
 
         # Collect and emit in one go (prefix equals the context)
-        _dr_emit_context "$context_path" "$context_path"
+        _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
 
         return 0
       else
-        # Root context - show ONLY hint, folders, and scripts (NO special commands)
-        # Do NOT show namespace flags (-s, -a, -c, -col) or subcommands (scripts, aliases, config, collections)
+        # Root context - check if user has typed a search pattern
+        if [[ -n "$current_word" && "$current_word" != -* ]]; then
+          # User has typed a pattern (like "sta") - do recursive search
+          # Uses unified pipeline: get all matching items recursively, display with fullpath mode
+          # - depth "all": search entire scripts directory tree
+          # - filter "$current_word": case-insensitive substring match on paths
+          # - mode "fullpath": show "parent/📁 child/" format for context
+          # - bypass_filter "true": use -U flag (bypasses prefix matching, completion replaces PREFIX)
+          #
+          # IMPORTANT: Use here-string instead of pipe to keep _dr_display_feature_context
+          # in the main shell. Pipe creates subshell where compadd completions don't propagate.
+          local context_data
+          context_data=$(_dr_get_feature_context scripts "" all "$current_word")
+          _dr_display_feature_context scripts "" fullpath true <<< "$context_data"
+          return 0
+        else
+          # Empty or starts with dash - show ONLY hint, folders, and scripts (NO special commands)
+          # Do NOT show namespace flags (-s, -a, -c, -col) or subcommands (scripts, aliases, config, collections)
 
-        # Show hint as non-selectable message
-        _message -r $'\e[90m(hint: -s/scripts, -a/aliases, -c/config, -col/collections)\e[0m'
+          # Show hint + folders + scripts
+          _dr_show_hint
+          _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
 
-        # Hint + collect + emit via helpers
-        _dr_show_hint
-        _dr_emit_context "" ""
-
-        return 0
+          return 0
+        fi
       fi
       ;;
     3)
       # Second argument - context depends on first argument
       case "${words[2]}" in
+        -r|reload)
+          # reload command takes no arguments - prevent further completion
+          return 0
+          ;;
         -s|scripts)
-          # Script management context - show subcommands with proper tag
-          _dr_add_commands_with_tag 'script-commands' "${script_commands[@]}"
+          # Script management context - must work identically to root 'dr TAB'
+          local current_word="${words[3]}"
+
+          # If user has typed a pattern (not a flag), show matching scripts recursively
+          if [[ -n "$current_word" && "$current_word" != -* ]]; then
+            # Show recursive search results for scripts matching the pattern
+            _dr_get_feature_context scripts "" all "$current_word" | _dr_display_feature_context scripts "" fullpath true
+          else
+            # Empty or flag - show hint + folders + scripts (like root dr TAB)
+            _dr_show_hint
+            _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
+          fi
+
           return 0
           ;;
         -a|aliases)
-          # Aliases management context - show subcommands with proper tag
-          _dr_add_commands_with_tag 'aliases-commands' "${aliases_commands[@]}"
+          # Aliases management context - NO commands shown, only hint + folders + files
+          local current_word="${words[3]}"
+
+          # If user has typed a pattern (not a flag), show matching aliases recursively
+          if [[ -n "$current_word" && "$current_word" != -* ]]; then
+            # Show recursive search results for aliases matching the pattern
+            _dr_get_feature_context aliases "" all "$current_word" | _dr_display_feature_context aliases "" fullpath true
+          else
+            # Empty or flag - show hint + folders + aliases (NO commands)
+            _message -r $'\e[90m(hint: add/edit (default), -l, -L, move, rm, help, init)\e[0m'
+            _dr_get_feature_context aliases "" | _dr_display_feature_context aliases ""
+          fi
+
+          return 0
+          ;;
+        -l|-L)
+          # List commands with optional folder filter - supports recursive folder navigation
+          local current_word="${words[3]}"
+          local feature="scripts"
+
+          # Determine which feature based on words[2]
+          [[ "${words[2]}" == "-a" || "${words[2]}" == "aliases" ]] && feature="aliases"
+          [[ "${words[2]}" == "-c" || "${words[2]}" == "config" ]] && feature="configs"
+
+          if [[ "$current_word" == */* ]]; then
+            # User is navigating into subfolders - show contents of selected folder
+            local context_path=$(_dr_get_context_path "$current_word")
+            # Show only folders for -l/-L (list filtering by folder)
+            _dr_get_feature_context "$feature" "$context_path" single "" | while IFS= read -r line; do
+              [[ "$line" == folder:* ]] && echo "$line"
+            done | _dr_display_feature_context "$feature" "$context_path"
+          else
+            # At root level - show only folders with proper styling
+            _dr_get_feature_context "$feature" "" single "" | while IFS= read -r line; do
+              [[ "$line" == folder:* ]] && echo "$line"
+            done | _dr_display_feature_context "$feature" ""
+          fi
           return 0
           ;;
         -c|config)
-          # Config management context - show subcommands with proper tag
-          _dr_add_commands_with_tag 'config-commands' "${config_commands[@]}"
+          # Config management context - NO commands shown, only hint + folders + files
+          local current_word="${words[3]}"
+
+          # If user has typed a pattern (not a flag), show matching configs recursively
+          if [[ -n "$current_word" && "$current_word" != -* ]]; then
+            # Show recursive search results for configs matching the pattern
+            _dr_get_feature_context configs "" all "$current_word" | _dr_display_feature_context configs "" fullpath true
+          else
+            # Empty or flag - show hint + folders + configs (NO commands)
+            _message -r $'\e[90m(hint: add/edit (default), -l, -L, move, rm, help, init)\e[0m'
+            _dr_get_feature_context configs "" | _dr_display_feature_context configs ""
+          fi
+
           return 0
           ;;
         -col|collections)
@@ -466,53 +718,53 @@ _dr() {
           # Support folder navigation for implicit set: dr set git/<tab>
           local current_word="${words[3]}"
           if [[ "$current_word" == */* ]]; then
-            # In folder context - use _dr_emit_context to preserve path prefix
+            # In folder context - use piped feature context to preserve path prefix
             local context_path=$(_dr_get_context_path "$current_word")
-            _dr_emit_context "$context_path" "$context_path"
+            _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
           else
             # Root context - show folders and scripts
-            _dr_emit_context "" ""
+            _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
           fi
           ;;
         edit|help)
           # Support hierarchical navigation for edit/help commands
           local current_word="${words[3]}"
           if [[ "$current_word" == */* ]]; then
-            # In folder context - use _dr_emit_context to preserve path prefix
+            # In folder context - use piped feature context to preserve path prefix
             local context_path=$(_dr_get_context_path "$current_word")
-            _dr_emit_context "$context_path" "$context_path"
+            _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
           else
             # Root context - show folders and scripts with colors/emojis
-            _dr_emit_context "" ""
+            _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
           fi
           ;;
         move|rename|mv)
           # Support hierarchical navigation for move/rename source argument
           local current_word="${words[3]}"
           if [[ "$current_word" == */* ]]; then
-            # In folder context - use _dr_emit_context to preserve path prefix
+            # In folder context - use piped feature context to preserve path prefix
             local context_path=$(_dr_get_context_path "$current_word")
-            _dr_emit_context "$context_path" "$context_path"
+            _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
           else
             # Root context - show folders and scripts with colors/emojis
-            _dr_emit_context "" ""
+            _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
           fi
           ;;
-        remove)
+        rm)
           # Support hierarchical navigation for removal
           local current_word="${words[3]}"
           if [[ "$current_word" == */* ]]; then
-            # In folder context - use _dr_emit_context to preserve path prefix
+            # In folder context - use piped feature context to preserve path prefix
             local context_path=$(_dr_get_context_path "$current_word")
-            _dr_emit_context "$context_path" "$context_path"
+            _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
           else
             # Root context - show folders and scripts with colors/emojis
-            _dr_emit_context "" ""
+            _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
           fi
           ;;
         -l|-L)
           # Optional folder filter for list commands
-          _dr_get_folders "" | _dr_add_folders
+          _dr_global_filesystem_find scripts directory single | _dr_add_folders
           ;;
       esac
       ;;
@@ -524,16 +776,17 @@ _dr() {
           # Support folder navigation: dr move old git/new
           local current_word="${words[4]}"
           if [[ "$current_word" == */* ]]; then
-            # In folder context - use _dr_emit_context to preserve path prefix
+            # In folder context - use piped feature context to preserve path prefix
             local context_path=$(_dr_get_context_path "$current_word")
-            _dr_emit_context "$context_path" "$context_path"
+            _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
           else
             # Root context - show folders for organization
-            local -a folders folder_displays
+            local -a folders folder_matches folder_displays
             while IFS= read -r folder; do
-              [[ -n "$folder" ]] && folders+=("$folder") && folder_displays+=("📁 $folder")
-            done < <(_dr_get_folders "")
-            (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folders
+              [[ -n "$folder" ]] && folders+=("$folder")
+            done < <(_dr_global_filesystem_find scripts directory single)
+            _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
+            (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
           fi
           ;;
         -s|scripts)
@@ -544,36 +797,36 @@ _dr() {
               # Support folder navigation: dr -s set git/<tab>
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_context "$context_path" "$context_path"
+                _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
               else
                 # Root context - show folders and scripts
-                _dr_emit_context "" ""
+                _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
               fi
               ;;
-            help|remove)
+            help|rm)
               # Support hierarchical navigation with colors/emojis
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_context "$context_path" "$context_path"
+                _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
               else
                 # Root context - show folders and scripts with colors/emojis
-                _dr_emit_context "" ""
+                _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
               fi
               ;;
             move|rename)
               # Support hierarchical navigation for source argument
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_context "$context_path" "$context_path"
+                _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
               else
                 # Root context - show folders and scripts with colors/emojis
-                _dr_emit_context "" ""
+                _dr_get_feature_context scripts "" | _dr_display_feature_context scripts ""
               fi
               ;;
             list)
@@ -582,14 +835,15 @@ _dr() {
               if [[ "$current_word" == */* ]]; then
                 # In folder context - preserve path
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_context "$context_path" "$context_path"
+                _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
               else
                 # Root context - just show folders
-                local -a folders folder_displays
+                local -a folders folder_matches folder_displays
                 while IFS= read -r folder; do
-                  [[ -n "$folder" ]] && folders+=("$folder") && folder_displays+=("📁 $folder")
-                done < <(_dr_get_folders "")
-                (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folders
+                  [[ -n "$folder" ]] && folders+=("$folder")
+                done < <(_dr_global_filesystem_find scripts directory single)
+                _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
+                (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
               fi
               ;;
           esac
@@ -597,67 +851,62 @@ _dr() {
         -a|aliases)
           # Aliases subcommands
           case "${words[3]}" in
-            set)
-              # Hierarchical navigation for alias files
-              # Support folder navigation: dr -a set cd/<tab>
-              local current_word="${words[4]}"
-              if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_aliases_context to preserve path prefix
-                local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_aliases_context "$context_path" "$context_path"
-              else
-                # Root context - show folders and alias files
-                _dr_emit_aliases_context "" ""
-              fi
-              ;;
-            remove)
+            move|rm|help)
               # Hierarchical navigation for alias files
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_aliases_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_aliases_context "$context_path" "$context_path"
+                _dr_get_feature_context aliases "$context_path" | _dr_display_feature_context aliases "$context_path"
               else
                 # Root context - show folders and alias files
-                _dr_emit_aliases_context "" ""
+                _dr_get_feature_context aliases "" | _dr_display_feature_context aliases ""
               fi
               ;;
-            list)
-              compadd -- --categories --category
+            -l|-L)
+              # List with optional folder filter - supports recursive folder navigation
+              local current_word="${words[4]}"
+              if [[ "$current_word" == */* ]]; then
+                local context_path=$(_dr_get_context_path "$current_word")
+                _dr_get_feature_context aliases "$context_path" single "" | while IFS= read -r line; do
+                  [[ "$line" == folder:* ]] && echo "$line"
+                done | _dr_display_feature_context aliases "$context_path"
+              else
+                _dr_get_feature_context aliases "" single "" | while IFS= read -r line; do
+                  [[ "$line" == folder:* ]] && echo "$line"
+                done | _dr_display_feature_context aliases ""
+              fi
               ;;
           esac
           ;;
         -c|config)
           # Config subcommands
           case "${words[3]}" in
-            set)
-              # Hierarchical navigation for config files
-              # Support folder navigation: dr -c set api/<tab>
-              local current_word="${words[4]}"
-              if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_configs_context to preserve path prefix
-                local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_configs_context "$context_path" "$context_path"
-              else
-                # Root context - show folders and config files
-                _dr_emit_configs_context "" ""
-              fi
-              ;;
-            edit)
+            set|move|rm|help)
               # Hierarchical navigation for config files
               local current_word="${words[4]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_configs_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_configs_context "$context_path" "$context_path"
+                _dr_get_feature_context configs "$context_path" | _dr_display_feature_context configs "$context_path"
               else
                 # Root context - show folders and config files
-                _dr_emit_configs_context "" ""
+                _dr_get_feature_context configs "" | _dr_display_feature_context configs ""
               fi
               ;;
-            get|unset)
-              # Complete with config keys
-              _describe -t config-keys 'config keys' config_keys
+            -l|-L)
+              # List with optional folder filter - supports recursive folder navigation
+              local current_word="${words[4]}"
+              if [[ "$current_word" == */* ]]; then
+                local context_path=$(_dr_get_context_path "$current_word")
+                _dr_get_feature_context configs "$context_path" single "" | while IFS= read -r line; do
+                  [[ "$line" == folder:* ]] && echo "$line"
+                done | _dr_display_feature_context configs "$context_path"
+              else
+                _dr_get_feature_context configs "" single "" | while IFS= read -r line; do
+                  [[ "$line" == folder:* ]] && echo "$line"
+                done | _dr_display_feature_context configs ""
+              fi
               ;;
             list)
               compadd -- --categories --category --keys-only
@@ -680,25 +929,38 @@ _dr() {
               # Support folder navigation for destination: dr -s move old git/new
               local current_word="${words[5]}"
               if [[ "$current_word" == */* ]]; then
-                # In folder context - use _dr_emit_context to preserve path prefix
+                # In folder context - use piped feature context to preserve path prefix
                 local context_path=$(_dr_get_context_path "$current_word")
-                _dr_emit_context "$context_path" "$context_path"
+                _dr_get_feature_context scripts "$context_path" | _dr_display_feature_context scripts "$context_path"
               else
                 # Root context - show folders for organization
-                local -a folders folder_displays
+                local -a folders folder_matches folder_displays
                 while IFS= read -r folder; do
-                  [[ -n "$folder" ]] && folders+=("$folder") && folder_displays+=("📁 $folder")
-                done < <(_dr_get_folders "")
-                (( ${#folders[@]} )) && _wanted folders expl 'folders' compadd -Q -S '' -d folder_displays -a -- folders
+                  [[ -n "$folder" ]] && folders+=("$folder")
+                done < <(_dr_global_filesystem_find scripts directory single)
+                _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
+                (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
               fi
               ;;
           esac
           ;;
         -a|aliases)
           case "${words[3]}" in
-            list)
-              if [[ "${words[4]}" == "--category" ]]; then
-                _describe -t alias-categories 'alias categories' alias_categories
+            move)
+              # Destination for move operations
+              local current_word="${words[5]}"
+              if [[ "$current_word" == */* ]]; then
+                # In folder context - use piped feature context to preserve path prefix
+                local context_path=$(_dr_get_context_path "$current_word")
+                _dr_get_feature_context aliases "$context_path" | _dr_display_feature_context aliases "$context_path"
+              else
+                # Root context - show folders for organization
+                local -a folders folder_matches folder_displays
+                while IFS= read -r folder; do
+                  [[ -n "$folder" ]] && folders+=("$folder")
+                done < <(_dr_global_filesystem_find aliases directory single)
+                _dr_decorate_folders folder_matches folder_displays "" simple "${folders[@]}"
+                (( ${#folder_matches[@]} )) && _wanted folders expl 'folders' compadd -S '' -d folder_displays -a -- folder_matches
               fi
               ;;
           esac
@@ -706,18 +968,21 @@ _dr() {
         -c|config)
           case "${words[3]}" in
             get)
-              if [[ "${words[4]}" == "${config_keys[(r)${words[4]}]}" ]]; then
+              _dr_ensure_config_keys_loaded
+              if [[ "${words[4]}" == "${_DR_CONFIG_KEYS[(r)${words[4]}]}" ]]; then
                 compadd -- --show-value
               fi
               ;;
             list)
               if [[ "${words[4]}" == "--category" ]]; then
-                _describe -t config-categories 'config categories' config_categories
+                _dr_ensure_config_categories_loaded
+                _describe -t config-categories 'config categories' _DR_CONFIG_CATEGORIES
               fi
               ;;
             set)
               if [[ "${words[4]}" == "--category" ]]; then
-                _describe -t config-categories 'config categories' config_categories
+                _dr_ensure_config_categories_loaded
+                _describe -t config-categories 'config categories' _DR_CONFIG_CATEGORIES
               fi
               ;;
           esac

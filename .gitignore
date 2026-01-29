@@ -1,10 +1,12 @@
 .claude
+.agents
+.codex
+.gemini
+.opencode
 .local
-openspec
 ai-docs
 
 **.out
 .out
-AGENTS.md
 CLAUDE.md
 .mcp.json

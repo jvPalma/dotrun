@@ -5,6 +5,88 @@ All notable changes to DotRun will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-01-21
+
+### ✨ Added
+
+#### AgenticTools Skill
+
+- **New AgenticTools Skill**: Claude Code skill for AI-assisted DotRun workflows
+  - Enables agentic tools integration with DotRun commands
+  - Streamlines script creation and management through AI assistance
+
+#### ZSH Completion System Overhaul
+
+- **Recursive Search Fix**: Typing `dr <pattern><TAB>` now correctly shows ALL matching scripts across nested folders
+  - **Before**: `dr tab-t<TAB>` showed nothing (ZSH filtered results because input wasn't a prefix of full paths)
+  - **After**: `dr tab-t<TAB>` shows `folder1/tab-testing`, `folder1/folder2/folder3/tab-testing`, etc.
+  - Uses `-U` flag to bypass ZSH's default prefix matching (our search already does intelligent matching)
+
+- **Full-Path Pattern Matching**: Search now matches against the entire path, not just basenames
+  - `dr sta<TAB>` now finds `git/status/bk` (because "sta" appears in "status")
+  - Changed from `-iname` to `-ipath` in find commands
+
+- **Multi-Color Display**: Completion results now show paths and names in different colors
+  - Path portion displayed in yellow
+  - Script/alias/config names displayed in their feature color (green/purple/red)
+  - Makes disambiguation between similarly-named scripts much easier
+
+- **Centralized Icon Constants**: Single source of truth for display icons
+  - `FOLDER_ICON='📁'`, `SCRIPT_ICON='🚀'`, `ALIAS_ICON='🎭'`, `CONFIG_ICON='⚙'`
+  - Easy to customize by changing one location
+
+- **Lazy-Loading Architecture**: Performance optimization for completion
+  - Config keys, alias categories, and config categories now load on-demand
+  - Reduces startup overhead when completions aren't immediately needed
+  - State resets per completion invocation to ensure fresh data
+
+- **Menu Completion Enforcement**: Consistent menu behavior
+  - Forces menu selection even with single match (`menu yes=long select=long`)
+  - Prevents auto-insertion of ambiguous matches
+  - Users always see what they're selecting before insertion
+
+### 🔧 Changed
+
+- **Word Preservation**: Typed input is no longer deleted during completion
+  - Fixed issue where `compset -P '*'` deleted the PREFIX when no matches found
+  - Now uses `-i "$PREFIX"` flag to preserve user input
+
+- **Shellcheck Configuration**: Fixed shell type declaration
+  - Changed from `# shellcheck shell=bash` to `# shellcheck shell=zsh`
+  - Accurately reflects that this file uses ZSH-specific syntax
+
+- **loadHelpers.sh**: Updated to version 1.1.0 with Bash 3.x compatibility
+  - Added bash version detection (`_DR_BASH_MAJOR`, `_DR_BASH_MINOR`)
+  - Bash 4+: Uses associative arrays with `declare -gA`
+  - Bash 3: Falls back to indexed arrays
+  - Ensures helper system works on older macOS systems with Bash 3.2
+
+### 🗑️ Removed
+
+- **Debug Logging**: Removed all 20+ debug logging statements from ZSH completion
+  - No longer writes to `/tmp/dr_completion_debug.log` on every TAB press
+  - Improves completion performance (no disk I/O)
+  - Production-ready without verbose debug output
+
+- **Legacy Upgrade Script**: Removed `upgrade-v1-or-v2--to--v3.sh`
+  - v1/v2 to v3 migration is no longer supported directly
+  - Users on v1/v2 should use fresh install instead
+
+### 📖 Documentation
+
+- **OpenSpec Specifications**: Added formal specifications for shell completion behavior
+  - `openspec/specs/shell-completion/spec.md` - Documents expected completion behavior
+  - `openspec/specs/collections/spec.md` - Collections system specification
+  - Enables systematic testing and validation of completion features
+
+### 🐛 Fixed
+
+- **Recursive Search Display**: Scripts matching partial names now appear in completion menu
+- **Duplicate Hint Display**: Fixed issue where hint line appeared twice in some contexts
+- **Return Value Propagation**: Completion functions now properly return success/failure codes
+
+---
+
 ## [3.0.1] - 2025-10-26
 
 ### ✨ Added

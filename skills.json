@@ -1,0 +1,10 @@
+{
+  "$schema": "https://skills.sh/schema/skills.json",
+  "skills": [
+    {
+      "name": "dr-cli",
+      "path": "skills/dr-cli",
+      "description": "Master the DotRun (dr) CLI - a unified script management framework for instant access to custom scripts, aliases, and configurations from anywhere."
+    }
+  ]
+}
