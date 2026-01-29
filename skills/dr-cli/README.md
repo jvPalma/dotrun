@@ -16,12 +16,14 @@ This skill teaches AI agents how to effectively use and leverage the `dr` CLI to
 ### Claude Code
 
 ```bash
-# Copy to your Claude skills directory
-cp -r skills/dr-cli ~/.claude/skills/
+# Install via npx (recommended)
+npx skills add jvPalma/dotrun
 
-# Or install via the packaged .skill file
-# The skill will auto-activate when dr-related topics are discussed
+# Or copy manually to your Claude skills directory
+cp -r skills/dr-cli ~/.claude/skills/
 ```
+
+The skill auto-activates when dr-related topics are discussed.
 
 ### GitHub Copilot
 
