@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/jvPalma/dotrun/discussions
+    about: Ask questions, share ideas, or discuss DotRun usage
+  - name: Documentation
+    url: https://github.com/jvPalma/dotrun/wiki
+    about: Check the documentation for guides and examples

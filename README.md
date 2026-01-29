@@ -185,38 +185,26 @@ dr -col sync
 dr -col update my-collection
 ```
 
-**[→ Complete Collection Guide](https://github.com/jvPalma/dotrun/wiki/Collection-Management-Advanced)** - Installation, updates, private repos, creating collections, metadata format, team workflows
-
 ## Documentation
 
 **📚 [Complete Documentation](https://github.com/jvPalma/dotrun/wiki)**
 
-### Getting Started
+| Guide                                                                                    | Description                           |
+| ---------------------------------------------------------------------------------------- | ------------------------------------- |
+| **[Installation](https://github.com/jvPalma/dotrun/wiki/Installation-Guide)**            | One-command setup for all platforms   |
+| **[Quick Start](https://github.com/jvPalma/dotrun/wiki/Quick-Start-Tutorial)**           | Your first 5 minutes with DotRun      |
+| **[Scripts](https://github.com/jvPalma/dotrun/wiki/Script-Management)**                  | Create, organize, and run scripts     |
+| **[Collections](https://github.com/jvPalma/dotrun/wiki/Collection-Management-Advanced)** | Share script libraries with your team |
+| **[FAQ](https://github.com/jvPalma/dotrun/wiki/FAQ)**                                    | Common questions and troubleshooting  |
 
-- [Quick Start Tutorial](https://github.com/jvPalma/dotrun/wiki/Quick-Start-Tutorial) - Your first 5 minutes
-- [Installation Guide](https://github.com/jvPalma/dotrun/wiki/Installation-Guide) - Detailed setup
-- [Migration from v2.x](https://github.com/jvPalma/dotrun/wiki/Migration-v3.0) - Upgrading guide
+### Quick Reference
 
-### Core Features
-
-- [Script Management](https://github.com/jvPalma/dotrun/wiki/Script-Management) - Creating and organizing scripts
-- [Alias Management](https://github.com/jvPalma/dotrun/wiki/Alias-Management) - File-based aliases with v3.0.0 workflow
-- [Configuration Management](https://github.com/jvPalma/dotrun/wiki/Configuration-Management) - Environment variables and configs
-- [Collection Management](https://github.com/jvPalma/dotrun/wiki/Collection-Management-Advanced) - Import and share script libraries
-
-### Advanced Topics
-
-- [Helper System](https://github.com/jvPalma/dotrun/wiki/Helper-System) - Shared code across scripts
-- [Developer Experience](https://github.com/jvPalma/dotrun/wiki/Developer-Experience) - Editor integration, completion
-- [Architecture Overview](https://github.com/jvPalma/dotrun/wiki/Architecture-Overview) - How DotRun works
-- [API Reference](https://github.com/jvPalma/dotrun/wiki/API-Reference) - Complete command reference
-- [FAQ](https://github.com/jvPalma/dotrun/wiki/FAQ) - Common questions and answers
-
-### Team Workflows
-
-- [Team Collaboration Best Practices](https://github.com/jvPalma/dotrun/wiki/Team-Collaboration-Best-Practices)
-- [DevOps Pipeline Workflow](https://github.com/jvPalma/dotrun/wiki/workflows/DevOps-Pipeline)
-- [More workflows...](https://github.com/jvPalma/dotrun/wiki)
+| Feature         | Create/Edit         | List           | Run                   |
+| --------------- | ------------------- | -------------- | --------------------- |
+| **Scripts**     | `dr set name`       | `dr -L`        | `dr name`             |
+| **Aliases**     | `dr -a name`        | `dr -a list`   | _(auto-loaded)_       |
+| **Configs**     | `dr -c name`        | `dr -c list`   | _(auto-loaded)_       |
+| **Collections** | `dr -col add <url>` | `dr -col list` | _(scripts available)_ |
 
 ## Requirements
 
@@ -226,10 +214,22 @@ dr -col update my-collection
 
 ## Get Started
 
-1. **[Install DotRun](https://github.com/jvPalma/dotrun/wiki/Installation-Guide)** - One command setup
-2. **[Quick Start Tutorial](https://github.com/jvPalma/dotrun/wiki/Quick-Start-Tutorial)** - First 5 minutes
-3. **[Browse Examples](examples/)** - Real-world scripts ready to use
-4. **[Share with Team](https://github.com/jvPalma/dotrun/wiki/Collection-Management-Advanced)** - Create your first collection
+```bash
+# 1. Install
+bash <(curl -fsSL https://raw.githubusercontent.com/jvPalma/dotrun/master/install.sh)
+
+# 2. Verify (restart terminal first)
+dr --version
+
+# 3. Create your first script
+dr set hello
+# Add: echo "Hello from DotRun!"
+
+# 4. Run it from anywhere
+dr hello
+```
+
+**[Full Quick Start Tutorial](https://github.com/jvPalma/dotrun/wiki/Quick-Start-Tutorial)** | **[Browse all documentation](https://github.com/jvPalma/dotrun/wiki)**
 
 ---
 
