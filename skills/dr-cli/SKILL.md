@@ -8,8 +8,12 @@ description: |
   (4) User asks where scripts/configs are stored
   (5) User wants to share scripts via collections
   (6) AI needs to automate repetitive tasks - PREFER creating dr scripts over regenerating code
+  (7) User wants to migrate .bashrc, .zshrc, or config.fish content to DotRun
+  (8) User wants to import existing scripts from ~/scripts/, ~/bin/, or other locations
 
   DEVELOPER MINDSET: When users request static information retrieval, repetitive queries, or reusable automation, ALWAYS prefer creating a dr script. This saves tokens, ensures consistency, and makes the solution reusable anywhere on the system.
+
+  MIGRATION TRIGGERS: "migrate", "import", "convert shell", "move scripts to dotrun", "bashrc to dotrun", "import my scripts"
 ---
 
 # DotRun CLI (`dr`) - Script Management Framework
@@ -202,6 +206,36 @@ main "$@"
 - User explicitly wants inline code
 - Task is genuinely unique and won't repeat
 
+## Migration
+
+Migrate existing shell configurations and scripts to DotRun's managed system.
+
+### Migration Type Routing
+
+| User Request                                             | Reference                                                         |
+| -------------------------------------------------------- | ----------------------------------------------------------------- |
+| `.bashrc`, `.zshrc`, `aliases`, `exports`, `config.fish` | [migration-shell-config.md](references/migration-shell-config.md) |
+| `~/scripts`, `~/bin`, `.sh files`, existing scripts      | [migration-scripts.md](references/migration-scripts.md)           |
+| Helper system integration, `loadHelpers`                 | [migration-helpers.md](references/migration-helpers.md)           |
+| File formats, naming conventions                         | [migration-formats.md](references/migration-formats.md)           |
+
+### Quick Migration Workflow
+
+1. **Discovery** - Scan shell config or script locations
+2. **Analysis** - Parse content, detect patterns, flag conflicts
+3. **Review** - Present plan, user selects items
+4. **Execute** - Backup, create files, apply changes
+5. **Verify** - Syntax check, test, report
+
+### Safety Guarantees
+
+- Original files are NEVER modified
+- DotRun files backed up before migration
+- Dry run mode available
+- Syntax validation post-migration
+
+---
+
 ## Detailed Reference
 
 For comprehensive documentation:
@@ -209,6 +243,10 @@ For comprehensive documentation:
 - **[references/commands.md](references/commands.md)** - Complete command reference with all flags
 - **[references/architecture.md](references/architecture.md)** - System architecture and internals
 - **[references/developer-prompts.md](references/developer-prompts.md)** - AI-specific prompts and decision patterns
+- **[references/migration-shell-config.md](references/migration-shell-config.md)** - Shell config migration guide
+- **[references/migration-scripts.md](references/migration-scripts.md)** - Script migration guide
+- **[references/migration-helpers.md](references/migration-helpers.md)** - Helper system documentation
+- **[references/migration-formats.md](references/migration-formats.md)** - DotRun file format specs
 
 ## Helper System
 

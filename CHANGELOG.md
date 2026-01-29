@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ✨ Added
 
+#### AgenticTools Skill
+
+- **New AgenticTools Skill**: Claude Code skill for AI-assisted DotRun workflows
+  - Enables agentic tools integration with DotRun commands
+  - Streamlines script creation and management through AI assistance
+
 #### ZSH Completion System Overhaul
 
 - **Recursive Search Fix**: Typing `dr <pattern><TAB>` now correctly shows ALL matching scripts across nested folders
