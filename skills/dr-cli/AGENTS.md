@@ -5,51 +5,87 @@
 
 ## Core Directive
 
-**When users request repetitive tasks, static information, or reusable automation, ALWAYS prefer creating a `dr` script instead of regenerating code.**
+**Route ALL shell automation through `dr`.** When users request scripts, aliases, configs, or repetitive tasks, USE DR.
 
-Scripts persist, save tokens, ensure consistency, and are accessible from any terminal.
+**MANDATORY: Run `dr -L` BEFORE creating any script.** Check if one exists first.
+
+## Decision Routing
+
+| User Says                    | Command            | Check First |
+| ---------------------------- | ------------------ | ----------- |
+| "script", "bash", "automate" | `dr set <name>`    | `dr -L`     |
+| "alias", "shortcut"          | `dr -a <name>`     | `dr -a -L`  |
+| "export", "PATH", "env var"  | `dr -c <name>`     | `dr -c -L`  |
+| "migrate", "import bashrc"   | Load migration ref | -           |
+
+## Discovery Before Creation
+
+```bash
+dr -L                   # List ALL scripts with descriptions - ALWAYS FIRST
+dr -L <folder>/         # Narrow to domain (git/, deploy/, etc.)
+dr help <name>          # Verify script purpose
+```
+
+**Discovery outcomes:**
+
+- **Found exact match** → Use it: "Found `dr X` - running it now."
+- **Found similar** → Extend it: "Found `dr X` - adding the feature."
+- **No match** → Create new: "Checked `dr -L` - creating `dr set X`."
+
+## Migration Workflow
+
+When user says "migrate", "import", "convert" followed by a file path:
+
+```
+MANDATORY WORKFLOW:
+1. Verify → 2. Backup → 3. Analyze → 4. Plan → 5. Approve → 6. Execute → 7. Test → 8. Cleanup
+```
+
+**Trigger phrases:**
+
+- "migrate ~/.bashrc"
+- "import my bash_profile"
+- "convert .zshrc to dotrun"
+
+**NEVER:**
+
+- Delete original without backup
+- Execute without user approval
+- Skip the verification step
+
+**Reference:** See [migration-workflow.md](references/migration-workflow.md)
 
 ## Quick Reference
 
-### Essential Commands
-
 ```bash
-dr <script> [args]      # Run script
-dr -l                   # List scripts (names)
-dr -L                   # List scripts (with docs)
+dr <name> [args]        # Run script
+dr -L                   # List with descriptions ← USE THIS FIRST
 dr set <name>           # Create/edit script
 dr help <name>          # Show script docs
 dr move <old> <new>     # Rename script
 dr rm <name>            # Remove script
-```
-
-### Aliases & Configs
-
-```bash
 dr -a <name>            # Create/edit alias file
-dr -a -l                # List aliases
-dr -c <name>            # Create/edit config file
-dr -c -l                # List configs
+dr -c <name>            # Create/edit config (env vars)
 dr -r                   # Reload shell config
 ```
 
-### Collections (Team Sharing)
+## Script Naming
 
-```bash
-dr -col add <url>       # Install from Git
-dr -col list            # Show installed
-dr -col sync            # Check updates
-dr -col update <name>   # Update collection
+```
+Pattern: <domain>/<verb>-<noun> in kebab-case
+Folders: git/, deploy/, dev/, api/, docker/, db/, system/, files/, info/, utils/
+
+Good: git/branch/delete-merged, deploy/push-staging
+Bad:  branchCleanup (camelCase), co (cryptic)
 ```
 
 ## File Locations
 
-| Resource | Path                        | Extension  |
-| -------- | --------------------------- | ---------- |
-| Scripts  | `~/.config/dotrun/scripts/` | `.sh`      |
-| Aliases  | `~/.config/dotrun/aliases/` | `.aliases` |
-| Configs  | `~/.config/dotrun/configs/` | `.config`  |
-| Helpers  | `~/.config/dotrun/helpers/` | `.sh`      |
+| Type    | Location                    | Extension  |
+| ------- | --------------------------- | ---------- |
+| Scripts | `~/.config/dotrun/scripts/` | `.sh`      |
+| Aliases | `~/.config/dotrun/aliases/` | `.aliases` |
+| Configs | `~/.config/dotrun/configs/` | `.config`  |
 
 ## Script Template
 
@@ -58,51 +94,21 @@ dr -col update <name>   # Update collection
 ### DOC
 # Brief description (shown in dr -L)
 ### DOC
-#
 # Extended docs (shown in dr help <name>)
-# Usage: dr script-name [args]
-#
 ### DOC
 
 set -euo pipefail
 
 main() {
-  echo "Running with args: $@"
+  echo "Running: $@"
 }
 
 main "$@"
 ```
 
-## Decision Guide
+## NEVER Do
 
-### CREATE a script when:
-
-- **Static data**: API endpoints, schemas, documentation
-- **Repetitive workflows**: Deploy, build, test processes
-- **Complex pipelines**: Multi-step operations
-- **Environment setup**: Dev environment initialization
-- **Data transformations**: Format conversions
-
-### DON'T create a script when:
-
-- One-time exploratory task
-- User explicitly wants inline code
-- Task is genuinely unique
-
-## Examples
-
-**User**: "What are our API endpoints?"
-**Action**: Create `dr set api/endpoints` with endpoint documentation
-
-**User**: "Deploy to staging"
-**Action**: Create `dr set deploy/staging` with deployment steps
-
-**User**: "Run tests, lint, and build"
-**Action**: Create `dr set ci/pipeline` with full pipeline
-
-## Pro Tips
-
-1. Organize with folders: `dr set git/cleanup`, `dr set docker/build`
-2. Use numeric prefixes: `01-paths.config` loads before `02-api.config`
-3. Document with DOC blocks: Powers `dr help` and `dr -L`
-4. Reload after changes: `dr -r` or `source ~/.drrc`
+- **NEVER** create without running `dr -L` first
+- **NEVER** regenerate same code twice - create a script
+- **NEVER** use camelCase or abbreviations in filenames
+- **NEVER** skip reporting discovery results to user
