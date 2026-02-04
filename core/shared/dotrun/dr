@@ -57,6 +57,7 @@ SHARED_DR_CORE_SCRIPTS="$SCRIPT_DIR/core/scripts.sh"
 SHARED_DR_CORE_ALIASES="$SCRIPT_DIR/core/aliases.sh"
 SHARED_DR_CORE_CONFIGS="$SCRIPT_DIR/core/config.sh"
 SHARED_DR_CORE_COLLECTIONS="$SCRIPT_DIR/core/collections.sh"
+SHARED_DR_CORE_UPGRADE="$SCRIPT_DIR/core/upgrade.sh"
 
 # Helper paths
 SHARED_DR_HELPERS_LINT="${SHARED_DR_HELPERS_PATH}/lint.sh"
@@ -99,6 +100,13 @@ _load_collections_module() {
   if [[ $(type -t cmd_col_list) != "function" ]]; then
     # shellcheck disable=SC1090
     [[ -f "$SHARED_DR_CORE_COLLECTIONS" ]] && source "$SHARED_DR_CORE_COLLECTIONS"
+  fi
+}
+
+_load_upgrade_module() {
+  if [[ $(type -t cmd_upgrade) != "function" ]]; then
+    # shellcheck disable=SC1090
+    [[ -f "$SHARED_DR_CORE_UPGRADE" ]] && source "$SHARED_DR_CORE_UPGRADE"
   fi
 }
 
@@ -386,6 +394,15 @@ rm)
     fi
     ;;
   esac
+  ;;
+upgrade)
+  _load_upgrade_module
+  if [[ $(type -t cmd_upgrade) != "function" ]]; then
+    echo "Error: Upgrade module not available" >&2
+    exit 1
+  fi
+  shift
+  cmd_upgrade "$@"
   ;;
 -v | --version | version)
   echo "dr version $DRUN_VERSION"

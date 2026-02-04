@@ -7,14 +7,8 @@ set -euo pipefail
 
 # Initialize aliases system
 aliases_init() {
-  # TODO: CREATE/USE HELP MESSAGE SCRIPT
-  echo "Initializing aliases system..."
   mkdir -p "$USER_COLLECTION_ALIASES"
-  echo "✓ Created aliases directory: $USER_COLLECTION_ALIASES"
-  echo
-  echo "Set aliases with: dr -a <path/to/file>"
-  echo "Example: dr -a 01-git"
-  echo "         dr -a cd/shortcuts"
+  exec "${BASH_SOURCE[0]%/core/*}/core/help-messages/aliases/init.sh" "$USER_COLLECTION_ALIASES"
 }
 
 # Validate editor is set and available

@@ -60,6 +60,10 @@ ${BOLD}${BLUE}Collections System${RESET} ${GRAY}(${BLUE}-col${RESET}${GRAY} or $
   ${BLUE}-col remove${RESET} ${YELLOW}<name>${RESET}  Remove collection tracking ${GRAY}(keeps imported files)${RESET}
   ${BLUE}-col --help${RESET}         Show detailed collections help with workflows and examples
 
+${BOLD}${GREEN}Upgrade${RESET}
+  ${GREEN}upgrade${RESET}             Check for and install updates from GitHub
+  ${GREEN}upgrade${RESET} ${YELLOW}--check${RESET}     Check for updates without installing
+
 ${BOLD}Environment Variables${RESET}
   ${YELLOW}EDITOR${RESET}            Command to open editor ${GRAY}(default: auto-detect)${RESET}
 EOF
