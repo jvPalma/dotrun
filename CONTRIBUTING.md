@@ -214,7 +214,7 @@ Example documentation block:
 
 ```bash
 # Check for required commands
-if ! command -v required_command &> /dev/null; then
+if ! command -v required_command &>/dev/null; then
   echo "Error: required_command not found" >&2
   exit 1
 fi
@@ -265,11 +265,11 @@ Common ShellCheck warnings to avoid:
    dr set test-script
    dr test-script
    dr list
-
+   
    # Test alias management
    dr -a set test-aliases
    dr -a list
-
+   
    # Test collection features
    dr -col list
    ```
@@ -279,7 +279,7 @@ Common ShellCheck warnings to avoid:
    ```bash
    # Test in bash
    bash -c "source ~/.bashrc && dr <your-command>"
-
+   
    # Test in zsh (if available)
    zsh -c "source ~/.zshrc && dr <your-command>"
    ```

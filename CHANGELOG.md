@@ -5,6 +5,117 @@ All notable changes to DotRun will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-02-04
+
+### ✨ Added
+
+#### Self-Update System
+
+- **`dr upgrade` command**: Built-in upgrade functionality for seamless version updates
+  - Fetches latest release from GitHub Releases API with timeout protection
+  - Semantic version comparison using `sort -V` for accurate ordering
+  - Interactive confirmation before downloading and running installer
+  - Preserves user scripts, aliases, and configs during upgrade
+  - Comprehensive error handling with actionable troubleshooting guidance
+
+- **`dr upgrade --check` flag**: Check for updates without installing
+  - Displays current vs. latest version comparison
+  - Shows release notes URL for changelog review
+  - Non-invasive version monitoring for manual upgrade decisions
+
+- **Lazy-loaded module**: `core/upgrade.sh` (~288 lines)
+  - `_load_upgrade_module()` ensures zero startup overhead for non-upgrade commands
+  - Portable implementation using curl/wget without `jq` dependency
+  - External help messages in `core/help-messages/upgrade/` following project patterns
+
+### Performance & Architecture
+
+This release focuses on performance optimization through lazy loading, code deduplication, and improved modularity.
+
+#### Lazy-Loading Module System
+
+- **Lazy module loading**: Feature modules (`scripts.sh`, `aliases.sh`, `config.sh`, `collections.sh`, `upgrade.sh`) are now loaded on-demand only when their commands are invoked
+  - `_load_scripts_module()`, `_load_aliases_module()`, `_load_configs_module()`, `_load_collections_module()`, `_load_upgrade_module()` gate module loading
+  - Main `dr` binary reduced from ~1,064 lines to ~409 lines (~62% reduction)
+  - Faster startup for simple commands that don't need all features
+
+#### Modular Code Extraction
+
+- **New `core/scripts.sh` module** (~368 lines): Extracted all script management functions from main binary
+  - `validate_script_name()`, `scripts_check_prerequisites()`, `list_scripts()`
+  - `create_script_skeleton()`, `find_script_file()`, `set_script()`, `run_script()`
+  - `show_script_help()`, `move_script()`, `remove_script()`
+
+- **New `helpers/constants.sh`** (~121 lines): Centralized constants for paths, icons, and colors
+  - Single source of truth for `USER_COLLECTION_*` paths
+  - Unified icons: `FOLDER_ICON`, `SCRIPT_ICON`, `ALIAS_ICON`, `CONFIG_ICON`
+  - Consistent color codes: `COLOR_SCRIPTS`, `COLOR_ALIASES`, `COLOR_CONFIGS`, `COLOR_COLLECTIONS`
+  - Feature helper functions: `get_feature_dir()`, `get_feature_icon()`, `get_feature_color()`, `get_feature_ext()`
+  - Double-sourcing protection with `_DR_CONSTANTS_LOADED` guard
+
+- **New `helpers/list_feature_files_tree.sh`** (~250 lines): Unified tree display for all features
+  - Replaces duplicated tree-building logic in `dr`, `aliases.sh`, and `config.sh`
+  - Single `list_feature_files_tree()` function handles scripts, aliases, and configs
+  - Consistent formatting with depth-based coloring across all features
+
+- **New `helpers/lint.sh`** (~17 lines): Extracted linting helpers
+  - Eager-loaded since it's small and frequently used
+
+#### Help Message Separation
+
+- **Externalized help messages** to `core/help-messages/` directory structure:
+  - `core/` - Main help output, reload instructions, no-command error
+  - `scripts/` - Script namespace help (move, no-args)
+  - `aliases/` - Alias namespace help (set, move, no-args)
+  - `configs/` - Config namespace help (set, move, no-args)
+  - `collections/` - Collection namespace help (help-message, no-args, remove)
+  - `upgrade/` - Upgrade namespace help (no-args, check-result, network-errors)
+  - `helpers/` - loadHelpers usage documentation
+
+- **Consistent help message pattern**: All help scripts use uniform color conventions
+  - `GREEN` for scripts, `PURPLE` for aliases, `RED` for configs, `BLUE` for collections
+  - `CYAN` for command name (`dr`), `YELLOW` for placeholders, `GRAY` for headers
+
+- **`exec` dispatch for help**: Error/usage messages now use `exec` to external scripts
+  - Cleaner separation of logic from presentation
+  - Easier maintenance of help text without touching core logic
+
+### AI Agent Skill Updates
+
+- **Streamlined SKILL.md** (~312 lines): More concise decision routing and discovery workflow
+  - Mandatory "Discovery Before Creation" workflow: Always run `dr -L` before creating scripts
+  - Decision routing matrix for quick command selection
+  - Anti-patterns section to prevent common mistakes
+
+- **Updated AGENTS.md** (~115 lines): Focused on core directives
+  - Decision routing table for user intent → command mapping
+  - Discovery outcomes: found exact, found similar, no match
+  - Migration workflow summary with trigger phrases
+
+- **Condensed reference files**:
+  - `architecture.md`: Reduced from ~263 to ~121 lines
+  - `commands.md`: Reduced from ~305 to ~93 lines
+  - `developer-prompts.md`: Reduced from ~378 to ~121 lines
+  - `migration-formats.md`, `migration-helpers.md`, `migration-scripts.md`, `migration-shell-config.md`: Simplified
+
+- **New `migration-workflow.md`** (~818 lines): Comprehensive migration workflow reference
+  - 8-step workflow: Verify → Backup → Analyze → Plan → Approve → Execute → Test → Cleanup
+  - Detailed guidance for shell config, scripts, and helper migrations
+
+### Code Quality
+
+- **Reduced duplication**: Tree-building logic now in single location
+- **Cleaner main binary**: Core `dr` file focuses on routing and module orchestration
+- **Consistent patterns**: All feature modules follow same structure and conventions
+- **Path constants**: `SHARED_DR_*` paths defined once and reused across modules
+
+### 🔧 Changed
+
+- Config loader (`.dr_config_loader`) updated to work with new module structure
+- Version bumped to 3.1.1 in `VERSION` files
+
+---
+
 ## [3.1.0] - 2026-01-21
 
 ### ✨ Added

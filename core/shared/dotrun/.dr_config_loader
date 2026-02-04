@@ -15,6 +15,7 @@ elif [ -n "$FISH_VERSION" ]; then
 else
   CURRENT_SHELL="unknown"
 fi
+
 export CURRENT_SHELL
 
 # Add ~/.local/bin to PATH if not already present
@@ -58,33 +59,24 @@ fi
 
 #! 3rd - Source completion file
 if [ -f "$SHELL_COMPLETION" ]; then
-    source "$SHELL_COMPLETION"
-
-  # For ble.sh, skip completion loading here - it will be loaded via ~/.blerc
-  # if [[ $CURRENT_SHELL == "bash" ]] && [[ -n "${BLE_VERSION-}" ]]; then
-  #   # Ensure we run after the completion module is loaded
-  #   blehook/eval-after-load complete 'dr/define-completion'
-  # else
-    # Standard bash or other shells - source immediately
-
-    # For zsh, register completion after sourcing if compdef is available
-    # If not available yet, set up a hook to register when shell is ready
-    if [[ $CURRENT_SHELL == "zsh" ]]; then
-      if (( $+functions[compdef] )); then
-        # compdef is available, register now
-        compdef _dr dr 2>/dev/null
-      else
-        # compdef not available yet, register when shell initialization completes
-        _dr_register_completion() {
-          if (( $+functions[compdef] )) && (( $+functions[_dr] )); then
-            compdef _dr dr 2>/dev/null
-            # Remove this function after it runs once
-            unfunction _dr_register_completion
-          fi
-        }
-        # Add to precmd_functions so it runs after .zshrc completes
-        precmd_functions+=(_dr_register_completion)
-      fi
-    # fi
+  source "$SHELL_COMPLETION"
+  # For zsh, register completion after sourcing if compdef is available
+  # If not available yet, set up a hook to register when shell is ready
+  if [[ $CURRENT_SHELL == "zsh" ]]; then
+    if (( $+functions[compdef] )); then
+      # compdef is available, register now
+      compdef _dr dr 2>/dev/null
+    else
+      # compdef not available yet, register when shell initialization completes
+      _dr_register_completion() {
+        if (( $+functions[compdef] )) && (( $+functions[_dr] )); then
+          compdef _dr dr 2>/dev/null
+          # Remove this function after it runs once
+          unfunction _dr_register_completion
+        fi
+      }
+      # Add to precmd_functions so it runs after .zshrc completes
+      precmd_functions+=(_dr_register_completion)
+    fi
   fi
 fi

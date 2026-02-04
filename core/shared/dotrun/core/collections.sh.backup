@@ -636,10 +636,24 @@ parse_collection_metadata() {
   local metadata_file="$collection_dir/dotrun.collection.yml"
 
   if [[ ! -f "$metadata_file" ]]; then
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
     # Try .yaml extension
     metadata_file="$collection_dir/dotrun.collection.yaml"
     if [[ ! -f "$metadata_file" ]]; then
-      source "${BASH_SOURCE[0]%/core/*}/core/help-messages/collections/errors/file-errors.sh" "metadata-not-found" "$collection_dir"
+      echo "Error: Collection metadata file not found" >&2
+      echo "" >&2
+      echo "Expected file location:" >&2
+      echo "  $collection_dir/dotrun.collection.yml" >&2
+      echo "  or" >&2
+      echo "  $collection_dir/dotrun.collection.yaml" >&2
+      echo "" >&2
+      echo "This repository is not a valid DotRun collection." >&2
+      echo "" >&2
+      echo "To create a DotRun collection:" >&2
+      echo "  1. Navigate to your repository directory" >&2
+      echo "  2. Run: dr -col init" >&2
+      echo "  3. Follow the prompts to create metadata" >&2
+      echo "  4. Commit and push: git add . && git commit -m 'Initialize collection'" >&2
       return 1
     fi
   fi
@@ -662,8 +676,31 @@ validate_collection_metadata() {
     fi
   done
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   if [[ ${#missing_fields[@]} -gt 0 ]]; then
-    source "${BASH_SOURCE[0]%/core/*}/core/help-messages/collections/errors/file-errors.sh" "missing-fields" "${missing_fields[@]}"
+    echo "Error: Invalid collection metadata - missing required fields" >&2
+    echo "" >&2
+    echo "Missing fields:" >&2
+    for field in "${missing_fields[@]}"; do
+      echo "  • $field" >&2
+    done
+    echo "" >&2
+    echo "Required metadata format (dotrun.collection.yml):" >&2
+    echo "" >&2
+    echo "  name: my-collection           # Unique identifier (alphanumeric, dashes, underscores)" >&2
+    echo "  version: 1.0.0                # Semantic version (X.Y.Z)" >&2
+    echo "  description: Brief summary    # What this collection provides" >&2
+    echo "  author: Your Name             # Collection creator" >&2
+    echo "  repository: https://github.com/user/repo  # Git repository URL" >&2
+    echo "" >&2
+    echo "Optional fields:" >&2
+    echo "  license: MIT                  # License identifier" >&2
+    echo "  homepage: https://example.com # Documentation URL" >&2
+    echo "  dependencies: []              # Other required collections" >&2
+    echo "" >&2
+    echo "To create valid metadata:" >&2
+    echo "  1. Run: dr -col init" >&2
+    echo "  2. Or manually create dotrun.collection.yml with all required fields" >&2
     return 1
   fi
 
@@ -770,28 +807,56 @@ copy_with_hash() {
     return 1
   fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Check read permission on source
   if [[ ! -r "$source" ]]; then
-    source "${BASH_SOURCE[0]%/core/*}/core/help-messages/collections/errors/file-errors.sh" "cannot-read-source" "$source"
+    echo "Error: Cannot read source file (permission denied)" >&2
+    echo "File: $source" >&2
+    echo "" >&2
+    echo "Troubleshooting:" >&2
+    echo "  1. Check file permissions: ls -la $source" >&2
+    echo "  2. Fix permissions: chmod +r $source" >&2
     return 1
   fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Create destination directory if needed
   local dest_dir=$(dirname "$dest")
   if ! mkdir -p "$dest_dir" 2>/dev/null; then
-    source "${BASH_SOURCE[0]%/core/*}/core/help-messages/collections/errors/file-errors.sh" "cannot-create-dir" "$dest_dir"
+    echo "Error: Cannot create destination directory (permission denied)" >&2
+    echo "Directory: $dest_dir" >&2
+    echo "" >&2
+    echo "Troubleshooting:" >&2
+    echo "  1. Check directory permissions: ls -ld $(dirname $dest_dir)" >&2
+    echo "  2. Verify ownership: ls -ld $(dirname $dest_dir)" >&2
+    echo "  3. Fix permissions: chmod +w $(dirname $dest_dir)" >&2
+    echo "  4. Or use sudo if this is a system directory" >&2
     return 1
   fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Check write permission on destination directory
   if [[ ! -w "$dest_dir" ]]; then
-    source "${BASH_SOURCE[0]%/core/*}/core/help-messages/collections/errors/file-errors.sh" "cannot-write-dir" "$dest_dir"
+    echo "Error: Cannot write to destination directory (permission denied)" >&2
+    echo "Directory: $dest_dir" >&2
+    echo "" >&2
+    echo "Troubleshooting:" >&2
+    echo "  1. Check directory permissions: ls -ld $dest_dir" >&2
+    echo "  2. Fix permissions: chmod +w $dest_dir" >&2
     return 1
   fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Copy file
   if ! cp "$source" "$dest" 2>/dev/null; then
-    source "${BASH_SOURCE[0]%/core/*}/core/help-messages/collections/errors/file-errors.sh" "copy-failed" "$source" "$dest"
+    echo "Error: Failed to copy file (permission denied or disk full)" >&2
+    echo "Source: $source" >&2
+    echo "Destination: $dest" >&2
+    echo "" >&2
+    echo "Troubleshooting:" >&2
+    echo "  1. Check disk space: df -h $(dirname $dest)" >&2
+    echo "  2. Check destination permissions: ls -la $dest" >&2
+    echo "  3. Try manual copy: cp $source $dest" >&2
     return 1
   fi
 
@@ -807,9 +872,16 @@ copy_script_with_hash() {
   local hash=$(copy_with_hash "$source" "$dest")
   local result=$?
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   if [[ $result -eq 0 ]]; then
     if ! chmod +x "$dest" 2>/dev/null; then
-      source "${BASH_SOURCE[0]%/core/*}/core/help-messages/collections/errors/file-errors.sh" "chmod-failed" "$dest"
+      echo "Error: Failed to make script executable (permission denied)" >&2
+      echo "File: $dest" >&2
+      echo "" >&2
+      echo "Troubleshooting:" >&2
+      echo "  1. Check file permissions: ls -la $dest" >&2
+      echo "  2. Try manual chmod: chmod +x $dest" >&2
+      echo "  3. Verify file ownership: ls -l $dest" >&2
       return 1
     fi
   fi
@@ -1429,7 +1501,16 @@ handle_modified_file_update() {
       ;;
   esac
 
-  source "$DR_CORE/help-messages/collections/conflict-menu.sh" "$rel_path"
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
+  echo ""
+  echo "$rel_path: ⚠️  LOCAL CHANGES DETECTED"
+  echo "  Your version: Modified locally"
+  echo ""
+  echo "  [K]eep yours (skip update)"
+  echo "  [O]verwrite with collection version"
+  echo "  [D]iff (show changes)"
+  echo "  [B]ackup yours, then overwrite"
+  echo ""
   read -p "  Choice: " choice
 
   case "${choice,,}" in
@@ -1850,7 +1931,26 @@ EOF
     echo ""
   fi
 
-  source "$DR_CORE/help-messages/collections/init-success.sh" "$collection_name" "$metadata_file"
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
+  echo ""
+  echo "${BOLD}${GREEN}Collection initialized successfully!${RESET}"
+  echo ""
+  echo "${BOLD}Next steps:${RESET}"
+  echo "  ${GRAY}1.${RESET} Add your ${COLOR_S}scripts${RESET} to ${COLOR_S}scripts/${RESET}"
+  echo "  ${GRAY}2.${RESET} Add your ${COLOR_A}aliases${RESET} to ${COLOR_A}aliases/${RESET}"
+  echo "  ${GRAY}3.${RESET} Add your ${COLOR_H}helpers${RESET} to ${COLOR_H}helpers/${RESET}"
+  echo "  ${GRAY}4.${RESET} Add your ${COLOR_C}configs${RESET} to ${COLOR_C}configs/${RESET}"
+  echo "  ${GRAY}5.${RESET} Update version in ${CYAN}$metadata_file${RESET}"
+  echo "  ${GRAY}6.${RESET} Commit to git and tag with version: ${CYAN}git tag v0.1.0${RESET}"
+  echo "  ${GRAY}7.${RESET} Push to GitHub for sharing"
+  echo ""
+  echo "${BOLD}Structure:${RESET}"
+  echo "  ${CYAN}$collection_name/${RESET}"
+  echo "  ├── ${CYAN}dotrun.collection.yml${RESET}"
+  echo "  ├── ${COLOR_S}scripts/${RESET}"
+  echo "  ├── ${COLOR_A}aliases/${RESET}"
+  echo "  ├── ${COLOR_H}helpers/${RESET}"
+  echo "  └── ${COLOR_C}configs/${RESET}"
 }
 
 cmd_col_add() {
@@ -1871,12 +1971,34 @@ cmd_col_add() {
 
   echo "${BOLD}Adding collection from: ${CYAN}$url${RESET}" >&2
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Check repository access before cloning
   echo "${GRAY}Checking repository access...${RESET}" >&2
   if ! check_repo_access "$url"; then
     local owner_repo=$(extract_repo_name "$url")
     echo "" >&2
-    source "$DR_CORE/help-messages/collections/errors/git-errors.sh" "cannot-access-repo" "$url" "$owner_repo"
+    echo "${RED}Error: Cannot access repository: ${CYAN}$owner_repo${RESET}" >&2
+    echo "" >&2
+    echo "${YELLOW}This may be because:${RESET}" >&2
+    echo "  ${GRAY}1.${RESET} Repository is private and you're not authenticated" >&2
+    echo "  ${GRAY}2.${RESET} Repository doesn't exist" >&2
+    echo "  ${GRAY}3.${RESET} URL is incorrect" >&2
+    echo "" >&2
+    echo "${BOLD}For private repositories, use one of these options:${RESET}" >&2
+    echo "" >&2
+    echo "${BOLD}Option 1:${RESET} Use SSH URL ${GRAY}(requires SSH keys configured)${RESET}" >&2
+    echo "  ${CYAN}dr -col add git@github.com:$owner_repo.git${RESET}" >&2
+    echo "" >&2
+    echo "${BOLD}Option 2:${RESET} Authenticate with GitHub CLI" >&2
+    echo "  ${CYAN}gh auth login${RESET}" >&2
+    echo "  ${CYAN}dr -col add $url${RESET}" >&2
+    echo "" >&2
+    echo "${BOLD}Option 3:${RESET} Configure Git credentials" >&2
+    echo "  ${CYAN}git config --global credential.helper store${RESET}" >&2
+    echo "  ${GRAY}# Then manually clone once to save credentials${RESET}" >&2
+    echo "" >&2
+    echo "${BOLD}Option 4:${RESET} Use local path ${GRAY}(if repo already cloned)${RESET}" >&2
+    echo "  ${CYAN}dr -col add ~/dotrun-anc${RESET}" >&2
     return 1
   fi
 
@@ -1898,16 +2020,24 @@ cmd_col_add() {
   local collection_name=$(parse_collection_metadata "$temp_clone" "name")
   local collection_version=$(parse_collection_metadata "$temp_clone" "version")
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   if [[ -z "$collection_name" ]] || [[ -z "$collection_version" ]]; then
-    source "$DR_CORE/help-messages/collections/errors/file-errors.sh" "parse-metadata-failed" >&2
+    echo "${RED}Error: Failed to parse collection metadata${RESET}" >&2
     rm -rf "$temp_clone"
     return 1
   fi
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Check for name conflicts
   if collection_exists "$collection_name"; then
+    echo "${RED}Error: Collection ${CYAN}'$collection_name'${RED} already exists${RESET}" >&2
     local existing_url=$(get_collection_property "$collection_name" "url")
     local existing_version=$(get_collection_property "$collection_name" "version")
-    source "$DR_CORE/help-messages/collections/errors/file-errors.sh" "collection-exists" "$collection_name" "$existing_url" "$existing_version" >&2
+    echo "${YELLOW}Existing collection:${RESET}" >&2
+    echo "  ${GRAY}URL:${RESET} ${CYAN}$existing_url${RESET}" >&2
+    echo "  ${GRAY}Version:${RESET} ${CYAN}$existing_version${RESET}" >&2
+    echo "" >&2
+    echo "${GRAY}Run ${CYAN}'dr -col list'${GRAY} to view all installed collections${RESET}" >&2
+    echo "${GRAY}Run ${CYAN}'dr -col remove $collection_name'${GRAY} to remove existing collection first${RESET}" >&2
     rm -rf "$temp_clone"
     return 1
   fi

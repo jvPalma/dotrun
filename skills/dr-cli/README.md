@@ -38,7 +38,7 @@ cp skills/dr-cli/copilot-instructions.md .github/copilot-instructions.md
 # Copy to cursor rules
 cp skills/dr-cli/.cursorrules .cursorrules
 # Or append to existing rules
-cat skills/dr-cli/.cursorrules >> .cursorrules
+cat skills/dr-cli/.cursorrules >>.cursorrules
 ```
 
 ### Other AI Tools (Gemini, OpenCode, Codex, etc.)
@@ -73,10 +73,10 @@ The skill instructs AI agents to **prefer creating `dr` scripts** over regenerat
 
 ```bash
 # Instead of explaining a workflow each time:
-dr set deploy/staging    # Create once, use forever
+dr set deploy/staging # Create once, use forever
 
 # Instead of regenerating API queries:
-dr set api/fetch-users   # Reusable from any terminal
+dr set api/fetch-users # Reusable from any terminal
 ```
 
 ### 2. Quick Command Reference

@@ -78,25 +78,7 @@ loadHelpers() {
 
   # Validation
   if [[ -z "$query" ]]; then
-    cat >&2 <<'EOF'
-Usage: loadHelpers <pattern> [--list]
-
-Patterns (from most to least specific):
-  loadHelpers 01-dotrun-anc/gcp/workstation.sh  # Exact with namespace
-  loadHelpers 01-dotrun-anc/gcp/workstation     # Namespace + path
-  loadHelpers dotrun-anc/gcp/workstation        # Collection name
-  loadHelpers gcp/workstation                   # Path (searches all)
-  loadHelpers workstation                       # Filename only
-
-Special:
-  loadHelpers @dotrun-anc                       # Load all from collection
-  loadHelpers <pattern> --list                  # Preview matches
-
-Environment:
-  DR_HELPERS_VERBOSE=1  # Enable verbose output
-  DR_HELPERS_QUIET=1    # Suppress non-error output
-EOF
-    return 1
+    exec "${BASH_SOURCE[0]%/helpers/*}/core/help-messages/helpers/loadHelpers-usage.sh" >&2
   fi
 
   # Circular dependency protection

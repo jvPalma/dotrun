@@ -70,7 +70,7 @@ When creating scripts, use this format:
 set -euo pipefail
 
 main() {
-    # Implementation
+  # Implementation
 }
 
 main "$@"
