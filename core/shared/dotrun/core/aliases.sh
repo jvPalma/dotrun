@@ -7,6 +7,7 @@ set -euo pipefail
 
 # Initialize aliases system
 aliases_init() {
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   echo "Initializing aliases system..."
   mkdir -p "$USER_COLLECTION_ALIASES"
   echo "✓ Created aliases directory: $USER_COLLECTION_ALIASES"
@@ -65,16 +66,7 @@ aliases_set() {
   local filepath="$1"
 
   if [[ -z "$filepath" ]]; then
-    echo "Usage: dr -a <path/to/file>" >&2
-    echo "" >&2
-    echo "Creates or opens an alias file for editing." >&2
-    echo "One file can contain multiple aliases." >&2
-    echo "" >&2
-    echo "Examples:" >&2
-    echo "  dr -a 01-git          # Creates/edits ~/.config/dotrun/aliases/01-git.aliases" >&2
-    echo "  dr -a cd/shortcuts    # Creates/edits ~/.config/dotrun/aliases/cd/shortcuts.aliases" >&2
-    echo "  dr -a docker/compose  # Creates/edits ~/.config/dotrun/aliases/docker/compose.aliases" >&2
-    return 1
+    exec "${BASH_SOURCE[0]%/core/*}/core/help-messages/aliases/set.sh"
   fi
 
   # Ensure .aliases extension

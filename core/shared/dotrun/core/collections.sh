@@ -92,6 +92,7 @@ validate_github_url() {
     return 0
   fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Check for HTTPS format
   if [[ ! "$url" =~ ^https://github\.com/[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+(/)?$ ]]; then
     echo "Error: Invalid GitHub URL format" >&2
@@ -422,6 +423,7 @@ git_clone_temp() {
     echo "URL: $url" >&2
     echo "" >&2
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
     if [[ $exit_code -eq 124 ]]; then
       echo "Reason: Operation timed out after 30 seconds" >&2
       echo "" >&2
@@ -503,6 +505,7 @@ git_clone_persistent() {
     echo "Destination: $dest" >&2
     echo "" >&2
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
     if [[ $exit_code -eq 124 ]]; then
       echo "Reason: Operation timed out after 60 seconds" >&2
       echo "" >&2
@@ -551,6 +554,7 @@ git_fetch_collection() {
       return 0
     fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
     echo "Error: Not a git repository: $collection_dir" >&2
     echo "Directory: $collection_dir" >&2
     echo "" >&2
@@ -573,6 +577,7 @@ git_fetch_collection() {
     echo "Repository: $collection_dir" >&2
     echo "" >&2
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
     if [[ $exit_code -eq 124 ]]; then
       echo "Reason: Operation timed out after 30 seconds" >&2
       echo "" >&2
@@ -688,6 +693,7 @@ parse_collection_metadata() {
   local metadata_file="$collection_dir/dotrun.collection.yml"
 
   if [[ ! -f "$metadata_file" ]]; then
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
     # Try .yaml extension
     metadata_file="$collection_dir/dotrun.collection.yaml"
     if [[ ! -f "$metadata_file" ]]; then
@@ -727,6 +733,7 @@ validate_collection_metadata() {
     fi
   done
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   if [[ ${#missing_fields[@]} -gt 0 ]]; then
     echo "Error: Invalid collection metadata - missing required fields" >&2
     echo "" >&2
@@ -857,6 +864,7 @@ copy_with_hash() {
     return 1
   fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Check read permission on source
   if [[ ! -r "$source" ]]; then
     echo "Error: Cannot read source file (permission denied)" >&2
@@ -868,6 +876,7 @@ copy_with_hash() {
     return 1
   fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Create destination directory if needed
   local dest_dir=$(dirname "$dest")
   if ! mkdir -p "$dest_dir" 2>/dev/null; then
@@ -882,6 +891,7 @@ copy_with_hash() {
     return 1
   fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Check write permission on destination directory
   if [[ ! -w "$dest_dir" ]]; then
     echo "Error: Cannot write to destination directory (permission denied)" >&2
@@ -893,6 +903,7 @@ copy_with_hash() {
     return 1
   fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Copy file
   if ! cp "$source" "$dest" 2>/dev/null; then
     echo "Error: Failed to copy file (permission denied or disk full)" >&2
@@ -918,6 +929,7 @@ copy_script_with_hash() {
   local hash=$(copy_with_hash "$source" "$dest")
   local result=$?
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   if [[ $result -eq 0 ]]; then
     if ! chmod +x "$dest" 2>/dev/null; then
       echo "Error: Failed to make script executable (permission denied)" >&2
@@ -1254,6 +1266,7 @@ select_resources_to_import() {
     has_configs=true
   fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   echo "${RESET}" >&2
   echo "Import resources:" >&2
   echo "  [${CYAN}a${RESET}] ${CYAN}All resources${RESET}" >&2
@@ -1554,6 +1567,7 @@ handle_modified_file_update() {
       ;;
   esac
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   echo ""
   echo "$rel_path: ⚠️  LOCAL CHANGES DETECTED"
   echo "  Your version: Modified locally"
@@ -1983,6 +1997,7 @@ EOF
     echo ""
   fi
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   echo ""
   echo "${BOLD}${GREEN}Collection initialized successfully!${RESET}"
   echo ""
@@ -2022,6 +2037,7 @@ cmd_col_add() {
 
   echo "${BOLD}Adding collection from: ${CYAN}$url${RESET}" >&2
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Check repository access before cloning
   echo "${GRAY}Checking repository access...${RESET}" >&2
   if ! check_repo_access "$url"; then
@@ -2070,12 +2086,13 @@ cmd_col_add() {
   local collection_name=$(parse_collection_metadata "$temp_clone" "name")
   local collection_version=$(parse_collection_metadata "$temp_clone" "version")
 
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   if [[ -z "$collection_name" ]] || [[ -z "$collection_version" ]]; then
     echo "${RED}Error: Failed to parse collection metadata${RESET}" >&2
     rm -rf "$temp_clone"
     return 1
   fi
-
+  # TODO: CREATE/USE HELP MESSAGE SCRIPT
   # Check for name conflicts
   if collection_exists "$collection_name"; then
     echo "${RED}Error: Collection ${CYAN}'$collection_name'${RED} already exists${RESET}" >&2

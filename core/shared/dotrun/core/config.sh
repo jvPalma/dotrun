@@ -57,16 +57,7 @@ config_set() {
   local filepath="$1"
 
   if [[ -z "$filepath" ]]; then
-    echo "Usage: dr -c <path/to/file>" >&2
-    echo "" >&2
-    echo "Creates or opens a config file for editing." >&2
-    echo "One file can contain multiple configuration exports." >&2
-    echo "" >&2
-    echo "Examples:" >&2
-    echo "  dr -c 01-main          # Creates/edits ~/.config/dotrun/configs/01-main.config" >&2
-    echo "  dr -c api/keys         # Creates/edits ~/.config/dotrun/configs/api/keys.config" >&2
-    echo "  dr -c dev/database     # Creates/edits ~/.config/dotrun/configs/dev/database.config" >&2
-    return 1
+    exec "${BASH_SOURCE[0]%/core/*}/core/help-messages/configs/set.sh"
   fi
 
   # Ensure .config extension
