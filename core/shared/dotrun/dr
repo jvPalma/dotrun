@@ -8,6 +8,8 @@ set -euo pipefail
 
 IFS=$'\n\t'
 
+DOC_TOKEN="### DOC"
+
 # Version - Read from VERSION file or fallback to 3.1.0
 # Resolve symlinks to find the actual script location
 SCRIPT_PATH="${BASH_SOURCE[0]}"
@@ -24,11 +26,7 @@ else
   DRUN_VERSION="3.1.0"  # Fallback if VERSION file not found
 fi
 
-# Configuration
-DR_CONFIG="${DR_CONFIG:-$HOME/.config/dotrun}"
-BIN_DIR="$DR_CONFIG/scripts"
-DOC_TOKEN="### DOC"
-TEMPLATE_FILE="${HOME}/.local/share/dotrun/core/templates/script.sh"
+
 _default_editor="$(command -v code >/dev/null && echo "code" || echo "nano")"
 EDITOR="${EDITOR:-$_default_editor}"
 
@@ -38,534 +36,67 @@ if [[ -n "$EDITOR" ]] && ! command -v "$EDITOR" >/dev/null 2>&1; then
   EDITOR="$_default_editor"
 fi
 
-mkdir -p "$BIN_DIR"
+# SHARED Configurations (must be defined before sourcing constants.sh)
+SHARED_DR_PATH="${HOME}/.local/share/dotrun"
+SHARED_DR_CORE_PATH="${SHARED_DR_PATH}/core"
+SHARED_DR_HELPERS_PATH="${SHARED_DR_PATH}/helpers"
 
-# Color functions
-color_folder() {
-  local level=$1
-  case $level in
-  0) echo -e "\033[1;34m" ;; # Bright Blue
-  1) echo -e "\033[1;36m" ;; # Bright Cyan
-  2) echo -e "\033[1;35m" ;; # Bright Magenta
-  *) echo -e "\033[1;33m" ;; # Bright Yellow
-  esac
-}
-color_script="\033[1;92m" # Bright Green
-color_doc="\033[0;37m"    # Gray
-color_bold="\033[1m"      # Bold
-color_reset="\033[0m"
+# Source constants.sh for paths, icons, and colors (single source of truth)
+SHARED_DR_HELPERS_CONSTANTS="${SHARED_DR_HELPERS_PATH}/constants.sh"
+if [[ -f "$SHARED_DR_HELPERS_CONSTANTS" ]]; then
+  # shellcheck disable=SC1090
+  source "$SHARED_DR_HELPERS_CONSTANTS"
+fi
 
-# Input validation
-validate_script_name() {
-  local name="$1"
-  if [[ -z "$name" ]]; then
-    echo "Error: Script name cannot be empty" >&2
-    return 1
-  fi
-  if [[ "$name" =~ [^a-zA-Z0-9_/-] ]]; then
-    echo "Error: Script name contains invalid characters. Use only alphanumeric, underscore, dash, and forward slash." >&2
-    return 1
-  fi
-}
+# Ensure user collection directories exist
+mkdir -p "$USER_COLLECTION_SCRIPTS"
+mkdir -p "$USER_COLLECTION_HELPERS"
 
-# Check if required directories exist and are writable
-check_prerequisites() {
-  if [[ ! -d "$BIN_DIR" ]] && ! mkdir -p "$BIN_DIR" 2>/dev/null; then
-    echo "Error: Cannot create or access BIN_DIR: $BIN_DIR" >&2
-    exit 1
-  fi
-}
+# Core system paths (depend on SCRIPT_DIR, must stay here)
+SHARED_DR_CORE_SCRIPTS="$SCRIPT_DIR/core/scripts.sh"
+SHARED_DR_CORE_ALIASES="$SCRIPT_DIR/core/aliases.sh"
+SHARED_DR_CORE_CONFIGS="$SCRIPT_DIR/core/config.sh"
+SHARED_DR_CORE_COLLECTIONS="$SCRIPT_DIR/core/collections.sh"
 
-# Core feature helpers (tool logic)
-LINT_HELPER="$DR_CONFIG/helpers/lint.sh"  # User-optional linting
-ALIASES_HELPER="$SCRIPT_DIR/core/aliases.sh"  # Core aliases system
-CONFIG_HELPER="$SCRIPT_DIR/core/config.sh"     # Core config system (TODO)
-COLLECTIONS_HELPER="$SCRIPT_DIR/core/collections.sh"  # Core collections system
+# Helper paths
+SHARED_DR_HELPERS_LINT="${SHARED_DR_HELPERS_PATH}/lint.sh"
+SHARED_DR_HELPERS_LIST_TREE="${SHARED_DR_HELPERS_PATH}/list_feature_files_tree.sh"
 
-# Source core helpers
+# Templates
+SHARED_DR_TEMPLATES_PATH="${SHARED_DR_CORE_PATH}/templates"
+TEMPLATE_NEW_SCRIPT="${SHARED_DR_TEMPLATES_PATH}/script.sh"
+
+# Source lint helper (small, frequently used)
 # shellcheck disable=SC1090
-[[ -f "$LINT_HELPER" ]] && source "$LINT_HELPER"
-# shellcheck disable=SC1090
-[[ -f "$ALIASES_HELPER" ]] && source "$ALIASES_HELPER"
-# shellcheck disable=SC1090
-[[ -f "$CONFIG_HELPER" ]] && source "$CONFIG_HELPER"
-# shellcheck disable=SC1090
-[[ -f "$COLLECTIONS_HELPER" ]] && source "$COLLECTIONS_HELPER"
+[[ -f "$SHARED_DR_HELPERS_LINT" ]] && source "$SHARED_DR_HELPERS_LINT"
 
-# ????????????????????
-# Traverse bin directory and print scripts with doc in tree-style and colors
-# list_scripts show_docs scope
-#   show_docs: 0 = names only, 1 = include docs
-#   scope:     optional sub-folder (e.g. "code/")
-list_scripts() {
-  local show_docs="$1"
-  local scope="$2"
-  local start_dir="$BIN_DIR/${scope%/}" # strip trailing /
-
-  [[ ! -d "$start_dir" ]] && {
-    echo "Error: No such folder: $scope" >&2
-    return 1
-  }
-
-  # Check for circular symlinks in the directory
-  if find "$start_dir" -type l -exec test ! -e {} \; -print 2>/dev/null | grep -q .; then
-    echo "Warning: Broken symlinks found in $start_dir" >&2
-  fi
-
-  # Build tree structure: collect all directories and files
-  declare -A tree_dirs=()
-  declare -A tree_files=()
-  
-  while IFS= read -r -d '' file; do
-    rel_path="${file#"$BIN_DIR"/}"
-    script_name="$(basename "$rel_path" .sh)"
-    dir_path="$(dirname "$rel_path")"
-    
-    # Mark this directory as having content
-    tree_dirs["$dir_path"]=1
-    
-    # Add file to this directory's file list
-    if [[ -z "${tree_files[$dir_path]+x}" ]]; then
-      tree_files["$dir_path"]="$script_name"
-    else
-      tree_files["$dir_path"]="${tree_files[$dir_path]}|$script_name"
-    fi
-    
-    # Mark all parent directories
-    local parent="$dir_path"
-    while [[ "$parent" != "." ]]; do
-      parent="$(dirname "$parent")"
-      tree_dirs["$parent"]=1
-    done
-  done < <(find "$start_dir" -type f -name "*.sh" -print0)
-  
-  # Recursively print directory tree: folders first, then scripts
-  _print_tree() {
-    local current_dir="$1"
-    local prefix="$2"
-    local depth="${3:-0}"
-    
-    # Get color for tree symbols based on depth
-    local tree_color
-    case $((depth % 6)) in
-      0) tree_color="[38;5;33m" ;;   # Bright Blue
-      1) tree_color="[38;5;35m" ;;   # Bright Cyan
-      2) tree_color="[38;5;141m" ;;  # Bright Magenta
-      3) tree_color="[38;5;214m" ;;  # Orange
-      4) tree_color="[38;5;228m" ;;  # Yellow
-      5) tree_color="[38;5;121m" ;;  # Green
-    esac
-    
-    # Get all immediate subdirectories
-    local -a subdirs=()
-    for dir in "${!tree_dirs[@]}"; do
-      local parent="$(dirname "$dir")"
-      if [[ "$parent" == "$current_dir" && "$dir" != "$current_dir" ]]; then
-        subdirs+=("$(basename "$dir")")
-      fi
-    done
-    
-    # Sort subdirectories alphabetically
-    IFS=$'
-' subdirs=($(sort <<<"${subdirs[*]}"))
-    unset IFS
-    
-    # Get scripts in this directory (sorted alphabetically)
-    local -a scripts=()
-    if [[ -n "${tree_files[$current_dir]+x}" ]]; then
-      IFS='|' read -ra scripts <<< "${tree_files[$current_dir]}"
-      IFS=$'
-' scripts=($(sort <<<"${scripts[*]}"))
-      unset IFS
-    fi
-    
-    # Calculate total items (subdirs + scripts)
-    local total_items=$((${#subdirs[@]} + ${#scripts[@]}))
-    local item_index=0
-    
-    # Print subdirectories first
-    for subdir in "${subdirs[@]}"; do
-      [[ -z "$subdir" ]] && continue
-      item_index=$((item_index + 1))
-      
-      local is_last=false
-      [[ $item_index -eq $total_items ]] && is_last=true
-      
-      # Choose the branch character
-      local branch="${tree_color}├──${color_reset} "
-      local extension="${tree_color}│${color_reset}   "
-      if $is_last; then
-        branch="${tree_color}└──${color_reset} "
-        extension="    "
-      fi
-      
-      echo -e "${prefix}${branch}[1;33m📂 ${subdir}${color_reset}"
-      
-      local full_path="$current_dir/$subdir"
-      [[ "$current_dir" == "." ]] && full_path="$subdir"
-      
-      _print_tree "$full_path" "${prefix}${extension}" $((depth + 1))
-    done
-    
-    # Then print scripts in this directory
-    for script in "${scripts[@]}"; do
-      [[ -z "$script" ]] && continue
-      item_index=$((item_index + 1))
-      
-      local is_last=false
-      [[ $item_index -eq $total_items ]] && is_last=true
-      
-      # Choose the branch character with color
-      local branch="${tree_color}├──${color_reset} "
-      if $is_last; then
-        branch="${tree_color}└──${color_reset} "
-      fi
-      
-      echo -e "${prefix}${branch}${color_script}${script}${color_reset}"
-      
-      if ((show_docs)); then
-        # Find the actual file path
-        local file_path="$BIN_DIR/$current_dir/$script.sh"
-        [[ "$current_dir" == "." ]] && file_path="$BIN_DIR/$script.sh"
-        
-        # Choose doc prefix based on whether this is last item
-        local doc_prefix="${prefix}"
-        if $is_last; then
-          doc_prefix="${prefix}    "
-        else
-          doc_prefix="${prefix}${tree_color}│${color_reset}   "
-        fi
-        
-        # Extract ONLY content between first and second ### DOC markers
-        awk '/^'"$DOC_TOKEN"'/ { count++; if (count == 2) exit; next } count == 1 { print "'"${doc_prefix}${color_doc}"'" $0 "'"$color_reset"'" }' "$file_path"
-      fi
-    done
-  }
-  
-  _print_tree "." "" 0
-}
-
-# Create script skeleton
-create_script_skeleton() {
-  local name="$1"
-  local file="$BIN_DIR/$name.sh"
-  mkdir -p "$(dirname "$file")"
-
-  # Create script file from template
-  local script_basename="$(basename "$name")"
-  
-  # Check if template file exists
-  if [[ ! -f "$TEMPLATE_FILE" ]]; then
-    echo "Error: Template file not found at $TEMPLATE_FILE" >&2
-    echo "Please run the installer to set up DotRun properly." >&2
-    return 1
-  fi
-  
-  # Copy template and replace placeholder
-  sed "s/{{SCRIPT_NAME}}/$script_basename/g" "$TEMPLATE_FILE" > "$file"
-  chmod +x "$file"
-}
-
-# Search script by name regardless of path
-find_script_file() {
-  local query="$1"
-
-  # 1) explicit sub-folder path?
-  if [[ "$query" == */* ]]; then
-    local exact="$BIN_DIR/$query.sh"
-    if [[ -f "$exact" ]]; then
-      # Check if file is executable
-      if [[ ! -x "$exact" ]]; then
-        echo "Error: Script '$exact' is not executable" >&2
-        return 1
-      fi
-      # Check for circular symlinks
-      if [[ -L "$exact" ]] && ! readlink -e "$exact" >/dev/null 2>&1; then
-        echo "Error: Script '$exact' is a broken symlink" >&2
-        return 1
-      fi
-      echo "$exact"
-      return
-    fi
-  fi
-
-  # 2) fallback: search anywhere for basename
-  local base
-  base="$(basename "$query").sh"
-  local found_file
-  found_file=$(find "$BIN_DIR" -type f -name "$base" 2>/dev/null | head -n 1)
-
-  if [[ -n "$found_file" ]]; then
-    # Check if file is executable
-    if [[ ! -x "$found_file" ]]; then
-      echo "Error: Script '$found_file' is not executable" >&2
-      return 1
-    fi
-    # Check for circular symlinks
-    if [[ -L "$found_file" ]] && ! readlink -e "$found_file" >/dev/null 2>&1; then
-      echo "Error: Script '$found_file' is a broken symlink" >&2
-      return 1
-    fi
-    echo "$found_file"
+# Lazy-load module functions (source only when needed)
+_load_scripts_module() {
+  if [[ $(type -t set_script) != "function" ]]; then
+    # shellcheck disable=SC1090
+    [[ -f "$SHARED_DR_CORE_SCRIPTS" ]] && source "$SHARED_DR_CORE_SCRIPTS"
   fi
 }
 
-add_script() {
-  local name="$1"
-  validate_script_name "$name" || exit 1
-  check_prerequisites
-
-  local file="$BIN_DIR/$name.sh"
-  if [[ ! -f "$file" ]]; then
-    create_script_skeleton "$name"
-    echo "Created new script: $file"
-  fi
-
-  # Validate editor before using
-  if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
-    echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
-    exit 1
-  fi
-
-  "$EDITOR" "$file"
-  [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
-}
-
-edit_script() {
-  local file
-  file=$(find_script_file "$1")
-  if [[ -n "$file" ]]; then
-    # Validate editor before using
-    if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
-      echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
-      exit 1
-    fi
-
-    "$EDITOR" "$file"
-    [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
-  else
-    echo "Error: Script '$1' not found" >&2
-    echo "Use 'dr -l' to list available scripts" >&2
-    exit 1
+_load_aliases_module() {
+  if [[ $(type -t aliases_set) != "function" ]]; then
+    # shellcheck disable=SC1090
+    [[ -f "$SHARED_DR_CORE_ALIASES" ]] && source "$SHARED_DR_CORE_ALIASES"
   fi
 }
 
-# Set script (idempotent - creates if missing, edits if exists)
-set_script() {
-  local name="$1"
-  validate_script_name "$name" || exit 1
-  check_prerequisites
-
-  # Validate editor before using
-  if [[ -z "$EDITOR" ]] || ! command -v "$EDITOR" >/dev/null 2>&1; then
-    echo "Error: No valid editor found. Please set EDITOR environment variable." >&2
-    exit 1
-  fi
-
-  local file="$BIN_DIR/$name.sh"
-
-  # If file doesn't exist, create skeleton
-  if [[ ! -f "$file" ]]; then
-    create_script_skeleton "$name"
-    echo "✓ Created new script: $file"
-  else
-    echo "Opening existing script: $file"
-  fi
-
-  # Open in editor (works for both new and existing)
-  "$EDITOR" "$file"
-  [[ $(type -t run_shell_lint) == "function" ]] && run_shell_lint "$file"
-}
-
-show_help() {
-  local file
-  file=$(find_script_file "$1")
-  if [[ -z "$file" ]]; then
-    echo "Error: Script '$1' not found" >&2
-    exit 1
-  fi
-  
-  # Try to extract content between SECOND and THIRD ### DOC markers
-  # If no third marker exists, fallback to content between FIRST and SECOND
-  local doc_content
-  doc_content=$(awk '/^'"$DOC_TOKEN"'/ { count++; if (count == 3) exit; next } count == 2 { print }' "$file")
-  
-  # If no content found (no third marker), fallback to first-to-second
-  if [[ -z "$doc_content" ]]; then
-    awk '/^'"$DOC_TOKEN"'/ { count++; if (count == 2) exit; next } count == 1 { print }' "$file"
-  else
-    echo "$doc_content"
+_load_configs_module() {
+  if [[ $(type -t config_set) != "function" ]]; then
+    # shellcheck disable=SC1090
+    [[ -f "$SHARED_DR_CORE_CONFIGS" ]] && source "$SHARED_DR_CORE_CONFIGS"
   fi
 }
 
-# Move/rename a script
-move_script() {
-  local source="$1"
-  local destination="$2"
-  
-  # Validate inputs
-  validate_script_name "$source" || exit 1
-  validate_script_name "$destination" || exit 1
-  
-  # Find source script file
-  local source_file
-  source_file=$(find_script_file "$source")
-  if [[ -z "$source_file" ]]; then
-    echo "Error: Source script '$source' not found" >&2
-    echo "Use 'dr -l' to list available scripts" >&2
-    exit 1
+_load_collections_module() {
+  if [[ $(type -t cmd_col_list) != "function" ]]; then
+    # shellcheck disable=SC1090
+    [[ -f "$SHARED_DR_CORE_COLLECTIONS" ]] && source "$SHARED_DR_CORE_COLLECTIONS"
   fi
-  
-  # Get relative paths
-  local source_rel="${source_file#"$BIN_DIR"/}"
-  local source_name="$(basename "$source_rel" .sh)"
-  local source_dir="$(dirname "$source_rel")"
-  
-  # Construct destination paths
-  local dest_file="$BIN_DIR/$destination.sh"
-  local dest_name="$(basename "$destination")"
-  local dest_dir="$(dirname "$destination")"
-  
-  # Normalize directory paths
-  [[ "$source_dir" == "." ]] && source_dir=""
-  [[ "$dest_dir" == "." ]] && dest_dir=""
-  
-  # Check if destination already exists
-  if [[ -f "$dest_file" ]]; then
-    echo "Error: Destination script '$destination' already exists" >&2
-    exit 1
-  fi
-  
-  # Check for circular move (source and destination are the same)
-  if [[ "$source_file" == "$dest_file" ]]; then
-    echo "Error: Source and destination are the same" >&2
-    exit 1
-  fi
-  
-  # Check write permissions on destination directory
-  local dest_parent_dir="$BIN_DIR"
-  [[ -n "$dest_dir" ]] && dest_parent_dir="$BIN_DIR/$dest_dir"
-  if [[ -d "$dest_parent_dir" ]] && [[ ! -w "$dest_parent_dir" ]]; then
-    echo "Error: No write permission for destination directory: $dest_parent_dir" >&2
-    exit 1
-  fi
-  
-  # Create destination directories if needed
-  if [[ -n "$dest_dir" ]]; then
-    if ! mkdir -p "$BIN_DIR/$dest_dir" 2>/dev/null; then
-      echo "Error: Failed to create destination directory: $BIN_DIR/$dest_dir" >&2
-      exit 1
-    fi
-  fi
-  
-  # Move script file
-  if ! mv "$source_file" "$dest_file" 2>/dev/null; then
-    echo "Error: Failed to move script file" >&2
-    exit 1
-  fi
-  echo "✓ Moved script: $source -> $destination"
-
-  # Update inline documentation in script if name changed
-  if [[ "$source_name" != "$dest_name" ]]; then
-    # Update script name references in DOC_TOKEN section
-    local temp_script="$dest_file.tmp"
-    sed "s/# $source_name -/# $dest_name -/g" "$dest_file" > "$temp_script"
-    mv "$temp_script" "$dest_file"
-    chmod +x "$dest_file"  # Ensure script remains executable
-    echo "✓ Updated script inline documentation"
-  fi
-  
-  # Clean up empty source directories (including parent directories)
-  if [[ -n "$source_dir" ]]; then
-    # Clean up bin directories
-    local dir_to_check="$source_dir"
-    while [[ -n "$dir_to_check" ]]; do
-      if [[ -d "$BIN_DIR/$dir_to_check" && -z "$(ls -A "$BIN_DIR/$dir_to_check" 2>/dev/null)" ]]; then
-        rmdir "$BIN_DIR/$dir_to_check" 2>/dev/null && echo "✓ Removed empty directory: bin/$dir_to_check"
-      else
-        break  # Directory not empty or doesn't exist, stop checking parents
-      fi
-      # Move to parent directory
-      dir_to_check="$(dirname "$dir_to_check")"
-      [[ "$dir_to_check" == "." ]] && break
-    done
-  fi
-  
-  echo "Successfully moved/renamed script: $source -> $destination"
-  echo "Run with: dr $destination"
-}
-
-# Remove/delete a script
-remove_script() {
-  local name="$1"
-
-  # Validate input
-  validate_script_name "$name" || exit 1
-  check_prerequisites
-
-  # Find script file
-  local script_file
-  script_file=$(find_script_file "$name")
-  if [[ -z "$script_file" ]]; then
-    echo "Error: Script '$name' not found" >&2
-    echo "Use 'dr -l' to list available scripts" >&2
-    exit 1
-  fi
-
-  # Get relative paths
-  local rel_path="${script_file#"$BIN_DIR"/}"
-  local script_name
-  script_name="$(basename "$rel_path" .sh)"
-  local script_dir
-  script_dir="$(dirname "$rel_path")"
-
-  # Normalize directory path
-  [[ "$script_dir" == "." ]] && script_dir=""
-
-  # Display what will be removed with color
-  echo -e "${color_script}Remove script:${color_reset} $rel_path"
-  read -r -p "Are you sure? [y/N] " confirm
-
-  if [[ "$confirm" =~ ^[Yy]$ ]]; then
-    rm "$script_file"
-    echo -e "${color_script}✓ Removed script:${color_reset} $name"
-
-    # Clean up empty directories
-    if [[ -n "$script_dir" ]]; then
-      local dir_to_check="$script_dir"
-      while [[ -n "$dir_to_check" ]]; do
-        if [[ -d "$BIN_DIR/$dir_to_check" && -z "$(ls -A "$BIN_DIR/$dir_to_check" 2>/dev/null)" ]]; then
-          rmdir "$BIN_DIR/$dir_to_check" 2>/dev/null && echo "✓ Removed empty directory: $dir_to_check"
-        else
-          break
-        fi
-        dir_to_check="$(dirname "$dir_to_check")"
-        [[ "$dir_to_check" == "." ]] && break
-      done
-    fi
-
-    echo "Successfully removed script: $name"
-  else
-    echo "Cancelled"
-  fi
-}
-
-run_script() {
-  local name="$1"
-  shift
-  local file
-  file=$(find_script_file "$name")
-  if [[ -z "$file" ]]; then
-    echo "Error: Script '$name' not found" >&2
-    echo "Use 'dr -l' to list available scripts" >&2
-    exit 1
-  fi
-
-  # Export environment variables for scripts
-  export DR_CONFIG
-  export DR_LOAD_HELPERS="${HOME}/.local/share/dotrun/helpers/loadHelpers.sh"
-
-  "$file" "$@"
 }
 
 # Main command parser
@@ -575,25 +106,26 @@ case "${1:-}" in
   drrc="$HOME/.drrc"
 
   if [[ ! -f "$drrc" ]]; then
-    echo -e "${color_script}Error:${color_reset} ~/.drrc not found" >&2
+    echo -e "${COLOR_SCRIPTS}Error:${COLOR_RESET} ~/.drrc not found" >&2
     echo "DotRun may not be properly installed or initialized." >&2
     exit 1
   fi
 
   # Display reload instructions with colors
-  echo -e "${color_script}🔄 Reloading DotRun...${color_reset}"
+  echo -e "${COLOR_SCRIPTS}🔄 Reloading DotRun...${COLOR_RESET}"
   echo ""
-  echo -e "${color_doc}Note: Scripts run in subshells and cannot modify the parent shell environment.${color_reset}"
+  echo -e "${COLOR_DOC}Note: Scripts run in subshells and cannot modify the parent shell environment.${COLOR_RESET}"
   echo ""
-  echo -e "To reload DotRun in your ${color_bold}current shell${color_reset}, run:"
-  echo -e "  ${color_script}source ~/.drrc${color_reset}"
+  echo -e "To reload DotRun in your ${COLOR_BOLD}current shell${COLOR_RESET}, run:"
+  echo -e "  ${COLOR_SCRIPTS}source ~/.drrc${COLOR_RESET}"
   echo ""
   echo -e "Or create a convenient alias:"
-  echo -e "  ${color_script}alias drr='source ~/.drrc'${color_reset}"
+  echo -e "  ${COLOR_SCRIPTS}alias drr='source ~/.drrc'${COLOR_RESET}"
   echo ""
-  echo -e "Then you can simply type: ${color_script}drr${color_reset}"
+  echo -e "Then you can simply type: ${COLOR_SCRIPTS}drr${COLOR_RESET}"
   ;;
 -l | -L)
+  _load_scripts_module
   show_docs=0
   [[ "$1" == "-L" ]] && show_docs=1
   scope="${2:-}" # optional second arg
@@ -601,6 +133,7 @@ case "${1:-}" in
   ;;
 -s|scripts)
   # Script management namespace
+  _load_scripts_module
   case "${2:-}" in
   set)
     [[ -z "${3:-}" ]] && {
@@ -613,10 +146,10 @@ case "${1:-}" in
     [[ -z "${3:-}" || -z "${4:-}" ]] && {
       echo "Usage: dr $1 move <source> <destination>"
       echo "Examples:"
-      echo "  dr $1 move oldName newName        # Simple rename"
-      echo "  dr $1 move gitCmd git/gitCmd      # Move to folder"
-      echo "  dr $1 move folderA/cmd folderB/cmd # Move between folders"
-      echo "  dr $1 move oldName folder/newName # Rename and move"
+      echo "  dr $1 move oldName newName          ${DIM}# Simple rename${NC}"
+      echo "  dr $1 move gitCmd git/gitCmd        ${DIM}# Move to folder${NC}"
+      echo "  dr $1 move folderA/cmd folderB/cmd  ${DIM}# Move between folders${NC}"
+      echo "  dr $1 move oldName folder/newName   ${DIM}# Rename and move${NC}"
       exit 1
     }
     move_script "$3" "$4"
@@ -626,7 +159,7 @@ case "${1:-}" in
       echo "Usage: dr $1 help <name>"
       exit 1
     }
-    show_help "$3"
+    show_script_help "$3"
     ;;
   rm)
     [[ -z "${3:-}" ]] && {
@@ -666,6 +199,7 @@ case "${1:-}" in
   esac
   ;;
 set)
+  _load_scripts_module
   [[ -z "${2:-}" ]] && {
     echo "Usage: dr set <name>"
     exit 1
@@ -673,6 +207,7 @@ set)
   set_script "$2"
   ;;
 move | rename | mv)
+  _load_scripts_module
   [[ -z "${2:-}" || -z "${3:-}" ]] && {
     echo "Usage: dr $1 <source> <destination>"
     echo "Examples:"
@@ -685,36 +220,31 @@ move | rename | mv)
   move_script "$2" "$3"
   ;;
 help)
+  _load_scripts_module
   [[ -z "${2:-}" ]] && {
     echo "Usage: dr help <name>"
     exit 1
   }
-  show_help "$2"
+  show_script_help "$2"
   ;;
 docs)
+  _load_scripts_module
   [[ -z "${2:-}" ]] && {
     echo "Usage: dr docs <name>"
     exit 1
   }
-  show_help "$2"
+  show_script_help "$2"
   ;;
 rm)
+  _load_scripts_module
   [[ -z "${2:-}" ]] && {
     echo "Usage: dr rm <name>"
     exit 1
   }
   remove_script "$2"
   ;;
-yadm-init)
-  check_prerequisites
-  if ! command -v yadm_init >/dev/null 2>&1; then
-    echo "Error: Collections helper not available" >&2
-    exit 1
-  fi
-  yadm_init
-  ;;
 -col|collections)
-  check_prerequisites
+  _load_collections_module
   if [[ $(type -t cmd_col_init) != "function" ]]; then
     echo "Error: Collections helper not available" >&2
     exit 1
@@ -1014,7 +544,7 @@ EOF
   esac
   ;;
 -a|aliases)
-  check_prerequisites
+  _load_aliases_module
   if [[ $(type -t aliases_init) != "function" ]]; then
     echo "Error: Aliases helper not available" >&2
     exit 1
@@ -1046,17 +576,6 @@ EOF
       exit 1
     }
     aliases_set "$3"
-    ;;
-  list)
-    show_categories="false"
-    filter_category=""
-    # Check for flags
-    if [[ "${3:-}" == "--categories" ]]; then
-      show_categories="true"
-    elif [[ "${3:-}" == "--category" && -n "${4:-}" ]]; then
-      filter_category="$4"
-    fi
-    aliases_list "$show_categories" "$filter_category"
     ;;
   remove | rm)
     [[ -z "${3:-}" ]] && {
@@ -1112,7 +631,7 @@ EOF
   esac
   ;;
 -c|config)
-  check_prerequisites
+  _load_configs_module
   if [[ $(type -t config_set) != "function" ]]; then
     echo "Error: Config helper not available" >&2
     exit 1
@@ -1294,6 +813,7 @@ EOF
   ;;
 *)
   if [[ -n "${1:-}" ]]; then
+    _load_scripts_module
     run_script "$@"
   else
     echo "Error: No command provided" >&2
