@@ -5,6 +5,37 @@ All notable changes to DotRun will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.2] - 2026-02-06
+
+### 🔧 Changed
+
+#### AI Agent Skill Description
+
+- **SKILL.md rewritten** with structured frontmatter: `mandatory-triggers`, `trigger-keywords`, and `decision-rule` fields replace verbose prose description
+- **Decision Routing Matrix** added — table mapping user intent to `dr` commands for fast agent routing
+- **Discovery Before Creation** workflow enforced — mandatory `dr -L` check before creating scripts
+- **AGENTS.md** restructured with action-oriented routing, explicit `NEVER` rules, and migration workflow
+- **Reference files** condensed — architecture, commands, and migration docs trimmed for efficiency
+
+#### Zsh Autocomplete — Universal Plugin Manager Compatibility
+
+- **fpath-based completion discovery** replaces direct `compdef` call — works with oh-my-zsh, zinit, sheldon, prezto, or manual `compinit`
+- **New `shell/zsh/completions/_dr`** symlink added for standard zsh completion convention (`#compdef dr` header auto-discovered by `compinit`)
+- **Self-cleaning `precmd` hook** (`_dr_ensure_completion`) ensures `compdef` registration survives turbo-mode plugin managers that reinitialize `compinit` asynchronously
+- **`dev.sh` updated** to symlink the new `completions/` subdirectory during development setup
+- Eliminates need for user-specific plugin manager configuration
+
+#### loadHelpers.sh Default Variables
+
+- **`_DR_LOAD_DEPTH`** now uses `${_DR_LOAD_DEPTH:-0}` to preserve value across re-sourcing instead of unconditionally resetting to 0
+- **`_DR_LOAD_DEPTH_MAX`** now uses `${_DR_LOAD_DEPTH_MAX:-10}` allowing user override of circular dependency protection limit
+- **Help message extracted** to external file (`core/help-messages/helpers/loadHelpers-usage.sh`) with ANSI color formatting, consistent with project-wide help message separation pattern
+
+### 📖 Documentation
+
+- Version bumped to 3.1.2 in `VERSION` files, `dr` fallback, `README.md`, and `CLAUDE.md`
+- CLAUDE.md updated with Shell Integration section documenting the bootstrap workflow and plugin manager compatibility
+
 ## [3.1.1] - 2026-02-04
 
 ### ✨ Added
