@@ -57,26 +57,43 @@ if [ -f "$SHELL_ALIASES" ]; then
   source "$SHELL_ALIASES"
 fi
 
-#! 3rd - Source completion file
-if [ -f "$SHELL_COMPLETION" ]; then
-  source "$SHELL_COMPLETION"
-  # For zsh, register completion after sourcing if compdef is available
-  # If not available yet, set up a hook to register when shell is ready
-  if [[ $CURRENT_SHELL == "zsh" ]]; then
-    if (( $+functions[compdef] )); then
-      # compdef is available, register now
-      compdef _dr dr 2>/dev/null
-    else
-      # compdef not available yet, register when shell initialization completes
-      _dr_register_completion() {
-        if (( $+functions[compdef] )) && (( $+functions[_dr] )); then
-          compdef _dr dr 2>/dev/null
-          # Remove this function after it runs once
-          unfunction _dr_register_completion
-        fi
-      }
-      # Add to precmd_functions so it runs after .zshrc completes
-      precmd_functions+=(_dr_register_completion)
+#! 3rd - Load completion
+if [[ $CURRENT_SHELL == "zsh" ]]; then
+  # Zsh: Use fpath-based discovery for universal plugin manager compatibility.
+  # Works with oh-my-zsh, zinit, sheldon, or manual compinit.
+  #
+  # 1. Add completions dir to fpath (compinit scans this for _dr)
+  # 2. Source the completion file (makes _dr available before compinit runs)
+  # 3. Set up a self-cleaning precmd hook that ensures compdef registration
+  #    survives turbo-mode plugin managers that reinitialize compinit
+  ZSH_COMPLETIONS_DIR="${DOTRUN_SHARED}/shell/zsh/completions"
+  if [[ -d "$ZSH_COMPLETIONS_DIR" ]]; then
+    fpath=("$ZSH_COMPLETIONS_DIR" $fpath)
+  fi
+  if [[ -f "$SHELL_COMPLETION" ]]; then
+    source "$SHELL_COMPLETION"
+  fi
+  # Ensure compdef registration — handles all timing scenarios:
+  # - compinit already ran → register immediately
+  # - compinit runs later (turbo mode) → precmd hook retries until registered
+  _dr_ensure_completion() {
+    # Already registered, clean up
+    if [[ "${_comps[dr]}" == "_dr" ]]; then
+      precmd_functions=(${precmd_functions:#_dr_ensure_completion})
+      unfunction _dr_ensure_completion 2>/dev/null
+      return
     fi
+    # compdef available and _dr loaded → register now
+    if (( $+functions[compdef] )) && (( $+functions[_dr] )); then
+      compdef _dr dr 2>/dev/null
+      precmd_functions=(${precmd_functions:#_dr_ensure_completion})
+      unfunction _dr_ensure_completion 2>/dev/null
+    fi
+  }
+  precmd_functions+=(_dr_ensure_completion)
+else
+  # Bash/Fish: source the completion file directly
+  if [ -f "$SHELL_COMPLETION" ]; then
+    source "$SHELL_COMPLETION"
   fi
 fi

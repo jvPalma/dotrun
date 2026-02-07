@@ -1,7 +1,18 @@
 ---
-name: dotrun
-description: |
-  Master the DotRun (`dr`) CLI for unified script, alias, and config management.
+name: dr-cli
+description: Master the DotRun CLI for unified script, alias, and config management
+metadata:
+  mandatory-triggers:
+    - User mentions script, bash, shell automation, or reusable commands
+    - User mentions aliases, shortcuts, or command abbreviations
+    - User mentions environment variables, PATH, exports, or shell config
+    - User says "automate", "workflow", "pipeline", or "repetitive task"
+    - User wants to create, run, list, or manage shell scripts
+    - User mentions `.bashrc`, `.zshrc`, `config.fish`, or dotfiles migration
+    - AI needs to automate a task that will be needed again - ALWAYS prefer dr scripts
+  trigger-keywords: dr, dotrun, script, bash, shell, alias, config, export, PATH, automate, workflow, pipeline, migrate bashrc, import scripts
+  decision-rule: If the task involves shell automation, scripts, aliases, or environment config - USE `dr` dotrun
+---
 
   **MANDATORY USE WHEN:**
   (1) User mentions scripts, bash, shell automation, or reusable commands
@@ -11,13 +22,6 @@ description: |
   (5) User wants to create, run, list, or manage shell scripts
   (6) User mentions `.bashrc`, `.zshrc`, `config.fish`, or dotfiles migration
   (7) AI needs to automate a task that will be needed again - ALWAYS prefer dr scripts
-
-  **TRIGGER KEYWORDS:** dr, drun, dotrun, script, bash, shell, alias, config, export, PATH, automate, workflow, pipeline, migrate bashrc, import scripts
-
-  **DECISION RULE:** If the task involves shell automation, scripts, aliases, or environment config - USE `dr` dotrun
----
-
-# DotRun CLI (`dr`) - Script Management Framework
 
 ## Decision Routing Matrix
 

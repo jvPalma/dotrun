@@ -6,16 +6,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 DotRun (`dr`) is a unified Bash script management framework that provides instant access to custom scripts, aliases, and configurations from anywhere. It supports Bash, Zsh, and Fish shells.
 
-**Version:** 3.1.1
+**Version:** 3.1.2
 
 ## Development Setup
 
 ```bash
 # Clone and set up development environment
 ./dev.sh
+
+# Get help on setup script
+./dev.sh --help
 ```
 
-This creates symlinks from `~/.local/share/dotrun` to `core/shared/dotrun/`, enabling live testing without reinstallation.
+The `dev.sh` script sets up a complete development environment with 7 steps:
+
+1. Symlinks `dr` binary to `~/.local/share/dotrun/`
+2. Symlinks `.dr_config_loader` for shell integration
+3. Symlinks core feature modules (`core/*.sh`)
+4. Symlinks helper utilities (`helpers/*.sh`)
+5. Symlinks VERSION file
+6. Symlinks shell integration files for Bash, Zsh, and Fish (including Zsh completions subdirectory)
+7. Creates `~/.local/bin` directory for binary access
+
+This creates symlinks from `~/.local/share/dotrun` to `core/shared/dotrun/`, enabling live testing without reinstallation. The script validates required files (`core/shared/dotrun/dr` and `core/shared/dotrun/` structure) before proceeding.
+
+**Logging design:** The script uses color-coded output functions (`info`, `success`, `warning`, `error`) with unicode indicators for clear progress tracking during development setup.
 
 ## Common Commands
 
@@ -107,11 +122,148 @@ configs/    # Config files (*.config) - environment variables/exports
 helpers/    # User helper functions (*.sh)
 ```
 
+#### Example: GraphQL Request Tool (`scripts/work/.gqlRequest/`)
+
+User scripts can include subdirectories with modular helper systems. Example structure:
+
+```
+scripts/work/.gqlRequest/
+├── gqlRequest.conf       # Persistent user configuration
+├── helpers/              # Modular helper functions
+│   ├── _loader.sh        # Helper module loader (require dependency system)
+│   ├── queries.sh        # GraphQL query management
+│   ├── query_cli.sh      # Query CLI (query-add/query-list/query-which commands)
+│   ├── request.sh        # HTTP request helpers
+│   ├── response.sh       # Response processing
+│   ├── config.sh         # Configuration management (getters with env > config > default priority)
+│   ├── config_cli.sh     # Config CLI (get/set/list commands)
+│   ├── settings.sh       # Settings file I/O (read/write gqlRequest.conf with comment preservation)
+│   ├── context.sh        # Kubectl context caching (avoids redundant context switches)
+│   ├── kube-context.sh   # Kubectl context switching (fully internalized - no external dependencies)
+│   ├── tunnel.sh         # Port forwarding management
+│   ├── variables.sh      # Variable parsing/merging
+│   ├── watchdog.sh       # Process monitoring
+│   ├── cli.sh            # CLI commands
+│   └── ai_skill.sh       # AI skill symlink management (uses BASH_SOURCE for dynamic paths)
+├── queries/              # External GraphQL query definitions (*.graphql)
+│   ├── introspection.graphql
+│   ├── echo.graphql
+│   ├── userInfo.graphql
+│   ├── me.graphql
+│   ├── orgName.graphql
+│   └── ...               # Additional query files
+├── ai-skill-gql-request/ # AI agent skill for Claude Code integration
+└── test_queries.sh       # Test suite for query module
+```
+
+**Key patterns:**
+
+- External `.graphql` files for static queries, inline definitions for variable interpolation
+- Loader pattern (`_loader.sh`) with `require <module>` for dependency management
+- Query functions: `query_get()`, `query_load_graphql_file()`, `query_exists()`, `query_list_for_app()`
+- Explicit parameters replace global variables for testability (e.g., `login_user_id`, `login_session_id` passed as function args)
+- **Configuration system** (three-tier value resolution):
+  - `settings.sh`: File I/O layer - read/write `gqlRequest.conf` with comment preservation
+  - `config.sh`: Configuration layer - implements priority: env vars > config file > hardcoded defaults
+    - Provides getters for config values, paths (cache/tunnel/log dirs), and app configuration
+    - Functions return values vs globals for explicit dependencies
+  - `config_cli.sh`: CLI interface - `dr gqlRequest config` commands (get/set/list)
+  - Config keys: `RISK_USER_EMAIL`, `CLIENT_USER_KEY_ID`, `DEFAULT_APP`, `DEFAULT_ENVIRONMENT`, `GCP_PROJECT_*`, `GCP_REGION`, `GCP_CLUSTER_SUFFIX`
+  - Main script loads config at startup via `settings_ensure_config_exists` and respects user defaults
+- **Query management CLI** (user-defined query lifecycle):
+  - `query_cli.sh`: Query CLI interface - `dr gqlRequest query-add/query-list/query-which` commands
+  - `query-add <file.graphql>`: Copy external .graphql files to queries/ directory with validation and overwrite confirmation
+  - `query-list`: Display all available queries (built-in vs user-added) with line counts
+  - `query-which <name>`: Show query file path and content with line numbers
+  - Built-in query detection: Maintains list of shipped queries (echo, test, userInfo, etc.) for classification
+  - Interactive confirmations for destructive operations (overwrite existing queries)
+- **Kubectl context management** (caching to avoid redundant switches):
+  - `context.sh`: Context cache layer - checks if switch needed based on cached app/env/context
+  - `kube-context.sh`: Low-level kubectl operations - fully internalized context switching, project/cluster name mapping, gcloud authentication
+  - Cache file: `~/.cache/gqlrequest/context-cache.json` (per-app context tracking)
+- **AI skill management** (Claude Code integration):
+  - `dr gqlRequest skill` / `skill link`: Creates symlink from `ai-skill-gql-request/` to `~/.claude/skills/dr-gql-request/`
+  - `dr gqlRequest skill unlink`: Removes symlink with validation (refuses non-symlink removal)
+  - `dr gqlRequest skill status`: Shows symlink status with source/target validation
+  - Interactive overwrite confirmation when recreating existing symlinks
+
+#### Example: System Setup Scripts with Bundled Resources (`scripts/system/`)
+
+System setup scripts can bundle required resources in sibling directories for offline installation:
+
+**nerdFonts.sh pattern:**
+
+```bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUNDLE_DIR="${SCRIPT_DIR}/.nerdFonts"
+```
+
+**Structure:**
+
+```
+scripts/system/
+├── fonts/
+│   ├── nerdFonts.sh         # Setup script (registers fonts with fontconfig)
+│   └── .nerdFonts/          # Bundled Nerd Fonts
+│       ├── install.sh       # Font management script
+│       ├── _core/           # Font utilities
+│       └── [font-dirs]/     # Font families
+└── tmux/
+    └── tmux-setup.sh        # Embeds config directly (no bundle)
+```
+
+**Key characteristics:**
+
+- Uses `BASH_SOURCE` for dynamic path resolution (works regardless of execution location)
+- Registers fonts with fontconfig (`fc-cache -f "$BUNDLE_DIR"`) - no copying or symlinking
+- Fonts live permanently in bundle directory, registered in-place with system font cache
+- Removes external dependencies for offline use
+- Follows same UX as other setup scripts: loadHelpers integration, informative output
+- Pattern: `SCRIPT_DIR` from `BASH_SOURCE`, then reference `.{resource}/` subdirectories
+
 ### Installed Location (`~/.local/share/dotrun/`)
 
 Contains symlinks (dev) or copies (production) of `core/shared/dotrun/` contents.
 
 ## Core Concepts
+
+### Shell Integration
+
+DotRun bootstraps through a two-file pattern that integrates with shell initialization:
+
+**User's shell config (`.bashrc`/`.zshrc`/`.config/fish/config.fish`):**
+
+```bash
+# Source DotRun configuration
+[[ -f "$HOME/.drrc" ]] && source "$HOME/.drrc"
+```
+
+**`~/.drrc` (user-facing config file):**
+
+- Sets environment variables (`DR_CONFIG`, `DR_LOAD_HELPERS`)
+- Sources `loadHelpers.sh` for helper function access
+- Sources `.dr_config_loader` for shell integration
+
+**`~/.local/share/dotrun/.dr_config_loader` (shell integration engine):**
+
+- Detects current shell (`bash`/`zsh`/`fish`)
+- Adds `~/.local/bin` to PATH
+- Sources shell-specific configs from `~/.local/share/dotrun/shell/<shell>/`
+- Loads completion system with plugin manager compatibility (Zsh uses fpath + precmd hook)
+
+**Workflow:**
+
+1. Shell starts → sources `.bashrc`/`.zshrc`
+2. `.bashrc`/`.zshrc` → sources `~/.drrc`
+3. `~/.drrc` → sources `.dr_config_loader`
+4. `.dr_config_loader` → sources `configs.sh`, `aliases.sh`, and completion files
+
+**Key features:**
+
+- **Plugin manager compatibility**: Zsh completion uses fpath discovery + self-cleaning precmd hook for turbo-mode loaders (oh-my-zsh, zinit, sheldon)
+- **Shell detection**: Automatic shell type detection via `$BASH_VERSION`/`$ZSH_VERSION`/`$FISH_VERSION`
+- **Conditional completion**: Bash detects ble.sh and loads enhanced completion with colors
+- **Lazy loading**: Configs → Aliases → Completion (ordered for dependency resolution)
 
 ### Script Documentation Format
 
@@ -180,6 +332,10 @@ Collections are Git repositories containing shareable scripts/aliases/configs. W
   - Interactive menus: `conflict-menu.sh`, `import-menu.sh`, `invalid-url.sh` for user prompts and validation errors
 - **Upgrade error handling**: Network-related errors for self-update functionality
   - Network errors: `network-errors.sh <error-type>` - handles API failures, install failures, missing downloaders (3 types)
+- **Dynamic path resolution**: Use `BASH_SOURCE` for script-relative paths (works regardless of execution location)
+  - Pattern: `SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"`
+  - Used for: referencing sibling resources, bundled directories, AI skill symlink management
+  - Example use cases: `ai_skill.sh`, `fonts-setup.sh` (bundle access), `run.sh` (skill scripts)
 
 ### Help Message Script Pattern
 
@@ -272,3 +428,27 @@ esac
 ## AI Skill
 
 The `skills/dr-cli/` directory contains an AI agent skill for Claude Code and other agents. See `skills/dr-cli/SKILL.md` for trigger keywords and decision routing.
+
+**Version 3.1.2 Updates:**
+
+- **SKILL.md rewritten** with structured frontmatter: `mandatory-triggers`, `trigger-keywords`, and `decision-rule` fields replace verbose prose description
+- **Decision Routing Matrix** added — table mapping user intent to `dr` commands for fast agent routing
+- **Discovery Before Creation** workflow enforced — mandatory `dr -L` check before creating scripts
+- **AGENTS.md** restructured with action-oriented routing, explicit `NEVER` rules, and migration workflow
+- **Reference files** condensed — architecture, commands, and migration docs trimmed for efficiency
+
+## Recent Changes (v3.1.2)
+
+### Zsh Autocomplete — Universal Plugin Manager Compatibility
+
+- **fpath-based completion discovery** replaces direct `compdef` call — works with oh-my-zsh, zinit, sheldon, prezto, or manual `compinit`
+- **New `shell/zsh/completions/_dr`** symlink added for standard zsh completion convention (`#compdef dr` header auto-discovered by `compinit`)
+- **Self-cleaning `precmd` hook** (`_dr_ensure_completion`) ensures `compdef` registration survives turbo-mode plugin managers that reinitialize `compinit` asynchronously
+- **`dev.sh` updated** to symlink the new `completions/` subdirectory during development setup
+- Eliminates need for user-specific plugin manager configuration
+
+### loadHelpers.sh Default Variables
+
+- **`_DR_LOAD_DEPTH`** now uses `${_DR_LOAD_DEPTH:-0}` to preserve value across re-sourcing instead of unconditionally resetting to 0
+- **`_DR_LOAD_DEPTH_MAX`** now uses `${_DR_LOAD_DEPTH_MAX:-10}` allowing user override of circular dependency protection limit
+- **Help message extracted** to external file (`core/help-messages/helpers/loadHelpers-usage.sh`) with ANSI color formatting, consistent with project-wide help message separation pattern

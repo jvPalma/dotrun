@@ -160,6 +160,15 @@ main() {
       filename=$(basename "$file")
       ln -sf "$file" "$TOOL_DIR/shell/zsh/$filename"
     done
+    # Symlink zsh completions subdir (fpath-based discovery for compinit)
+    if [[ -d "$SCRIPT_DIR/core/shared/dotrun/shell/zsh/completions" ]]; then
+      mkdir -p "$TOOL_DIR/shell/zsh/completions"
+      for file in "$SCRIPT_DIR/core/shared/dotrun/shell/zsh/completions"/*; do
+        [[ -e "$file" ]] || continue
+        filename=$(basename "$file")
+        ln -sf "$file" "$TOOL_DIR/shell/zsh/completions/$filename"
+      done
+    fi
     success "Zsh integration files updated ($(ls -1 "$SCRIPT_DIR/core/shared/dotrun/shell/zsh" | wc -l) files)"
   fi
 
