@@ -12,8 +12,8 @@ _DR_BASH_MINOR="${BASH_VERSINFO[1]:-0}"
 if [[ $_DR_BASH_MAJOR -ge 4 ]]; then
   # Bash 4+: Use associative array
   declare -gA _DR_LOADED_HELPERS 2>/dev/null || declare -A _DR_LOADED_HELPERS
-  declare -gi _DR_LOAD_DEPTH=0 2>/dev/null || _DR_LOAD_DEPTH=0
-  declare -gri _DR_LOAD_DEPTH_MAX=10 2>/dev/null || _DR_LOAD_DEPTH_MAX=10
+  declare -gi _DR_LOAD_DEPTH=${_DR_LOAD_DEPTH:-0} 2>/dev/null
+  declare -gri _DR_LOAD_DEPTH_MAX=${_DR_LOAD_DEPTH_MAX:-10} 2>/dev/null
 else
   # Bash 3: Use indexed array
   _DR_LOADED_HELPERS=()
