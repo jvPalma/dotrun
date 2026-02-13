@@ -12,9 +12,9 @@ function _load_aliases_from_file
                 continue
             end
             # Parse alias format: alias name='command'
-            if string match -qr "^alias\s+([^=]+)='(.*)'$" "$line"
+            if string match -qr "^alias\s+([^=]+)='(.*)'\$" "$line"
                 set -l alias_name (string match -r "^alias\s+([^=]+)=" "$line" | string split "=" | head -n 1 | string trim | string sub -s 7)
-                set -l alias_cmd (string match -r "'(.*)'$" "$line" | string sub -s 2 -e -1)
+                set -l alias_cmd (string match -r "'(.*)'\$" "$line" | string sub -s 2 -e -1)
                 alias $alias_name="$alias_cmd"
             end
         end <"$file"

@@ -107,6 +107,13 @@ main() {
       done
     fi
 
+    # Symlink help-messages directory (deep tree — symlink the whole dir)
+    if [[ -d "$SCRIPT_DIR/core/shared/dotrun/core/help-messages" ]]; then
+      # Remove old copies/symlink to replace cleanly
+      rm -rf "$TOOL_DIR/core/help-messages"
+      ln -sf "$SCRIPT_DIR/core/shared/dotrun/core/help-messages" "$TOOL_DIR/core/help-messages"
+    fi
+
     success "Core files updated"
   fi
 
@@ -143,6 +150,11 @@ main() {
   mkdir -p "$TOOL_DIR/shell/zsh"
   mkdir -p "$TOOL_DIR/shell/fish"
 
+  # Clean stale symlinks in shell directories (from removed source files)
+  for dir in "$TOOL_DIR/shell/bash" "$TOOL_DIR/shell/zsh" "$TOOL_DIR/shell/fish"; do
+    find "$dir" -maxdepth 1 -type l ! -exec test -e {} \; -delete 2>/dev/null
+  done
+
   # Symlink bash files (loop through each file to ensure proper symlink creation)
   if [[ -d "$SCRIPT_DIR/core/shared/dotrun/shell/bash" ]]; then
     for file in "$SCRIPT_DIR/core/shared/dotrun/shell/bash"/*; do
@@ -150,7 +162,7 @@ main() {
       filename=$(basename "$file")
       ln -sf "$file" "$TOOL_DIR/shell/bash/$filename"
     done
-    success "Bash integration files updated ($(ls -1 "$SCRIPT_DIR/core/shared/dotrun/shell/bash" | wc -l) files)"
+    success "Bash integration files updated ($(find "$SCRIPT_DIR/core/shared/dotrun/shell/bash" -maxdepth 1 -type f | wc -l) files)"
   fi
 
   # Symlink zsh files (loop through each file to ensure proper symlink creation)
@@ -169,7 +181,7 @@ main() {
         ln -sf "$file" "$TOOL_DIR/shell/zsh/completions/$filename"
       done
     fi
-    success "Zsh integration files updated ($(ls -1 "$SCRIPT_DIR/core/shared/dotrun/shell/zsh" | wc -l) files)"
+    success "Zsh integration files updated ($(find "$SCRIPT_DIR/core/shared/dotrun/shell/zsh" -maxdepth 1 -type f | wc -l) files)"
   fi
 
   # Symlink fish files (loop through each file to ensure proper symlink creation)
@@ -179,7 +191,7 @@ main() {
       filename=$(basename "$file")
       ln -sf "$file" "$TOOL_DIR/shell/fish/$filename"
     done
-    success "Fish integration files updated ($(ls -1 "$SCRIPT_DIR/core/shared/dotrun/shell/fish" | wc -l) files)"
+    success "Fish integration files updated ($(find "$SCRIPT_DIR/core/shared/dotrun/shell/fish" -maxdepth 1 -type f | wc -l) files)"
   fi
 
   # Step 7: Create/update symlink
