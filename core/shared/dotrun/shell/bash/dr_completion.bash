@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2155,SC2207
-# Standard bash completion for dr (no emojis, clean insertion)
-# For enhanced visual experience with colors, use ble.sh version
+# Standard bash completion for dr — mirrors zsh reference behavior
+# For enhanced visual experience with colors/emojis, use ble.sh version
 
 _dr_autocomplete() {
   local cur prev words cword
@@ -23,10 +23,70 @@ _dr_autocomplete() {
   local CONFIG_DIR="${DR_CONFIG:-$HOME/.config/dotrun}/configs"
 
   # ============================================================================
-  # HELPER FUNCTIONS (Clean - no emojis)
+  # UNIFIED FILESYSTEM FINDER (mirrors zsh _dr_global_filesystem_find)
   # ============================================================================
+  # _dr_filesystem_find <context> <type> <depth> [subcontext] [pattern]
+  #
+  # Args:
+  #   $1 (context):    'scripts' | 'aliases' | 'configs'
+  #   $2 (type):       'file' | 'directory'
+  #   $3 (depth):      'single' | 'all'
+  #   $4 (subcontext): Optional relative path within context
+  #   $5 (pattern):    Optional filter pattern for case-insensitive matching
+  #
+  # Output: One result per line
+  #   - Directories: "dirname/" (with trailing slash)
+  #   - Files: "filename" (extension stripped)
+  _dr_filesystem_find() {
+    local context="$1" type="$2" depth="$3"
+    local subcontext="${4:-}" pattern="${5:-}"
 
-  # Extract folder context from current word
+    local base_dir ext
+    case "$context" in
+      scripts)  base_dir="$BIN_DIR";     ext=".sh" ;;
+      aliases)  base_dir="$ALIASES_DIR"; ext=".aliases" ;;
+      configs)  base_dir="$CONFIG_DIR";  ext=".config" ;;
+      *) return 1 ;;
+    esac
+
+    local search_dir="$base_dir"
+    [[ -n "$subcontext" ]] && search_dir="$base_dir/${subcontext%/}"
+    [[ ! -d "$search_dir" ]] && return 0
+
+    local -a find_args=("$search_dir" -mindepth 1)
+    [[ "$depth" == "single" ]] && find_args+=(-maxdepth 1)
+
+    # Prune hidden directories
+    find_args+=(-name '.*' -prune -o)
+
+    case "$type" in
+      file)      find_args+=(-type f) ;;
+      directory) find_args+=(-type d) ;;
+    esac
+
+    [[ "$type" == "file" && -n "$ext" ]] && find_args+=(-name "*${ext}")
+    [[ -n "$pattern" ]] && find_args+=(-ipath "*${pattern}*")
+    find_args+=(-print0)
+
+    local strip_prefix="${search_dir%/}/"
+    local item rel_path
+
+    while IFS= read -r -d '' item; do
+      rel_path="${item#"${strip_prefix}"}"
+      [[ -z "$rel_path" ]] && continue
+
+      if [[ -d "$item" ]]; then
+        echo "${rel_path%/}/"
+      else
+        [[ -n "$ext" ]] && rel_path="${rel_path%"${ext}"}"
+        echo "$rel_path"
+      fi
+    done < <(find "${find_args[@]}" 2>/dev/null | sort -z)
+  }
+
+  # ============================================================================
+  # HELPER: Extract folder context from current word
+  # ============================================================================
   _dr_get_context_path() {
     local word="$1"
     if [[ "$word" == */* ]]; then
@@ -36,316 +96,177 @@ _dr_autocomplete() {
     fi
   }
 
-  # Get folders in context (with trailing slash for visual distinction)
-  _dr_get_folders() {
-    local context="$1"
-    local search_dir="$BIN_DIR"
+  # ============================================================================
+  # HELPER: Emit feature context (folders + files) to COMPREPLY
+  # ============================================================================
+  # _dr_emit_feature_context <feature> <subcontext> <prefix>
+  _dr_emit_feature_context() {
+    local feature="$1" subcontext="$2" prefix="$3"
 
-    if [[ -n "$context" ]]; then
-      search_dir="$BIN_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate subdirectories, exclude hidden folders
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' dir; do
-      local dirname="${dir#"${strip_prefix}"}"
-      dirname="${dirname%/}"
-      [[ "$dirname" == .* ]] && continue
-      [[ -n "$dirname" ]] && echo "${dirname}/"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print0 2>/dev/null | sort -z)
-  }
-
-  # Get scripts in context (no .sh extension)
-  _dr_get_scripts() {
-    local context="$1"
-    local search_dir="$BIN_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$BIN_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate .sh files only
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' file; do
-      local filename="${file#"${strip_prefix}"}"
-      filename="${filename%.sh}"
-      [[ -n "$filename" ]] && echo "${filename}"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type f -name "*.sh" -print0 2>/dev/null | sort -z)
-  }
-
-  # Get all scripts recursively
-  _dr_get_all_scripts() {
-    if [[ ! -d "$BIN_DIR" ]]; then
-      return
-    fi
-
-    local -a result
-    while IFS= read -r -d '' file; do
-      local relpath="${file#"${BIN_DIR}"/}"
-      [[ "$relpath" == .* ]] || [[ "$relpath" == */.* ]] && continue
-      relpath="${relpath%.sh}"
-      result+=("${relpath}")
-    done < <(find "$BIN_DIR" -type f -name "*.sh" -print0 2>/dev/null | sort -z)
-
-    printf '%s\n' "${result[@]}"
-  }
-
-  # Emit context with proper ordering (folders first, then scripts)
-  _dr_emit_context() {
-    local context="$1"
-    local prefix="$2"
-    local -a folders scripts
-
-    # Collect folders
     while IFS= read -r item; do
-      [[ -n "$item" ]] && folders+=("${prefix}${item}")
-    done < <(_dr_get_folders "$context")
+      [[ -n "$item" ]] && COMPREPLY+=("${prefix}${item}")
+    done < <(_dr_filesystem_find "$feature" directory single "$subcontext")
 
-    # Collect scripts
     while IFS= read -r item; do
-      [[ -n "$item" ]] && scripts+=("${prefix}${item}")
-    done < <(_dr_get_scripts "$context")
-
-    # Add to COMPREPLY in order: folders first, then scripts
-    COMPREPLY+=("${folders[@]}")
-    COMPREPLY+=("${scripts[@]}")
-  }
-
-  # Get alias folders in context (with trailing slash for visual distinction)
-  _dr_get_alias_folders() {
-    local context="$1"
-    local search_dir="$ALIASES_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$ALIASES_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate subdirectories, exclude hidden folders
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' dir; do
-      local dirname="${dir#"${strip_prefix}"}"
-      dirname="${dirname%/}"
-      [[ "$dirname" == .* ]] && continue
-      [[ -n "$dirname" ]] && echo "${dirname}/"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print0 2>/dev/null | sort -z)
-  }
-
-  # Get alias files in context (no .aliases extension)
-  _dr_get_alias_files() {
-    local context="$1"
-    local search_dir="$ALIASES_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$ALIASES_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate .aliases files only
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' file; do
-      local filename="${file#"${strip_prefix}"}"
-      filename="${filename%.aliases}"
-      [[ -n "$filename" ]] && echo "${filename}"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type f -name "*.aliases" -print0 2>/dev/null | sort -z)
-  }
-
-  # Emit alias context with proper ordering (folders first, then alias files)
-  _dr_emit_aliases_context() {
-    local context="$1"
-    local prefix="$2"
-    local -a folders alias_files
-
-    # Collect folders
-    while IFS= read -r item; do
-      [[ -n "$item" ]] && folders+=("${prefix}${item}")
-    done < <(_dr_get_alias_folders "$context")
-
-    # Collect alias files
-    while IFS= read -r item; do
-      [[ -n "$item" ]] && alias_files+=("${prefix}${item}")
-    done < <(_dr_get_alias_files "$context")
-
-    # Add to COMPREPLY in order: folders first, then alias files
-    COMPREPLY+=("${folders[@]}")
-    COMPREPLY+=("${alias_files[@]}")
-  }
-
-  # Get config folders in context (with trailing slash for visual distinction)
-  _dr_get_config_folders() {
-    local context="$1"
-    local search_dir="$CONFIG_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$CONFIG_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate subdirectories, exclude hidden folders
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' dir; do
-      local dirname="${dir#"${strip_prefix}"}"
-      dirname="${dirname%/}"
-      [[ "$dirname" == .* ]] && continue
-      [[ -n "$dirname" ]] && echo "${dirname}/"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print0 2>/dev/null | sort -z)
-  }
-
-  # Get config files in context (no .config extension)
-  _dr_get_config_files() {
-    local context="$1"
-    local search_dir="$CONFIG_DIR"
-
-    if [[ -n "$context" ]]; then
-      search_dir="$CONFIG_DIR/$context"
-    fi
-
-    if [[ ! -d "$search_dir" ]]; then
-      return
-    fi
-
-    # Get immediate .config files only
-    local strip_prefix="${search_dir%/}/"
-    while IFS= read -r -d '' file; do
-      local filename="${file#"${strip_prefix}"}"
-      filename="${filename%.config}"
-      [[ -n "$filename" ]] && echo "${filename}"
-    done < <(find "$search_dir" -mindepth 1 -maxdepth 1 -type f -name "*.config" -print0 2>/dev/null | sort -z)
-  }
-
-  # Emit config context with proper ordering (folders first, then config files)
-  _dr_emit_configs_context() {
-    local context="$1"
-    local prefix="$2"
-    local -a folders config_files
-
-    # Collect folders
-    while IFS= read -r item; do
-      [[ -n "$item" ]] && folders+=("${prefix}${item}")
-    done < <(_dr_get_config_folders "$context")
-
-    # Collect config files
-    while IFS= read -r item; do
-      [[ -n "$item" ]] && config_files+=("${prefix}${item}")
-    done < <(_dr_get_config_files "$context")
-
-    # Add to COMPREPLY in order: folders first, then config files
-    COMPREPLY+=("${folders[@]}")
-    COMPREPLY+=("${config_files[@]}")
+      [[ -n "$item" ]] && COMPREPLY+=("${prefix}${item}")
+    done < <(_dr_filesystem_find "$feature" file single "$subcontext")
   }
 
   # ============================================================================
-  # COMPLETION LOGIC BY POSITION
+  # HELPER: Emit recursive search results to COMPREPLY
+  # ============================================================================
+  # _dr_emit_recursive_search <feature> <pattern>
+  _dr_emit_recursive_search() {
+    local feature="$1" pattern="$2"
+
+    while IFS= read -r item; do
+      [[ -n "$item" ]] && COMPREPLY+=("$item")
+    done < <(_dr_filesystem_find "$feature" directory all "" "$pattern")
+
+    while IFS= read -r item; do
+      [[ -n "$item" ]] && COMPREPLY+=("$item")
+    done < <(_dr_filesystem_find "$feature" file all "" "$pattern")
+  }
+
+  # ============================================================================
+  # HELPER: Emit folders-only to COMPREPLY
+  # ============================================================================
+  _dr_emit_folders_only() {
+    local feature="$1" subcontext="${2:-}" prefix="${3:-}"
+
+    while IFS= read -r item; do
+      [[ -n "$item" ]] && COMPREPLY+=("${prefix}${item}")
+    done < <(_dr_filesystem_find "$feature" directory single "$subcontext")
+  }
+
+  # ============================================================================
+  # HELPER: Complete feature with hierarchical navigation or recursive search
+  # Mirrors zsh behavior: folder/ → navigate, pattern → recursive search
+  # ============================================================================
+  _dr_complete_feature() {
+    local feature="$1"
+
+    if [[ "$cur" == */* ]]; then
+      # Folder navigation
+      local context_path=$(_dr_get_context_path "$cur")
+      _dr_emit_feature_context "$feature" "$context_path" "$context_path"
+    elif [[ -n "$cur" && "$cur" != -* ]]; then
+      # Recursive search
+      _dr_emit_recursive_search "$feature" "$cur"
+    else
+      # Root: folders + files
+      _dr_emit_feature_context "$feature" "" ""
+    fi
+  }
+
+  # ============================================================================
+  # HELPER: Complete folder filter for -l/-L commands
+  # ============================================================================
+  _dr_complete_list_filter() {
+    local feature="$1"
+
+    if [[ "$cur" == */* ]]; then
+      local context_path=$(_dr_get_context_path "$cur")
+      _dr_emit_folders_only "$feature" "$context_path" "$context_path"
+    else
+      _dr_emit_folders_only "$feature" "" ""
+    fi
+  }
+
+  # ============================================================================
+  # COMPLETION LOGIC BY POSITION (mirrors zsh case $CURRENT)
   # ============================================================================
 
-  # Command definitions
-  local script_mgmt_commands="set move rm help"
-  local aliases_commands="move rm help init -l -L"
-  local config_commands="move rm help init -l -L"
-  local collections_commands="list list:details remove"
-  local global_commands="reload"
+  # Command arrays (matching zsh definitions)
+  local -a collections_commands=(set list "list:details" sync update remove)
 
-  # Position 1: First argument
+  # Position 1: First argument after dr
   if [[ $cword -eq 1 ]]; then
     if [[ "$cur" == */* ]]; then
-      # In folder context - just show folder contents
+      # Folder navigation
       local context_path=$(_dr_get_context_path "$cur")
-      _dr_emit_context "$context_path" "$context_path"
+      _dr_emit_feature_context scripts "$context_path" "$context_path"
+    elif [[ -n "$cur" && "$cur" != -* ]]; then
+      # User typed a pattern — recursive search (mirrors zsh)
+      _dr_emit_recursive_search scripts "$cur"
     else
-      # Root context: global commands, folders, scripts
-      COMPREPLY=($(compgen -W "$global_commands" -- "$cur"))
-      _dr_emit_context "" ""
+      # Empty TAB or dash: show ONLY folders + scripts (NO commands)
+      # Matches zsh: namespace flags are NOT shown, user must type them
+      _dr_emit_feature_context scripts "" ""
     fi
     return 0
 
   # Position 2: Second argument
   elif [[ $cword -eq 2 ]]; then
     case "$prev" in
-      reload)
-        # reload takes no arguments - return empty
+      -r|reload)
         return 0
         ;;
-      -s | scripts)
-        # Script management commands
-        COMPREPLY=($(compgen -W "$script_mgmt_commands" -- "$cur"))
+      -s|scripts)
+        # Script management context — mirrors zsh: same as root dr TAB
+        _dr_complete_feature scripts
+        return 0
         ;;
-      -a | aliases)
-        # Aliases commands AND folders/files for default add/edit behavior
-        COMPREPLY=($(compgen -W "$aliases_commands" -- "$cur"))
-        # Also show folders and alias files
+      -a|aliases)
+        # Aliases context — hint + folders + alias files (NO subcommands in TAB)
+        _dr_complete_feature aliases
+        return 0
+        ;;
+      -c|config)
+        # Config context — hint + folders + config files (NO subcommands in TAB)
+        _dr_complete_feature configs
+        return 0
+        ;;
+      -col|collections)
+        # Collections management — show subcommands
+        COMPREPLY=($(compgen -W "${collections_commands[*]}" -- "$cur"))
+        return 0
+        ;;
+      -l|-L)
+        # List with folder filter — determine feature from context
+        # At position 2, -l/-L is for scripts (default feature)
+        _dr_complete_list_filter scripts
+        return 0
+        ;;
+      set)
+        # Implicit set: dr set <name>
         if [[ "$cur" == */* ]]; then
           local context_path=$(_dr_get_context_path "$cur")
-          _dr_emit_aliases_context "$context_path" "$context_path"
+          _dr_emit_feature_context scripts "$context_path" "$context_path"
         else
-          _dr_emit_aliases_context "" ""
+          _dr_emit_feature_context scripts "" ""
         fi
+        return 0
         ;;
-      -l | -L)
-        # List with folder filter
-        if [[ "${words[1]}" == "-a" || "${words[1]}" == "aliases" ]]; then
-          # For aliases list, show only folders
-          local -a folders_only
-          while IFS= read -r folder; do
-            [[ -n "$folder" ]] && folders_only+=("$folder")
-          done < <(_dr_get_alias_folders "")
-          COMPREPLY+=("${folders_only[@]}")
-        else
-          # For scripts list, show only folders (already handled in existing code)
-          local -a folders_only
-          while IFS= read -r folder; do
-            [[ -n "$folder" ]] && folders_only+=("$folder")
-          done < <(_dr_get_folders "")
-          COMPREPLY=("${folders_only[@]}")
-        fi
-        ;;
-      -c | config)
-        # Config commands AND folders/files for default add/edit behavior
-        COMPREPLY=($(compgen -W "$config_commands" -- "$cur"))
-        # Also show folders and config files
+      edit|help)
+        # Hierarchical navigation for edit/help
         if [[ "$cur" == */* ]]; then
           local context_path=$(_dr_get_context_path "$cur")
-          _dr_emit_configs_context "$context_path" "$context_path"
+          _dr_emit_feature_context scripts "$context_path" "$context_path"
         else
-          _dr_emit_configs_context "" ""
+          _dr_emit_feature_context scripts "" ""
         fi
+        return 0
         ;;
-      -col | collections)
-        # Collections commands
-        COMPREPLY=($(compgen -W "$collections_commands" -- "$cur"))
-        ;;
-      set | help | move | mv | rm)
-        # Direct commands with hierarchical navigation
+      move|rename|mv)
+        # Source argument for move/rename
         if [[ "$cur" == */* ]]; then
           local context_path=$(_dr_get_context_path "$cur")
-          _dr_emit_context "$context_path" "$context_path"
+          _dr_emit_feature_context scripts "$context_path" "$context_path"
         else
-          _dr_emit_context "" ""
+          _dr_emit_feature_context scripts "" ""
         fi
+        return 0
         ;;
-      -l | -L)
-        # List with folder filter
-        local -a folders_only
-        while IFS= read -r folder; do
-          [[ -n "$folder" ]] && folders_only+=("$folder")
-        done < <(_dr_get_folders "")
-        COMPREPLY=("${folders_only[@]}")
+      rm)
+        # Hierarchical navigation for removal
+        if [[ "$cur" == */* ]]; then
+          local context_path=$(_dr_get_context_path "$cur")
+          _dr_emit_feature_context scripts "$context_path" "$context_path"
+        else
+          _dr_emit_feature_context scripts "" ""
+        fi
+        return 0
         ;;
     esac
     return 0
@@ -353,140 +274,139 @@ _dr_autocomplete() {
   # Position 3: Third argument
   elif [[ $cword -eq 3 ]]; then
     case "${words[1]}" in
-      move | rename | mv)
-        # Destination argument
+      move|rename|mv)
+        # Destination for implicit move: dr move old <dest>
         if [[ "$cur" == */* ]]; then
           local context_path=$(_dr_get_context_path "$cur")
-          _dr_emit_context "$context_path" "$context_path"
+          _dr_emit_feature_context scripts "$context_path" "$context_path"
         else
-          local -a folders_only
-          while IFS= read -r folder; do
-            [[ -n "$folder" ]] && folders_only+=("$folder")
-          done < <(_dr_get_folders "")
-          COMPREPLY=("${folders_only[@]}")
+          _dr_emit_folders_only scripts
         fi
         ;;
-      -s | scripts)
+      -s|scripts)
         case "$prev" in
-          set | help | rm | move)
+          set|help|rm)
+            # Hierarchical navigation
             if [[ "$cur" == */* ]]; then
               local context_path=$(_dr_get_context_path "$cur")
-              _dr_emit_context "$context_path" "$context_path"
+              _dr_emit_feature_context scripts "$context_path" "$context_path"
             else
-              _dr_emit_context "" ""
+              _dr_emit_feature_context scripts "" ""
             fi
             ;;
-          list)
-            local -a folders_only
-            while IFS= read -r folder; do
-              [[ -n "$folder" ]] && folders_only+=("$folder")
-            done < <(_dr_get_folders "")
-            COMPREPLY=("${folders_only[@]}")
+          move|rename)
+            # Source for move
+            if [[ "$cur" == */* ]]; then
+              local context_path=$(_dr_get_context_path "$cur")
+              _dr_emit_feature_context scripts "$context_path" "$context_path"
+            else
+              _dr_emit_feature_context scripts "" ""
+            fi
+            ;;
+          -l|-L)
+            # Folder filter for list
+            _dr_complete_list_filter scripts
             ;;
         esac
         ;;
-      -a | aliases)
+      -a|aliases)
         case "$prev" in
-          move | rm | help)
+          move|rm|help)
             # Hierarchical navigation for alias files
             if [[ "$cur" == */* ]]; then
               local context_path=$(_dr_get_context_path "$cur")
-              _dr_emit_aliases_context "$context_path" "$context_path"
+              _dr_emit_feature_context aliases "$context_path" "$context_path"
             else
-              _dr_emit_aliases_context "" ""
+              _dr_emit_feature_context aliases "" ""
             fi
             ;;
-          -l | -L)
-            # List with optional folder filter - show only folders
-            local -a folders_only
-            while IFS= read -r folder; do
-              [[ -n "$folder" ]] && folders_only+=("$folder")
-            done < <(_dr_get_alias_folders "")
-            COMPREPLY=("${folders_only[@]}")
+          -l|-L)
+            _dr_complete_list_filter aliases
             ;;
         esac
         ;;
-      -c | config)
+      -c|config)
         case "$prev" in
-          set | move | rm | help)
+          set|move|rm|help)
             # Hierarchical navigation for config files
             if [[ "$cur" == */* ]]; then
               local context_path=$(_dr_get_context_path "$cur")
-              _dr_emit_configs_context "$context_path" "$context_path"
+              _dr_emit_feature_context configs "$context_path" "$context_path"
             else
-              _dr_emit_configs_context "" ""
+              _dr_emit_feature_context configs "" ""
             fi
             ;;
-          -l | -L)
-            # List with optional folder filter - show only folders
-            local -a folders_only
-            while IFS= read -r folder; do
-              [[ -n "$folder" ]] && folders_only+=("$folder")
-            done < <(_dr_get_config_folders "")
-            COMPREPLY=("${folders_only[@]}")
+          -l|-L)
+            _dr_complete_list_filter configs
             ;;
           list)
             COMPREPLY=($(compgen -W "--categories --category --keys-only" -- "$cur"))
             ;;
         esac
         ;;
+      -col|collections)
+        # Collections subcommands don't need additional completion
+        return 0
+        ;;
     esac
     return 0
 
-  # Position 4+: Fourth argument and beyond
+  # Position 4: Fourth argument
   elif [[ $cword -eq 4 ]]; then
     case "${words[1]}" in
-      -s | scripts)
+      -s|scripts)
         case "${words[2]}" in
-          move | rename)
+          move|rename)
+            # Destination for: dr -s move old <dest>
             if [[ "$cur" == */* ]]; then
               local context_path=$(_dr_get_context_path "$cur")
-              _dr_emit_context "$context_path" "$context_path"
+              _dr_emit_feature_context scripts "$context_path" "$context_path"
             else
-              local -a folders_only
-              while IFS= read -r folder; do
-                [[ -n "$folder" ]] && folders_only+=("$folder")
-              done < <(_dr_get_folders "")
-              COMPREPLY=("${folders_only[@]}")
+              _dr_emit_folders_only scripts
             fi
             ;;
         esac
         ;;
-      -a | aliases)
+      -a|aliases)
         case "${words[2]}" in
           move)
-            # Destination for move operations
+            # Destination for: dr -a move old <dest>
             if [[ "$cur" == */* ]]; then
               local context_path=$(_dr_get_context_path "$cur")
-              _dr_emit_aliases_context "$context_path" "$context_path"
+              _dr_emit_feature_context aliases "$context_path" "$context_path"
             else
-              local -a folders_only
-              while IFS= read -r folder; do
-                [[ -n "$folder" ]] && folders_only+=("$folder")
-              done < <(_dr_get_alias_folders "")
-              COMPREPLY=("${folders_only[@]}")
+              _dr_emit_folders_only aliases
             fi
             ;;
         esac
         ;;
-      -c | config)
+      -c|config)
         case "${words[2]}" in
           move)
-            # Destination for move operations
+            # Destination for: dr -c move old <dest>
             if [[ "$cur" == */* ]]; then
               local context_path=$(_dr_get_context_path "$cur")
-              _dr_emit_configs_context "$context_path" "$context_path"
+              _dr_emit_feature_context configs "$context_path" "$context_path"
             else
-              local -a folders_only
-              while IFS= read -r folder; do
-                [[ -n "$folder" ]] && folders_only+=("$folder")
-              done < <(_dr_get_config_folders "")
-              COMPREPLY=("${folders_only[@]}")
+              _dr_emit_folders_only configs
+            fi
+            ;;
+          list)
+            if [[ "${words[3]}" == "--category" ]]; then
+              # Config category completion
+              local -a categories
+              while IFS= read -r cat; do
+                [[ -n "$cat" ]] && categories+=("$cat")
+              done < <(_dr_filesystem_find configs file all | while IFS= read -r f; do
+                echo "${f%/*}" 2>/dev/null
+              done | sort -u)
+              COMPREPLY=($(compgen -W "${categories[*]}" -- "$cur"))
             fi
             ;;
         esac
         ;;
     esac
+    return 0
   fi
 
   return 0

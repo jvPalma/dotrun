@@ -92,7 +92,7 @@ find_script_file() {
   local base
   base="$(basename "$query").sh"
   local found_file
-  found_file=$(find "$USER_COLLECTION_SCRIPTS" -type f -name "$base" 2>/dev/null | head -n 1)
+  found_file=$(find "$USER_COLLECTION_SCRIPTS" -name '.*' -prune -o -type f -name "$base" -print 2>/dev/null | head -n 1)
 
   if [[ -n "$found_file" ]]; then
     # Check if file is executable
@@ -313,8 +313,6 @@ remove_script() {
 
   # Get relative paths
   local rel_path="${script_file#"$USER_COLLECTION_SCRIPTS"/}"
-  local script_name
-  script_name="$(basename "$rel_path" .sh)"
   local script_dir
   script_dir="$(dirname "$rel_path")"
 

@@ -62,7 +62,7 @@ list_feature_files_tree() {
 
   # Check for broken symlinks (scripts only, as they're executable)
   if [[ "$feature" == "scripts" ]]; then
-    if find "$start_dir" -type l -exec test ! -e {} \; -print 2>/dev/null | grep -q .; then
+    if find "$start_dir" -name '.*' -prune -o -type l -exec test ! -e {} \; -print 2>/dev/null | grep -q .; then
       echo "Warning: Broken symlinks found in $start_dir" >&2
     fi
   fi
@@ -94,7 +94,7 @@ list_feature_files_tree() {
       parent="$(dirname "$parent")"
       tree_dirs["$parent"]=1
     done
-  done < <(find "$start_dir" -type f -name "*${file_ext}" -print0)
+  done < <(find "$start_dir" -name '.*' -prune -o -type f -name "*${file_ext}" -print0)
 
   # Check if no files found
   if [[ ${#tree_files[@]} -eq 0 ]]; then
@@ -122,15 +122,15 @@ list_feature_files_tree() {
     done
 
     # Sort subdirectories alphabetically
-    IFS=$'\n' subdirs=($(sort <<<"${subdirs[*]}"))
-    unset IFS
+    mapfile -t subdirs < <(printf '%s\n' "${subdirs[@]}" | sort)
+
 
     # Get files in this directory (sorted alphabetically)
     local -a files=()
     if [[ -n "${tree_files[$current_dir]+x}" ]]; then
       IFS='|' read -ra files <<<"${tree_files[$current_dir]}"
-      IFS=$'\n' files=($(sort <<<"${files[*]}"))
-      unset IFS
+      mapfile -t files < <(printf '%s\n' "${files[@]}" | sort)
+
     fi
 
     # Calculate total items (subdirs + files)

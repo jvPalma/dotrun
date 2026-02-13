@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 DotRun (`dr`) is a unified Bash script management framework that provides instant access to custom scripts, aliases, and configurations from anywhere. It supports Bash, Zsh, and Fish shells.
 
-**Version:** 3.1.2
+**Version:** 3.1.3
 
 ## Development Setup
 
@@ -22,13 +22,18 @@ The `dev.sh` script sets up a complete development environment with 7 steps:
 
 1. Symlinks `dr` binary to `~/.local/share/dotrun/`
 2. Symlinks `.dr_config_loader` for shell integration
-3. Symlinks core feature modules (`core/*.sh`)
+3. Symlinks core feature modules (`core/*.sh`) and `help-messages/` directory tree
 4. Symlinks helper utilities (`helpers/*.sh`)
 5. Symlinks VERSION file
-6. Symlinks shell integration files for Bash, Zsh, and Fish (including Zsh completions subdirectory)
+6. Symlinks shell integration files for Bash, Zsh, and Fish (with stale symlink cleanup)
 7. Creates `~/.local/bin` directory for binary access
 
 This creates symlinks from `~/.local/share/dotrun` to `core/shared/dotrun/`, enabling live testing without reinstallation. The script validates required files (`core/shared/dotrun/dr` and `core/shared/dotrun/` structure) before proceeding.
+
+**v3.1.3 updates:**
+
+- Symlinks entire `core/help-messages/` directory tree (replaces old file-by-file copying)
+- Cleans stale symlinks in shell directories before creating new ones (removes dangling links from deleted source files)
 
 **Logging design:** The script uses color-coded output functions (`info`, `success`, `warning`, `error`) with unicode indicators for clear progress tracking during development setup.
 
@@ -264,6 +269,8 @@ DotRun bootstraps through a two-file pattern that integrates with shell initiali
 - **Shell detection**: Automatic shell type detection via `$BASH_VERSION`/`$ZSH_VERSION`/`$FISH_VERSION`
 - **Conditional completion**: Bash detects ble.sh and loads enhanced completion with colors
 - **Lazy loading**: Configs → Aliases → Completion (ordered for dependency resolution)
+- **Unified filesystem finder**: All four completion engines (bash, zsh, fish, ble.sh) implement the same `_dr_filesystem_find` pattern with identical argument signatures `(context, type, depth, subcontext, pattern)`, ensuring consistent behavior across shells
+- **v3.1.3 Fish fixes**: `string match` crash (reordered `--` separator before pattern) and `$` regex escaping in `aliases.sh`/`configs.sh` to prevent variable interpolation
 
 ### Script Documentation Format
 
@@ -336,6 +343,12 @@ Collections are Git repositories containing shareable scripts/aliases/configs. W
   - Pattern: `SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"`
   - Used for: referencing sibling resources, bundled directories, AI skill symlink management
   - Example use cases: `ai_skill.sh`, `fonts-setup.sh` (bundle access), `run.sh` (skill scripts)
+- **Hidden folder filtering**: Use `-name '.*' -prune -o` pattern in all `find` commands to prevent traversing hidden directories
+  - Pattern: `find "$dir" -name '.*' -prune -o -type f -name "*.sh" -print`
+  - Applies to: script search (`scripts.sh`), tree display (`list_feature_files_tree.sh`), shell completions (bash, zsh, fish, ble.sh)
+  - Prevents `find` from descending into hidden directories like `.gqlRequest/`, `.nerdFonts/`
+  - Belt-and-suspenders approach: `-prune` prevents traversal, post-filtering with pattern matching provides additional safety
+  - **v3.1.3**: Applied consistently across all completion engines — zsh now uses prune-before-traversal instead of post-filtering
 
 ### Help Message Script Pattern
 
@@ -437,7 +450,56 @@ The `skills/dr-cli/` directory contains an AI agent skill for Claude Code and ot
 - **AGENTS.md** restructured with action-oriented routing, explicit `NEVER` rules, and migration workflow
 - **Reference files** condensed — architecture, commands, and migration docs trimmed for efficiency
 
-## Recent Changes (v3.1.2)
+## Recent Changes (v3.1.3)
+
+### Hidden Folder Filtering — Consistent Prune Pattern
+
+- **`-name '.*' -prune -o` pattern** applied consistently across all `find` commands to prevent traversing hidden resource directories (`.gqlRequest/`, `.nerdFonts/`)
+  - `scripts.sh`: `find_script_file()` fallback search now prunes hidden directories
+  - `list_feature_files_tree.sh`: Both broken symlink detection and main file discovery now prune hidden directories
+  - All shell completion engines: unified filesystem finder functions use prune-before-traversal
+  - `dr_completion.zsh`: Replaced `! -name '.*' -print0` (post-filter) with `-name '.*' -prune -o ... -print0` — prevents `find` from descending into hidden directories rather than filtering results afterward
+
+### Fish Shell Fixes
+
+- **`string match` crash**: Fixed `string match: -*: unknown option` error when completing patterns starting with a dash
+  - Root cause: `string match -q "-*" -- "$token"` — Fish interprets `-*` as a flag even with `--` after it
+  - Fix: Reorder to `string match -q -- "-*" "$token"` (put `--` before the pattern)
+- **`$` regex escaping**: Fixed `shell/fish/aliases.sh` and `shell/fish/configs.sh` where unescaped `$` in `string match` regex patterns was interpreted as Fish variable reference, causing silent match failures
+
+### Shell Completion — Unified Filesystem Finder Rewrite
+
+All four completion engines (Bash, ble.sh, Fish, Zsh) now share an identical `_dr_filesystem_find` abstraction with the same argument signature `(context, type, depth, [subcontext], [pattern])`:
+
+- **Bash** (`dr_completion.bash`): Complete rewrite — unified `_dr_filesystem_find` replaces 6 separate per-feature helpers (`_dr_get_folders`, `_dr_get_scripts`, `_dr_get_alias_folders`, etc.). Helper functions (`_dr_emit_feature_context`, `_dr_emit_recursive_search`, `_dr_emit_folders_only`, `_dr_complete_feature`, `_dr_complete_list_filter`) mirror the zsh reference logic
+- **ble.sh** (`dr_completion_ble.sh`): Near-complete rewrite — `_dr_ble_filesystem_find` now supports all three features (scripts, aliases, configs) with per-feature icons and colors. Previously only supported scripts. Full color scheme matching zsh (green=scripts, purple=aliases, red=configs, blue=collections, yellow=folders, gray=hints). Fixed script icon from ⚙ to 🚀
+- **Fish** (`dr_completion.fish`): Complete rewrite — `__dr_filesystem_find` replaces ad-hoc `find` calls. Three unified generators (`__dr_complete_feature`, `__dr_complete_recursive`, `__dr_complete_folders_only`) with tab-separated `value\tdescription` output for per-item emoji descriptions
+- **Zsh** (`dr_completion.zsh`): Minor update — pruning pattern updated to prevent traversal rather than post-filtering
+
+### Fish Completion — Sorting & Descriptions
+
+- **Folders-first ordering**: All completions now show folders (A-Z) before files (A-Z) using Fish's `-k` (keep order) flag to preserve generator output order
+- **Per-item emoji descriptions** via tab-separated output from generator functions:
+  - Folders: `📁 Folder`
+  - Scripts: `🚀 Script`
+  - Aliases: `📝 Alias file`
+  - Configs: `⚙️  Config`
+  - Collection subcommands: `➕`, `📋`, `🔄`, `⬆️`, `🗑️`
+- **Namespace flags removed from root TAB**: Empty `dr <TAB>` now shows only folders and scripts (no `-s`, `-a`, `-c`, `-col` flags), matching zsh behavior
+
+### Bash & ble.sh Completion Parity
+
+- **Root completion**: Empty TAB shows only folders + scripts (no commands/namespace flags), matching zsh
+- **Namespace contexts**: `-s`/`-a`/`-c` namespaces show folders + files (not subcommands), matching zsh
+- **Missing collection commands**: Added `set`, `sync`, `update` to collections subcommand completion (previously only had `list`, `list:details`, `remove`)
+- **Recursive search**: All shells now support recursive pattern matching across all features (scripts, aliases, configs)
+
+### dev.sh Development Setup
+
+- **Missing `help-messages/` symlink**: The deep `core/help-messages/` directory tree was only present as old copies at target, not as symlinks — edits during development wouldn't take effect. Now symlinks the entire directory.
+- **Stale symlink cleanup**: Added cleanup step before shell file symlinking — removes dangling symlinks from deleted source files (e.g., removed `enable-colors.sh`)
+
+## Previous Changes (v3.1.2)
 
 ### Zsh Autocomplete — Universal Plugin Manager Compatibility
 
@@ -452,3 +514,37 @@ The `skills/dr-cli/` directory contains an AI agent skill for Claude Code and ot
 - **`_DR_LOAD_DEPTH`** now uses `${_DR_LOAD_DEPTH:-0}` to preserve value across re-sourcing instead of unconditionally resetting to 0
 - **`_DR_LOAD_DEPTH_MAX`** now uses `${_DR_LOAD_DEPTH_MAX:-10}` allowing user override of circular dependency protection limit
 - **Help message extracted** to external file (`core/help-messages/helpers/loadHelpers-usage.sh`) with ANSI color formatting, consistent with project-wide help message separation pattern
+
+### Shell Completion — Unified Filesystem Finder Across All Shells
+
+All four completion engines now share an identical `_dr_filesystem_find` abstraction:
+
+- **Zsh** (`dr_completion.zsh`): `_dr_global_filesystem_find` — reference implementation with `_dr_get_feature_context` / `_dr_display_feature_context` get+display pipeline, lazy-loaded categories, and zstyle-based coloring via `_wanted` tags
+- **Bash** (`dr_completion.bash`): `_dr_filesystem_find` — replaces per-feature helpers (`_dr_get_folders`, `_dr_get_scripts`, `_dr_get_alias_folders`, etc.) with a single unified function. Helper functions (`_dr_emit_feature_context`, `_dr_emit_recursive_search`, `_dr_emit_folders_only`, `_dr_complete_feature`, `_dr_complete_list_filter`) mirror the zsh completion logic structure
+- **ble.sh** (`dr_completion_ble.sh`): `_dr_ble_filesystem_find` — now supports all three features (scripts, aliases, configs) with per-feature icons and colors. Previously only supported scripts. Helper functions (`_dr_ble_emit_feature_context`, `_dr_ble_emit_recursive_search`, `_dr_ble_emit_folders_only`, `_dr_ble_complete_feature`, `_dr_ble_complete_list_filter`) use `ble/complete/cand/yield` with ANSI color display strings
+- **Fish** (`dr_completion.fish`): `__dr_filesystem_find` — replaces ad-hoc `find` calls with a unified function. Completion generators (`__dr_complete_feature_context`, `__dr_complete_recursive_search`, `__dr_complete_list_filter`) and condition predicates (`__dr_needs_first_arg`, `__dr_in_*_namespace`, etc.) provide declarative completion registration
+
+**Shared argument signature**: `(context, type, depth, [subcontext], [pattern])`
+
+- `context`: `scripts` | `aliases` | `configs` — maps to the correct base directory and file extension
+- `type`: `file` | `directory` — determines find `-type` filter
+- `depth`: `single` | `all` — controls `-maxdepth 1` vs recursive search
+- `subcontext`: optional relative path for hierarchical folder navigation
+- `pattern`: optional case-insensitive substring match via `-ipath`
+
+### Unified Filesystem Finder Architecture (v3.1.2)
+
+Initial implementation of unified `_dr_filesystem_find` abstraction across all completion engines:
+
+- **Zsh** (`dr_completion.zsh`): `_dr_global_filesystem_find` — reference implementation with `_dr_get_feature_context` / `_dr_display_feature_context` get+display pipeline, lazy-loaded categories, and zstyle-based coloring via `_wanted` tags
+- **Bash** (`dr_completion.bash`): `_dr_filesystem_find` — unified function replaces per-feature helpers. Helper functions (`_dr_emit_feature_context`, `_dr_emit_recursive_search`, `_dr_emit_folders_only`, `_dr_complete_feature`, `_dr_complete_list_filter`) mirror zsh logic
+- **ble.sh** (`dr_completion_ble.sh`): `_dr_ble_filesystem_find` — supports all three features (scripts, aliases, configs) with per-feature icons and colors. Helper functions use `ble/complete/cand/yield` with ANSI color display strings
+- **Fish** (`dr_completion.fish`): `__dr_filesystem_find` — unified function with completion generators (`__dr_complete_feature`, `__dr_complete_recursive`, `__dr_complete_folders_only`) and declarative registration
+
+**Shared argument signature**: `(context, type, depth, [subcontext], [pattern])`
+
+- `context`: `scripts` | `aliases` | `configs` — maps to base directory and file extension
+- `type`: `file` | `directory` — determines find `-type` filter
+- `depth`: `single` | `all` — controls `-maxdepth 1` vs recursive search
+- `subcontext`: optional relative path for hierarchical folder navigation
+- `pattern`: optional case-insensitive substring match via `-ipath`
