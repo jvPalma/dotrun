@@ -12,8 +12,8 @@ function _load_config_from_file
                 continue
             end
             # Parse export format: export KEY=value or export KEY="value"
-            if string match -qr "^export\s+([^=]+)=(.*)$" "$line"
-                set -l key_value (string match -r "^export\s+([^=]+)=(.*)$" "$line")
+            if string match -qr "^export\s+([^=]+)=(.*)\$" "$line"
+                set -l key_value (string match -r "^export\s+([^=]+)=(.*)\$" "$line")
                 set -l key (echo $key_value[2])
                 set -l value (echo $key_value[3])
                 # Remove surrounding quotes if present

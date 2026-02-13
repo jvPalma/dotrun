@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034
 # Upgrade module for DotRun
 # Handles version checking and updates from GitHub releases
 

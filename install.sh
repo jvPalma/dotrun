@@ -149,70 +149,49 @@ get_shell_config() {
   esac
 }
 
-# Function to calculate file checksum (cross-platform)
-get_checksum() {
-  local file="$1"
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$file" | cut -d' ' -f1
-  elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$file" | cut -d' ' -f1
-  elif command -v openssl >/dev/null 2>&1; then
-    openssl dgst -sha256 "$file" | cut -d' ' -f2
-  else
-    # Fallback to basic file comparison
-    wc -c <"$file"
-  fi
-}
-
-# Recursively copy files from source to destination
-# Only copies if destination file doesn't exist (unless force_override is true)
-copy_core_files_recursively() {
+# Copy tool files from source to destination (always overwrite)
+# Tool files in ~/.local/share/dotrun are always replaced with the latest version.
+copy_tool_files() {
   local src="$1"
   local dst="$2"
-  local force_override="${3:-false}"
-  local section_name="${4:-files}"
 
   if [ ! -d "$src" ]; then
     log_warn "Source directory not found: $src"
     return 0
   fi
 
-  log_info "📂 Copying $section_name from $(basename "$src")/"
-
-  # Find all files recursively
   while IFS= read -r -d '' src_file; do
-    # Calculate relative path from src
-    local rel_path="${src_file#$src/}"
+    local rel_path="${src_file#"$src"/}"
     local dst_file="$dst/$rel_path"
 
-    # Create directory structure if needed
+    mkdir -p "$(dirname "$dst_file")"
+    cp "$src_file" "$dst_file"
+
+    if [ -x "$src_file" ]; then
+      chmod +x "$dst_file"
+    fi
+  done < <(find "$src" -type f -print0)
+}
+
+# Copy user content files (never overwrite existing)
+# User files in ~/.config/dotrun are only created if they don't exist.
+copy_user_files() {
+  local src="$1"
+  local dst="$2"
+
+  if [ ! -d "$src" ]; then
+    log_warn "Source directory not found: $src"
+    return 0
+  fi
+
+  while IFS= read -r -d '' src_file; do
+    local rel_path="${src_file#"$src"/}"
+    local dst_file="$dst/$rel_path"
+
     mkdir -p "$(dirname "$dst_file")"
 
-    if [ -f "$dst_file" ]; then
-      # File exists - check if different
-      if [ "$force_override" = "true" ]; then
-        local src_checksum dst_checksum
-        src_checksum="$(get_checksum "$src_file")"
-        dst_checksum="$(get_checksum "$dst_file")"
-
-        if [ "$src_checksum" != "$dst_checksum" ]; then
-          log_info "  ✓ $rel_path (overwritten)"
-          cp "$src_file" "$dst_file"
-          # Preserve executable permissions
-          if [ -x "$src_file" ]; then
-            chmod +x "$dst_file"
-          fi
-        else
-          log_info "  ✓ $rel_path (unchanged)"
-        fi
-      else
-        log_info "  - $rel_path (skipped - already exists)"
-      fi
-    else
-      # File doesn't exist - copy it
-      log_info "  + $rel_path (new)"
+    if [ ! -f "$dst_file" ]; then
       cp "$src_file" "$dst_file"
-      # Preserve executable permissions
       if [ -x "$src_file" ]; then
         chmod +x "$dst_file"
       fi
@@ -224,13 +203,7 @@ copy_core_files_recursively() {
 # Main Installation Logic
 # ------------------------------------------------------------------
 main() {
-  local os_type shell_type force_override=false
-
-  # Check for force override argument
-  if [ "${1:-}" = "--force" ] || [ "${1:-}" = "-f" ] || [ "${1:-}" = "override" ]; then
-    force_override=true
-    log_info "Force override mode enabled - will overwrite modified files"
-  fi
+  local os_type shell_type
 
   log_info "Starting DotRun installation..."
 
@@ -298,59 +271,44 @@ main() {
   local shared_dir="$HOME/.local/share/dotrun"
   local config_dir="$HOME/.config/dotrun"
 
-  # Create shared directory for tool files
-  if [ -d "$shared_dir" ] && [ "$(find "$shared_dir" -mindepth 1 -print -quit 2>/dev/null)" ]; then
-    log_warn "$shared_dir already exists and is not empty"
-    log_info "Will only copy new files (no overwriting unless --force)"
-  else
-    log_info "Creating shared directory: $shared_dir"
-    mkdir -p "$shared_dir"
-  fi
+  mkdir -p "$shared_dir"
+  mkdir -p "$config_dir"
 
-  # Create config directory for user content
-  if [ -d "$config_dir" ] && [ "$(find "$config_dir" -mindepth 1 -print -quit 2>/dev/null)" ]; then
-    log_warn "$config_dir already exists and is not empty"
-    log_info "Will only copy new files (no overwriting unless --force)"
-  else
-    log_info "Creating configuration directory: $config_dir"
-    mkdir -p "$config_dir"
-  fi
-
-  # Copy tool files from core/shared/dotrun/ to ~/.local/share/dotrun/
+  # Install tool files from core/shared/dotrun/ to ~/.local/share/dotrun/
+  # Tool files are ALWAYS overwritten with the latest version
   local core_shared_path="$src_dir/core/shared/dotrun"
   if [ -d "$core_shared_path" ]; then
-    copy_core_files_recursively "$core_shared_path" "$shared_dir" "$force_override" "tool files"
-    log_success "Tool files synchronized to $shared_dir"
+    log_info "Installing core tool files..."
+    copy_tool_files "$core_shared_path" "$shared_dir"
+    log_success "Tool files installed"
   else
     log_warn "Core shared path not found: $core_shared_path"
     log_info "Checking fallback path (legacy structure)..."
 
-    # Fallback to legacy structure if new structure doesn't exist yet
     local legacy_core_path="$src_dir/core/installPath/.core"
     if [ -d "$legacy_core_path" ]; then
-      copy_core_files_recursively "$legacy_core_path" "$shared_dir" "$force_override" "tool files (legacy)"
-      log_success "Tool files synchronized from legacy path"
+      log_info "Installing core tool files (legacy)..."
+      copy_tool_files "$legacy_core_path" "$shared_dir"
+      log_success "Tool files installed"
     else
       log_error "Neither new nor legacy core path found"
       exit 1
     fi
   fi
 
-  # Copy user content directories from core/config/dotrun/ to ~/.config/dotrun/
+  # Copy user content templates (scripts/aliases/configs) — never overwrite existing
   local core_config_path="$src_dir/core/config/dotrun"
   if [ -d "$core_config_path" ]; then
-    copy_core_files_recursively "$core_config_path" "$config_dir" "$force_override" "user content"
-    log_success "User content directories synchronized to $config_dir"
+    log_info "Setting up user content directories..."
+    copy_user_files "$core_config_path" "$config_dir"
+    log_success "User content directories ready"
   else
-    log_warn "Core config path not found: $core_config_path"
-    log_info "Creating empty user content directories..."
-
     # Create empty user content directories
     mkdir -p "$config_dir/scripts"
     mkdir -p "$config_dir/aliases"
     mkdir -p "$config_dir/configs"
     mkdir -p "$config_dir/helpers"
-    log_success "Created empty user content directories"
+    log_success "User content directories ready"
   fi
 
   # ------------------------------------------------------------------
@@ -490,22 +448,9 @@ main() {
     local fish_completion_dst="$fish_completion_dir/dr.fish"
 
     if [ -f "$fish_completion_src" ]; then
-      if [ ! -d "$fish_completion_dir" ]; then
-        mkdir -p "$fish_completion_dir"
-        log_info "Created Fish completions directory: $fish_completion_dir"
-      fi
-
-      if [ -f "$fish_completion_dst" ]; then
-        if [ "$force_override" = "true" ]; then
-          cp "$fish_completion_src" "$fish_completion_dst"
-          log_info "Updated Fish completion at $fish_completion_dst"
-        else
-          log_info "Fish completion already exists at $fish_completion_dst"
-        fi
-      else
-        cp "$fish_completion_src" "$fish_completion_dst"
-        log_success "Installed Fish completion to $fish_completion_dst"
-      fi
+      mkdir -p "$fish_completion_dir"
+      cp "$fish_completion_src" "$fish_completion_dst"
+      log_success "Fish completion installed"
     else
       log_warn "Fish completion source not found at $fish_completion_src"
     fi
@@ -516,8 +461,10 @@ main() {
   # ------------------------------------------------------------------
 
   local integration_cmd fish_instructions=""
-  local display_bin_dir=$(echo "$bin_dir" | sed "s|^$HOME|~|")
-  local display_drrc_file=$(echo "$drrc_file" | sed "s|^$HOME|~|")
+  local display_bin_dir
+  display_bin_dir="${bin_dir/#"$HOME"/\~}"
+  local display_drrc_file
+  display_drrc_file="${drrc_file/#"$HOME"/\~}"
 
   case "$shell_type" in
     fish)
@@ -587,14 +534,7 @@ main() {
   else
     log_warn "dr not found in PATH. You may need to restart your shell or source $drrc_file"
   fi
-
-  # Show force override option
-  if [ "$force_override" = "false" ]; then
-    echo
-    log_info "To force override existing files, run:"
-    printf "  \033[1;36m./install.sh --force\033[0m\n"
-    echo
-  fi
+  echo
 
 }
 
