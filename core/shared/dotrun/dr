@@ -10,7 +10,7 @@ IFS=$'\n\t'
 
 DOC_TOKEN="### DOC"
 
-# Version - Read from VERSION file or fallback to 3.1.2
+# Version - Read from VERSION file or fallback to 3.1.3
 # Resolve symlinks to find the actual script location
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 while [[ -L "$SCRIPT_PATH" ]]; do
@@ -23,7 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
   DRUN_VERSION="$(cat "$SCRIPT_DIR/VERSION")"
 else
-  DRUN_VERSION="3.1.2"  # Fallback if VERSION file not found
+  DRUN_VERSION="3.1.3"  # Fallback if VERSION file not found
 fi
 
 

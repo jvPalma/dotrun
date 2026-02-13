@@ -398,6 +398,9 @@ _dr() {
     # Depth option
     [[ "$depth" == "single" ]] && find_args+=(-maxdepth 1)
 
+    # Prune hidden directories/files (prevents descent into hidden dirs like .myScript/)
+    find_args+=(-name '.*' -prune -o)
+
     # Type option
     case "$type" in
       file)      find_args+=(-type f) ;;
@@ -413,8 +416,7 @@ _dr() {
     # Pattern filter (optional)
     [[ -n "$pattern" ]] && find_args+=(-ipath "*${pattern}*")
 
-    # Exclude hidden files/folders
-    find_args+=(! -name '.*' -print0)
+    find_args+=(-print0)
 
     # Process results
     local strip_prefix="${search_dir%/}/"
