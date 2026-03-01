@@ -11,3 +11,7 @@ wiki-docs
 .out
 .mcp.json
 wiki-docs
+
+openspec
+
+.playwright-mcp/
