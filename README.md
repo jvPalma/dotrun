@@ -1,10 +1,12 @@
-# DotRun - unified script management framework
+<p align="center">
+  <img src="assets/readme/readme-header-banner.png" alt="DotRun — Stop hunting for commands. Start running them." width="1200" />
+</p>
 
-[![Version](https://img.shields.io/badge/version-3.1.3-blue.svg)](VERSION)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Shell Support](https://img.shields.io/badge/shell-bash%20%7C%20zsh%20%7C%20fish-blue.svg)](#)
-
-**Stop hunting for commands. Start running them.**
+<p align="center">
+  <a href="VERSION"><img src="https://img.shields.io/badge/version-3.1.3-blue.svg" alt="Version" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License" /></a>
+  <img src="https://img.shields.io/badge/shell-bash%20%7C%20zsh%20%7C%20fish-blue.svg" alt="Shell Support" />
+</p>
 
 DotRun transforms scattered scripts, complex command sequences, and tribal knowledge into a unified, searchable, and shareable toolkit that works across all your projects.
 
@@ -50,6 +52,13 @@ cd ~/any-project && dr deploy
 
 ## Before vs After
 
+<p align="center">
+  <img src="assets/readme/readme-before-after.png" alt="Before: scattered commands and lost scripts. After: organized, documented, searchable with DotRun" width="1200" />
+</p>
+
+<details>
+<summary>View as text (accessibility fallback)</summary>
+
 **Before DotRun:**
 
 ```bash
@@ -69,6 +78,8 @@ dr help deploy    # Show documentation
 dr deploy staging # Run with confidence
 ```
 
+</details>
+
 ## Why DotRun?
 
 **vs Individual Scripts:** Unified access, automatic documentation, team sharing  
@@ -86,9 +97,22 @@ dr deploy staging # Run with confidence
 - **⚙️ File-Based Config** - Manage aliases and environment variables in organized files
 - **🔄 Smart Updates** - Collection system tracks modifications and handles conflicts
 
-## Quick Preview:
+<table>
+  <tr>
+    <td><img src="assets/readme/readme-feature-scripts.png" alt="Instant Access — Run any script with dr scriptname from any directory" width="600" /></td>
+    <td><img src="assets/readme/readme-feature-completion.png" alt="Smart Discovery — Colorized tab completion across Bash, Zsh, Fish, and ble.sh" width="600" /></td>
+  </tr>
+  <tr>
+    <td><img src="assets/readme/readme-feature-collections.png" alt="Team Sharing — Import script libraries from Git repos with hash tracking" width="600" /></td>
+    <td><img src="assets/readme/readme-feature-shells.png" alt="Shell Universal — Works in Bash 4.0+, Zsh, and Fish" width="600" /></td>
+  </tr>
+</table>
 
-<img width="844" height="797" alt="image" src="https://github.com/user-attachments/assets/7518c538-a495-44e4-a362-16fa1a0e6bf1" />
+## Quick Preview
+
+<p align="center">
+  <img src="assets/readme/readme-quickstart-demo.png" alt="DotRun quick start: create a script, run it from anywhere, list all scripts with docs" width="700" />
+</p>
 
 ## Installation
 
@@ -193,6 +217,12 @@ dr -col sync
 # Update with conflict resolution
 dr -col update my-collection
 ```
+
+## Architecture
+
+<p align="center">
+  <img src="assets/readme/readme-architecture.png" alt="DotRun architecture: shell configs source ~/.drrc which loads scripts, aliases, configs, and collections into ~/.config/dotrun/" width="1200" />
+</p>
 
 ## Documentation
 
