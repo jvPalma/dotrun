@@ -86,8 +86,11 @@ if [[ $CURRENT_SHELL == "zsh" ]]; then
     # compdef available and _dr loaded → register now
     if (( $+functions[compdef] )) && (( $+functions[_dr] )); then
       compdef _dr dr 2>/dev/null
-      precmd_functions=(${precmd_functions:#_dr_ensure_completion})
-      unfunction _dr_ensure_completion 2>/dev/null
+      # Only clean up if registration actually took effect
+      if [[ "${_comps[dr]}" == "_dr" ]]; then
+        precmd_functions=(${precmd_functions:#_dr_ensure_completion})
+        unfunction _dr_ensure_completion 2>/dev/null
+      fi
     fi
   }
   precmd_functions+=(_dr_ensure_completion)
